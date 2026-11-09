@@ -36,6 +36,7 @@ class WhatsAppReminderDialog extends StatefulWidget {
 class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
   final _messageController = TextEditingController();
   final _pixKeyController = TextEditingController();
+  final _amountController = TextEditingController();
   bool _isLoading = true;
 
   // Charge mode: true = charge whole balance (all accounts), false = specific account
@@ -44,6 +45,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
   bool _includeAbatements = true;
   bool _showQrCode = false;
   String _pixCopiaECola = '';
+  double _amountToCharge = 0.0;
 
   @override
   void initState() {
@@ -52,15 +54,37 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
     if (widget.debts.length == 1) {
       _chargeAllAccounts = false;
     }
+    _amountToCharge = _calculateDefaultAmount();
+    _amountController.text = _amountToCharge > 0 ? _amountToCharge.toStringAsFixed(2) : '';
     _loadPixKeyAndGenerate();
   }
 
-  double get _currentAmountToCharge {
+  double _calculateDefaultAmount() {
     if (_chargeAllAccounts && widget.debts.length > 1) {
       return widget.debts.fold(0.0, (s, d) => s + d.remainingAmount);
     } else {
-      final target = _selectedDebt ?? widget.debts.first;
-      return target.remainingAmount;
+      final target = _selectedDebt ?? (widget.debts.isNotEmpty ? widget.debts.first : null);
+      if (target == null) return 0.0;
+      // If remaining amount is available, default to remaining or next installment
+      return target.remainingAmount > 0 ? target.remainingAmount : target.installmentValue;
+    }
+  }
+
+  double _getMonthInstallmentAmount() {
+    if (_chargeAllAccounts && widget.debts.length > 1) {
+      return widget.debts.fold(0.0, (s, d) => s + d.installmentValue);
+    } else {
+      final target = _selectedDebt ?? (widget.debts.isNotEmpty ? widget.debts.first : null);
+      return target?.installmentValue ?? 0.0;
+    }
+  }
+
+  double _getTotalRemainingAmount() {
+    if (_chargeAllAccounts && widget.debts.length > 1) {
+      return widget.debts.fold(0.0, (s, d) => s + d.remainingAmount);
+    } else {
+      final target = _selectedDebt ?? (widget.debts.isNotEmpty ? widget.debts.first : null);
+      return target?.remainingAmount ?? 0.0;
     }
   }
 
@@ -68,24 +92,23 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
   String _merchantCity = 'BRASILIA';
 
   Future<void> _loadPixKeyAndGenerate() async {
-    final pixKey = await StorageService.getUserPixKey();
+    final rawKey = await StorageService.getUserPixKey();
     _merchantName = await StorageService.getUserName();
     _merchantCity = await StorageService.getUserCity();
-    _pixKeyController.text = pixKey;
-    _generateMessage(pixKey);
+    final sanitized = PixPayloadService.sanitizePixKey(rawKey);
+    _pixKeyController.text = sanitized.isNotEmpty ? sanitized : rawKey;
+    _generateMessage(_pixKeyController.text);
     setState(() => _isLoading = false);
   }
 
   void _generateMessage(String pixKey) {
-    final amountToCharge = _currentAmountToCharge;
-
     // Generate BACEN standard Pix Copia e Cola with predefined exact amount
     _pixCopiaECola = PixPayloadService.generatePixCopiaECola(
       pixKey: pixKey,
-      amount: amountToCharge,
+      amount: _amountToCharge > 0 ? _amountToCharge : null,
       merchantName: _merchantName,
       merchantCity: _merchantCity,
-      description: 'Cobranca ${widget.personName}',
+      txId: '***',
     );
 
     final buffer = StringBuffer();
@@ -139,12 +162,17 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
       }
     }
 
+    final displayKey = PixPayloadService.sanitizePixKey(pixKey);
     buffer.writeln();
-    buffer.writeln('Minha chave Pix: ${pixKey.isNotEmpty ? pixKey : "[INSERIR SUA CHAVE PIX]"}');
+    buffer.writeln('Minha chave Pix: ${displayKey.isNotEmpty ? displayKey : (pixKey.isNotEmpty ? pixKey : "[INSERIR SUA CHAVE PIX]")}');
 
     if (_pixCopiaECola.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln('Ou pague direto com o Pix Copia e Cola (valor exato de ${CurrencyFormatter.format(amountToCharge)} já preenchido):');
+      if (_amountToCharge > 0) {
+        buffer.writeln('Ou pague direto com o Pix Copia e Cola (valor exato de ${CurrencyFormatter.format(_amountToCharge)} já preenchido):');
+      } else {
+        buffer.writeln('Ou pague direto com o Pix Copia e Cola:');
+      }
       buffer.writeln(_pixCopiaECola);
     }
 
@@ -155,9 +183,27 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
   }
 
   void _onPixKeyChanged(String newKey) {
-    StorageService.setUserPixKey(newKey.trim());
+    final sanitized = PixPayloadService.sanitizePixKey(newKey);
+    StorageService.setUserPixKey(sanitized.isNotEmpty ? sanitized : newKey.trim());
     setState(() {
       _generateMessage(newKey.trim());
+    });
+  }
+
+  void _onAmountChanged(String val) {
+    final parsed = double.tryParse(val.replaceAll('.', '').replaceAll(',', '.')) ?? 
+                   double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
+    setState(() {
+      _amountToCharge = parsed;
+      _generateMessage(_pixKeyController.text);
+    });
+  }
+
+  void _setPredefinedAmount(double val) {
+    setState(() {
+      _amountToCharge = val;
+      _amountController.text = val > 0 ? val.toStringAsFixed(2) : '';
+      _generateMessage(_pixKeyController.text);
     });
   }
 
@@ -201,6 +247,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
   void dispose() {
     _messageController.dispose();
     _pixKeyController.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
@@ -208,7 +255,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasMultiple = widget.debts.length > 1;
-    final amountToCharge = _currentAmountToCharge;
+    final amountToCharge = _amountToCharge;
 
     return AlertDialog(
       title: Row(
@@ -273,6 +320,8 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                               onSelected: (val) {
                                 setState(() {
                                   _chargeAllAccounts = true;
+                                  _amountToCharge = _calculateDefaultAmount();
+                                  _amountController.text = _amountToCharge > 0 ? _amountToCharge.toStringAsFixed(2) : '';
                                   _generateMessage(_pixKeyController.text);
                                 });
                               },
@@ -286,6 +335,8 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                               onSelected: (val) {
                                 setState(() {
                                   _chargeAllAccounts = false;
+                                  _amountToCharge = _calculateDefaultAmount();
+                                  _amountController.text = _amountToCharge > 0 ? _amountToCharge.toStringAsFixed(2) : '';
                                   _generateMessage(_pixKeyController.text);
                                 });
                               },
@@ -319,6 +370,8 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                             if (d != null) {
                               setState(() {
                                 _selectedDebt = d;
+                                _amountToCharge = _calculateDefaultAmount();
+                                _amountController.text = _amountToCharge > 0 ? _amountToCharge.toStringAsFixed(2) : '';
                                 _generateMessage(_pixKeyController.text);
                               });
                             }
@@ -332,13 +385,64 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                     TextField(
                       controller: _pixKeyController,
                       decoration: const InputDecoration(
-                        labelText: 'Sua Chave Pix Cadastrada',
+                        labelText: 'Sua Chave Pix',
                         hintText: 'CPF, Celular, E-mail ou Chave Aleatória',
+                        helperText: 'Padrão Banco Central: CPF e telefone são limpos automaticamente',
                         prefixIcon: Icon(Icons.pix_rounded, color: AppConstants.accentGreen),
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       onChanged: _onPixKeyChanged,
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Valor pré-fixado no Pix
+                    TextField(
+                      controller: _amountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Valor Pré-fixado no Pix Copia e Cola (R\$)',
+                        hintText: '0.00',
+                        helperText: _amountToCharge > 0
+                            ? 'O pagador verá este valor automaticamente preenchido no banco'
+                            : 'Deixe zerado se quiser que o pagador digite o valor no banco',
+                        prefixIcon: const Icon(Icons.attach_money_rounded, color: AppConstants.accentGreen),
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        suffixIcon: _amountToCharge > 0
+                            ? IconButton(
+                                tooltip: 'Remover valor pré-fixado',
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () => _setPredefinedAmount(0.0),
+                              )
+                            : null,
+                      ),
+                      onChanged: _onAmountChanged,
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Quick Chips for Amount
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          if (_getMonthInstallmentAmount() > 0) ...[
+                            ActionChip(
+                              avatar: const Icon(Icons.calendar_today_rounded, size: 14, color: AppConstants.primaryColor),
+                              label: Text('Parcela do Mês: ${CurrencyFormatter.format(_getMonthInstallmentAmount())}'),
+                              onPressed: () => _setPredefinedAmount(_getMonthInstallmentAmount()),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          if (_getTotalRemainingAmount() > 0) ...[
+                            ActionChip(
+                              avatar: const Icon(Icons.account_balance_wallet_rounded, size: 14, color: AppConstants.accentAmber),
+                              label: Text('Saldo Restante: ${CurrencyFormatter.format(_getTotalRemainingAmount())}'),
+                              onPressed: () => _setPredefinedAmount(_getTotalRemainingAmount()),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 10),
 

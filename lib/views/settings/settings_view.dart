@@ -6,6 +6,7 @@ import '../../providers/debt_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/firebase_service.dart';
 import '../../services/storage_service.dart';
+import '../../services/pix_payload_service.dart';
 import '../../utils/constants.dart';
 
 class SettingsView extends StatefulWidget {
@@ -313,13 +314,17 @@ class _SettingsViewState extends State<SettingsView> {
                       icon: const Icon(Icons.save_rounded, size: 18),
                       label: const Text('Salvar Dados do Pix'),
                       onPressed: () async {
-                        await StorageService.setUserPixKey(_pixKeyController.text.trim());
+                        final messenger = ScaffoldMessenger.of(context);
+                        final raw = _pixKeyController.text.trim();
+                        final sanitized = PixPayloadService.sanitizePixKey(raw);
+                        _pixKeyController.text = sanitized.isNotEmpty ? sanitized : raw;
+                        await StorageService.setUserPixKey(_pixKeyController.text);
                         await StorageService.setUserName(_pixNameController.text.trim());
                         await StorageService.setUserCity(_pixCityController.text.trim());
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Dados do Pix salvos com sucesso!'),
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text('Dados do Pix salvos! Chave formatada no padrão BACEN: ${_pixKeyController.text}'),
                               backgroundColor: AppConstants.accentGreen,
                             ),
                           );
