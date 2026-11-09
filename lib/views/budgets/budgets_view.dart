@@ -121,36 +121,35 @@ class BudgetsView extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundColor: color.withOpacity(0.12),
-                                  child: Icon(
-                                    AppConstants.getCategoryIcon(budget.category),
-                                    color: color,
-                                    size: 20,
+                            CircleAvatar(
+                              backgroundColor: color.withOpacity(0.12),
+                              child: Icon(
+                                AppConstants.getCategoryIcon(budget.category),
+                                color: color,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    budget.category,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      budget.category,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  Text(
+                                    'Limite mensal: ${CurrencyFormatter.format(budget.monthlyLimit)}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                     ),
-                                    Text(
-                                      'Limite mensal: ${CurrencyFormatter.format(budget.monthlyLimit)}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 20),

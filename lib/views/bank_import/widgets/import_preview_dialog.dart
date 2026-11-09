@@ -56,39 +56,38 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
 
     return AlertDialog(
       title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppConstants.getBankColor(widget.bankName).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppConstants.getBankColor(widget.bankName).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.receipt_long_rounded,
+              color: AppConstants.getBankColor(widget.bankName),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Extrato: ${widget.bankName}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                child: Icon(
-                  Icons.receipt_long_rounded,
-                  color: AppConstants.getBankColor(widget.bankName),
+                Text(
+                  '${widget.parsedTransactions.length} movimentações encontradas',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Extrato: ${widget.bankName}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                  Text(
-                    '${widget.parsedTransactions.length} movimentações encontradas',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.close_rounded),
@@ -103,15 +102,19 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
           children: [
             // Top Selection & Totals bar
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 6,
                 children: [
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Checkbox(
                         value: _selectedIds.length == widget.parsedTransactions.length,
@@ -129,17 +132,18 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
                       ),
                       Text(
                         'Selecionados (${_selectedIds.length}/${widget.parsedTransactions.length})',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ],
                   ),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
                       Text(
                         'Despesas: ${CurrencyFormatter.format(totalExpenses)}',
                         style: const TextStyle(color: AppConstants.accentRed, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(width: 12),
                       Text(
                         'Receitas: ${CurrencyFormatter.format(totalIncomes)}',
                         style: const TextStyle(color: AppConstants.accentGreen, fontSize: 12, fontWeight: FontWeight.bold),

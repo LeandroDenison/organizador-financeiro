@@ -182,13 +182,16 @@ class SubscriptionsView extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      sub.name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        decoration: sub.isActive ? null : TextDecoration.lineThrough,
-                        color: sub.isActive ? null : Colors.grey,
+                    Flexible(
+                      child: Text(
+                        sub.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          decoration: sub.isActive ? null : TextDecoration.lineThrough,
+                          color: sub.isActive ? null : Colors.grey,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (sub.bank != null) ...[

@@ -57,20 +57,23 @@ class _SettingsViewState extends State<SettingsView> {
     final appState = context.watch<AppStateProvider>();
     final firebase = context.watch<FirebaseService>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 650;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Title
             Text(
               'Configurações & Conexão Online',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: (isMobile
+                      ? Theme.of(context).textTheme.titleLarge
+                      : Theme.of(context).textTheme.headlineSmall)
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -98,37 +101,44 @@ class _SettingsViewState extends State<SettingsView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(10),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.local_fire_department_rounded, color: Colors.amber, size: 24),
                             ),
-                            child: const Icon(Icons.local_fire_department_rounded, color: Colors.amber, size: 24),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Firebase Cloud Firestore',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Firebase Cloud Firestore',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    firebase.isConnected
+                                        ? 'Sincronização em nuvem ativa'
+                                        : 'Operando em Modo Offline / Local',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: firebase.isConnected ? AppConstants.accentGreen : Colors.amber.shade700,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
-                              Text(
-                                firebase.isConnected
-                                    ? 'Sincronização em nuvem ativa'
-                                    : 'Operando em Modo Offline / Local',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: firebase.isConnected ? AppConstants.accentGreen : Colors.amber.shade700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       Switch(
                         value: firebase.isConnected,
                         activeColor: AppConstants.accentGreen,
@@ -275,33 +285,55 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _pixNameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nome do Titular',
-                            hintText: 'Ex: LEANDRO DENISON',
-                            prefixIcon: Icon(Icons.person_rounded),
-                            border: OutlineInputBorder(),
+                  if (isMobile) ...[
+                    TextField(
+                      controller: _pixNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nome do Titular',
+                        hintText: 'Ex: LEANDRO DENISON',
+                        prefixIcon: Icon(Icons.person_rounded),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _pixCityController,
+                      decoration: const InputDecoration(
+                        labelText: 'Cidade',
+                        hintText: 'Ex: FORTALEZA ou BRASILIA',
+                        prefixIcon: Icon(Icons.location_city_rounded),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ] else ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _pixNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Nome do Titular',
+                              hintText: 'Ex: LEANDRO DENISON',
+                              prefixIcon: Icon(Icons.person_rounded),
+                              border: OutlineInputBorder(),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _pixCityController,
-                          decoration: const InputDecoration(
-                            labelText: 'Cidade',
-                            hintText: 'Ex: FORTALEZA ou BRASILIA',
-                            prefixIcon: Icon(Icons.location_city_rounded),
-                            border: OutlineInputBorder(),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _pixCityController,
+                            decoration: const InputDecoration(
+                              labelText: 'Cidade',
+                              hintText: 'Ex: FORTALEZA ou BRASILIA',
+                              prefixIcon: Icon(Icons.location_city_rounded),
+                              border: OutlineInputBorder(),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   Align(
                     alignment: Alignment.centerRight,

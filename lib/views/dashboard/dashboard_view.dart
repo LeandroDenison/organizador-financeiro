@@ -40,35 +40,35 @@ class DashboardView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top Header: Title & Firebase status
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Visão Geral Financeira',
-                        style: (isMobile
-                                ? Theme.of(context).textTheme.titleLarge
-                                : Theme.of(context).textTheme.headlineSmall)
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Visão Geral Financeira',
+                      style: (isMobile
+                              ? Theme.of(context).textTheme.titleLarge
+                              : Theme.of(context).textTheme.headlineSmall)
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Saldo, devedores e extratos bancários',
+                      style: TextStyle(
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        fontSize: 12,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Saldo, devedores e extratos bancários',
-                        style: TextStyle(
-                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
                 // Firebase Sync Badge
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: firebase.isConnected
                         ? AppConstants.accentGreen.withOpacity(0.12)
@@ -85,14 +85,14 @@ class DashboardView extends StatelessWidget {
                     children: [
                       Icon(
                         firebase.isConnected ? Icons.cloud_done_rounded : Icons.cloud_queue_rounded,
-                        size: 16,
+                        size: 15,
                         color: firebase.isConnected ? AppConstants.accentGreen : Colors.amber.shade700,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 5),
                       Text(
-                        firebase.isConnected ? 'Firebase Conectado' : 'Modo Offline / Local',
+                        firebase.isConnected ? 'Firebase' : 'Modo Offline',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: firebase.isConnected ? AppConstants.accentGreen : Colors.amber.shade700,
                         ),
@@ -305,10 +305,14 @@ class DashboardView extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          debt.personName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        Expanded(
+                          child: Text(
+                            debt.personName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           CurrencyFormatter.format(debt.remainingAmount),
                           style: const TextStyle(
@@ -352,6 +356,7 @@ class DashboardView extends StatelessWidget {
     AppStateProvider appState,
   ) {
     final recent = finance.transactions.take(6).toList();
+    final screenWidth = MediaQuery.of(context).size.width;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -366,20 +371,23 @@ class DashboardView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Últimas Movimentações',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.grey.shade900,
+              Expanded(
+                child: Text(
+                  'Últimas Movimentações',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.grey.shade900,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               TextButton.icon(
                 onPressed: () => appState.setTab(1),
                 icon: const Icon(Icons.list_alt_rounded, size: 16),
-                label: const Text('Ver extrato completo'),
+                label: Text(screenWidth < 400 ? 'Ver extrato' : 'Ver extrato completo'),
                 style: TextButton.styleFrom(
                   foregroundColor: AppConstants.primaryColor,
                   padding: EdgeInsets.zero,
