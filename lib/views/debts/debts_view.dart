@@ -343,32 +343,38 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: AppConstants.primaryColor.withOpacity(0.15),
-                          child: Text(
-                            personName.isNotEmpty ? personName[0].toUpperCase() : '?',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppConstants.primaryColor),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: AppConstants.primaryColor.withOpacity(0.15),
+                            child: Text(
+                              personName.isNotEmpty ? personName[0].toUpperCase() : '?',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppConstants.primaryColor),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              personName,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  personName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  '${debts.length} ${debts.length == 1 ? "conta ativa" : "contas ativas"}',
+                                  style: TextStyle(fontSize: 11, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                                ),
+                              ],
                             ),
-                            Text(
-                              '${debts.length} ${debts.length == 1 ? "conta ativa" : "contas ativas"}',
-                              style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [

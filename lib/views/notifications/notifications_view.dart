@@ -103,36 +103,45 @@ class _NotificationsViewState extends State<NotificationsView> {
     final notifProvider = context.watch<NotificationProvider>();
     final finProvider = context.read<FinanceProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 650;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(isMobile ? 12.0 : 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Captura Automática de Notificações',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'No Android, o app escuta notificações de bancos e adiciona as compras no crédito automaticamente',
-                      style: TextStyle(
-                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                        fontSize: 13,
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: isMobile ? screenWidth - 24 : 600),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isMobile ? 'Captura de Notificações' : 'Captura Automática de Notificações',
+                        style: (isMobile
+                                ? Theme.of(context).textTheme.titleLarge
+                                : Theme.of(context).textTheme.headlineSmall)
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        'No Android, o app escuta notificações de bancos e adiciona as compras no crédito automaticamente',
+                        style: TextStyle(
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 if (notifProvider.notifications.isNotEmpty)
                   TextButton.icon(
@@ -143,7 +152,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                   ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // Android Permission Card
             Container(
@@ -155,58 +164,115 @@ class _NotificationsViewState extends State<NotificationsView> {
                   color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
                 ),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: (notifProvider.isListenerPermissionGranted ? AppConstants.accentGreen : AppConstants.accentAmber)
-                          .withOpacity(0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      notifProvider.isListenerPermissionGranted ? Icons.security_rounded : Icons.warning_amber_rounded,
-                      color: notifProvider.isListenerPermissionGranted ? AppConstants.accentGreen : AppConstants.accentAmber,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
+              child: isMobile
+                  ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          notifProvider.isListenerPermissionGranted
-                              ? 'Serviço de Notificações Ativo no Android'
-                              : 'Permissão de Acesso a Notificações (Android)',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: (notifProvider.isListenerPermissionGranted ? AppConstants.accentGreen : AppConstants.accentAmber)
+                                    .withOpacity(0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                notifProvider.isListenerPermissionGranted ? Icons.security_rounded : Icons.warning_amber_rounded,
+                                color: notifProvider.isListenerPermissionGranted ? AppConstants.accentGreen : AppConstants.accentAmber,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                notifProvider.isListenerPermissionGranted
+                                    ? 'Serviço Ativo no Android'
+                                    : 'Permissão de Acesso (Android)',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 8),
                         Text(
                           notifProvider.isListenerPermissionGranted
                               ? 'O sistema está monitorando compras em segundo plano.'
-                              : 'No seu aparelho Android, conceda a permissão nas configurações do sistema para captura em segundo plano.',
+                              : 'Conceda a permissão nas configurações do sistema para captura em segundo plano.',
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: notifProvider.isListenerPermissionGranted ? Colors.grey : AppConstants.primaryColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.settings_rounded, size: 16),
+                            label: Text(notifProvider.isListenerPermissionGranted ? 'Verificar Permissão' : 'Ativar no Android'),
+                            onPressed: () async {
+                              await notifProvider.requestPermission();
+                            },
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: (notifProvider.isListenerPermissionGranted ? AppConstants.accentGreen : AppConstants.accentAmber)
+                                .withOpacity(0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            notifProvider.isListenerPermissionGranted ? Icons.security_rounded : Icons.warning_amber_rounded,
+                            color: notifProvider.isListenerPermissionGranted ? AppConstants.accentGreen : AppConstants.accentAmber,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                notifProvider.isListenerPermissionGranted
+                                    ? 'Serviço de Notificações Ativo no Android'
+                                    : 'Permissão de Acesso a Notificações (Android)',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                notifProvider.isListenerPermissionGranted
+                                    ? 'O sistema está monitorando compras em segundo plano.'
+                                    : 'No seu aparelho Android, conceda a permissão nas configurações do sistema para captura em segundo plano.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: notifProvider.isListenerPermissionGranted ? Colors.grey : AppConstants.primaryColor,
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.settings_rounded, size: 16),
+                          label: Text(notifProvider.isListenerPermissionGranted ? 'Verificar' : 'Ativar no Android'),
+                          onPressed: () async {
+                            await notifProvider.requestPermission();
+                          },
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: notifProvider.isListenerPermissionGranted ? Colors.grey : AppConstants.primaryColor,
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: const Icon(Icons.settings_rounded, size: 16),
-                    label: Text(notifProvider.isListenerPermissionGranted ? 'Verificar' : 'Ativar no Android'),
-                    onPressed: () async {
-                      await notifProvider.requestPermission();
-                    },
-                  ),
-                ],
-              ),
             ),
             const SizedBox(height: 16),
 
@@ -399,14 +465,18 @@ class _NotificationsViewState extends State<NotificationsView> {
                     ),
                     color: isDark ? const Color(0xFF1E293B) : Colors.white,
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: EdgeInsets.all(isMobile ? 12.0 : 16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 6,
                             children: [
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -426,7 +496,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                                   const SizedBox(width: 8),
                                   Text(
                                     CurrencyFormatter.formatDate(notif.timestamp),
-                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                                   ),
                                 ],
                               ),
@@ -437,6 +507,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                           Text(
                             notif.rawText,
                             style: const TextStyle(fontSize: 13),
+                            softWrap: true,
                           ),
                           const SizedBox(height: 8),
                           if (notif.matchedPersonName != null) ...[
@@ -453,12 +524,15 @@ class _NotificationsViewState extends State<NotificationsView> {
                                 children: [
                                   const Icon(Icons.person_pin_rounded, size: 14, color: AppConstants.accentAmber),
                                   const SizedBox(width: 4),
-                                  Text(
-                                    'Pix de Devedor Reconhecido: ${notif.matchedPersonName}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppConstants.accentAmber,
+                                  Flexible(
+                                    child: Text(
+                                      'Pix Reconhecido: ${notif.matchedPersonName}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppConstants.accentAmber,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ],
@@ -477,22 +551,24 @@ class _NotificationsViewState extends State<NotificationsView> {
                                   'Detectado: ${CurrencyFormatter.format(notif.parsedAmount!)} (${notif.parsedMerchant ?? "Estabelecimento"})',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
+                                    fontSize: 13,
                                     color: AppConstants.accentGreen,
                                   ),
                                 ),
                               if (notif.status == NotificationStatus.pending)
                                 Wrap(
                                   spacing: 8,
-                                  runSpacing: 4,
+                                  runSpacing: 6,
                                   children: [
                                     if (notif.matchedPersonName != null)
                                       ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: AppConstants.accentAmber,
                                           foregroundColor: Colors.black87,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                         ),
-                                        icon: const Icon(Icons.price_check_rounded, size: 16),
-                                        label: Text('Abater Contas de ${notif.matchedPersonName}'),
+                                        icon: const Icon(Icons.price_check_rounded, size: 15),
+                                        label: Text('Abater Contas de ${notif.matchedPersonName}', style: const TextStyle(fontSize: 12)),
                                         onPressed: () {
                                           notifProvider.abateFromNotification(
                                             event: notif,
@@ -512,15 +588,16 @@ class _NotificationsViewState extends State<NotificationsView> {
                                       ),
                                     TextButton(
                                       onPressed: () => notifProvider.ignoreNotification(notif),
-                                      child: const Text('Ignorar'),
+                                      child: const Text('Ignorar', style: TextStyle(fontSize: 12)),
                                     ),
                                     ElevatedButton(
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: AppConstants.accentGreen,
                                         foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       ),
                                       onPressed: () => notifProvider.approveNotification(notif, finProvider),
-                                      child: const Text('Aprovar e Adicionar'),
+                                      child: const Text('Aprovar e Adicionar', style: TextStyle(fontSize: 12)),
                                     ),
                                   ],
                                 ),
@@ -549,10 +626,10 @@ class _NotificationsViewState extends State<NotificationsView> {
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle_rounded, size: 14, color: AppConstants.accentGreen),
+            Icon(Icons.check_circle_rounded, size: 13, color: AppConstants.accentGreen),
             SizedBox(width: 4),
             Text(
-              'Adicionado Automaticamente',
+              'Automático',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -566,14 +643,28 @@ class _NotificationsViewState extends State<NotificationsView> {
 
     switch (status) {
       case NotificationStatus.approved:
-        return const Text(
-          'Aprovado Manualmente',
-          style: TextStyle(fontSize: 11, color: AppConstants.accentGreen, fontWeight: FontWeight.bold),
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppConstants.accentGreen.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Text(
+            'Aprovado',
+            style: TextStyle(fontSize: 11, color: AppConstants.accentGreen, fontWeight: FontWeight.bold),
+          ),
         );
       case NotificationStatus.ignored:
-        return const Text(
-          'Ignorado',
-          style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Text(
+            'Ignorado',
+            style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+          ),
         );
       case NotificationStatus.pending:
         return Container(
@@ -583,7 +674,7 @@ class _NotificationsViewState extends State<NotificationsView> {
             borderRadius: BorderRadius.circular(6),
           ),
           child: const Text(
-            'Pendente de Revisão',
+            'Pendente',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
