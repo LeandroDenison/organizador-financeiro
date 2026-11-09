@@ -14,45 +14,53 @@ class TransactionsView extends StatelessWidget {
     final finance = context.watch<FinanceProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final transactions = finance.filteredTransactions;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 650;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Responsive Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Extrato de Transações',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${transactions.length} movimentações encontradas',
-                      style: TextStyle(
-                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                        fontSize: 13,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Extrato de Transações',
+                        style: (isMobile
+                                ? Theme.of(context).textTheme.titleLarge
+                                : Theme.of(context).textTheme.headlineSmall)
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        '${transactions.length} movimentações',
+                        style: TextStyle(
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppConstants.primaryColor,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 12 : 16,
+                      vertical: isMobile ? 8 : 12,
+                    ),
                   ),
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Nova Transação'),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(isMobile ? 'Nova' : 'Nova Transação'),
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -62,56 +70,106 @@ class TransactionsView extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            // Search Bar & Filter Row
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Buscar por descrição, banco, pessoa ou categoria...',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      filled: true,
-                      fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            // Search Bar & Filter Row (Stacked on Mobile)
+            if (isMobile) ...[
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Buscar transações...',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
                     ),
-                    onChanged: (val) => finance.setSearchQuery(val),
                   ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
-                const SizedBox(width: 12),
-                // Type Filter Chips
-                Wrap(
-                  spacing: 8,
+                onChanged: (val) => finance.setSearchQuery(val),
+              ),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                   children: [
                     FilterChip(
                       label: const Text('Todas'),
                       selected: finance.typeFilter == null,
                       onSelected: (_) => finance.setTypeFilter(null),
                     ),
+                    const SizedBox(width: 8),
                     FilterChip(
                       label: const Text('Receitas'),
                       selected: finance.typeFilter == TransactionType.income,
-                      avatar: const Icon(Icons.arrow_downward_rounded, size: 16, color: AppConstants.accentGreen),
+                      avatar: const Icon(Icons.arrow_downward_rounded,
+                          size: 14, color: AppConstants.accentGreen),
                       onSelected: (_) => finance.setTypeFilter(TransactionType.income),
                     ),
+                    const SizedBox(width: 8),
                     FilterChip(
                       label: const Text('Despesas'),
                       selected: finance.typeFilter == TransactionType.expense,
-                      avatar: const Icon(Icons.arrow_upward_rounded, size: 16, color: AppConstants.accentRed),
+                      avatar: const Icon(Icons.arrow_upward_rounded,
+                          size: 14, color: AppConstants.accentRed),
                       onSelected: (_) => finance.setTypeFilter(TransactionType.expense),
                     ),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Buscar por descrição, banco, pessoa ou categoria...',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                          ),
+                        ),
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      onChanged: (val) => finance.setSearchQuery(val),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      FilterChip(
+                        label: const Text('Todas'),
+                        selected: finance.typeFilter == null,
+                        onSelected: (_) => finance.setTypeFilter(null),
+                      ),
+                      FilterChip(
+                        label: const Text('Receitas'),
+                        selected: finance.typeFilter == TransactionType.income,
+                        avatar: const Icon(Icons.arrow_downward_rounded,
+                            size: 16, color: AppConstants.accentGreen),
+                        onSelected: (_) => finance.setTypeFilter(TransactionType.income),
+                      ),
+                      FilterChip(
+                        label: const Text('Despesas'),
+                        selected: finance.typeFilter == TransactionType.expense,
+                        avatar: const Icon(Icons.arrow_upward_rounded,
+                            size: 16, color: AppConstants.accentRed),
+                        onSelected: (_) => finance.setTypeFilter(TransactionType.expense),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 14),
 
             // Transactions List
             Expanded(
@@ -120,7 +178,8 @@ class TransactionsView extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.receipt_long_rounded, size: 64, color: Colors.grey.shade400),
+                          Icon(Icons.receipt_long_rounded,
+                              size: 56, color: Colors.grey.shade400),
                           const SizedBox(height: 12),
                           const Text(
                             'Nenhuma transação encontrada',
@@ -128,8 +187,8 @@ class TransactionsView extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Tente ajustar seus filtros de busca ou adicione uma nova transação.',
-                            style: TextStyle(color: Colors.grey.shade500),
+                            'Tente ajustar seus filtros de busca.',
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
                           ),
                         ],
                       ),
@@ -149,80 +208,111 @@ class TransactionsView extends StatelessWidget {
                             ),
                           ),
                           color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: isIncome
-                                  ? AppConstants.accentGreen.withOpacity(0.15)
-                                  : AppConstants.accentRed.withOpacity(0.15),
-                              child: Icon(
-                                AppConstants.getCategoryIcon(tx.category),
-                                color: isIncome ? AppConstants.accentGreen : AppConstants.accentRed,
-                              ),
-                            ),
-                            title: Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    tx.title,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: isIncome
+                                    ? AppConstants.accentGreen.withOpacity(0.15)
+                                    : AppConstants.accentRed.withOpacity(0.15),
+                                child: Icon(
+                                  AppConstants.getCategoryIcon(tx.category),
+                                  color: isIncome
+                                      ? AppConstants.accentGreen
+                                      : AppConstants.accentRed,
+                                  size: 20,
                                 ),
-                                if (tx.bank != null) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppConstants.getBankColor(tx.bank).withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(4),
+                              ),
+                              title: Text(
+                                tx.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${CurrencyFormatter.formatDate(tx.date)} • ${tx.category}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                     ),
-                                    child: Text(
-                                      tx.bank!,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppConstants.getBankColor(tx.bank),
-                                      ),
-                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      if (tx.bank != null)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppConstants.getBankColor(tx.bank)
+                                                .withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            tx.bank!,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppConstants.getBankColor(tx.bank),
+                                            ),
+                                          ),
+                                        ),
+                                      if (tx.source != TransactionSource.manual)
+                                        _buildSourceBadge(tx.source),
+                                      if (tx.personName != null)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppConstants.primaryColor.withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            'Devedor: ${tx.personName}',
+                                            style: const TextStyle(
+                                                fontSize: 10, color: AppConstants.primaryColor),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ],
-                                const SizedBox(width: 6),
-                                _buildSourceBadge(tx.source),
-                              ],
-                            ),
-                            subtitle: Text(
-                              '${CurrencyFormatter.formatDate(tx.date)} • ${tx.category}${tx.personName != null ? " • Devedor: ${tx.personName}" : ""}${tx.installmentRef != null ? " (${tx.installmentRef})" : ""}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                               ),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  '${isIncome ? '+' : '-'} ${CurrencyFormatter.format(tx.amount)}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: isIncome ? AppConstants.accentGreen : AppConstants.accentRed,
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${isIncome ? '+' : '-'} ${CurrencyFormatter.format(tx.amount)}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: isIncome
+                                          ? AppConstants.accentGreen
+                                          : AppConstants.accentRed,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                                  color: Colors.grey.shade400,
-                                  onPressed: () {
-                                    finance.deleteTransaction(tx.id);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Transação "${tx.title}" removida'),
-                                        duration: const Duration(seconds: 2),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                                    color: Colors.grey.shade400,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () {
+                                      finance.deleteTransaction(tx.id);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Transação "${tx.title}" removida'),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         );
@@ -247,7 +337,7 @@ class TransactionsView extends StatelessWidget {
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.notifications_active_rounded, size: 11, color: Colors.blue),
+              Icon(Icons.notifications_active_rounded, size: 10, color: Colors.blue),
               SizedBox(width: 2),
               Text(
                 'Notificação',

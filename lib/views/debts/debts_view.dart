@@ -36,10 +36,13 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
     final financeProvider = context.read<FinanceProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 650;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -47,33 +50,39 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Quem me Deve (Empréstimos & Parcelas)',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Controle de pessoas que pegaram dinheiro emprestado e parcelas restantes',
-                      style: TextStyle(
-                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                        fontSize: 13,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isMobile ? 'Quem me Deve' : 'Quem me Deve (Empréstimos)',
+                        style: (isMobile
+                                ? Theme.of(context).textTheme.titleLarge
+                                : Theme.of(context).textTheme.headlineSmall)
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        'Controle de empréstimos e parcelas',
+                        style: TextStyle(
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppConstants.primaryColor,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 12 : 16,
+                      vertical: isMobile ? 8 : 12,
+                    ),
                   ),
-                  icon: const Icon(Icons.person_add_rounded),
-                  label: const Text('Adicionar Pessoa / Dívida'),
+                  icon: const Icon(Icons.person_add_rounded, size: 18),
+                  label: Text(isMobile ? 'Novo' : 'Adicionar Pessoa'),
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -83,11 +92,11 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // Top Metric Bar
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E293B) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -95,33 +104,35 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                   color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildMetric(
-                    'Total a Receber',
-                    CurrencyFormatter.format(debtProvider.totalOwedToMe),
-                    Icons.pending_actions_rounded,
-                    AppConstants.accentAmber,
-                  ),
-                  _buildDivider(isDark),
-                  _buildMetric(
-                    'Já Recebido',
-                    CurrencyFormatter.format(debtProvider.totalAlreadyReceived),
-                    Icons.check_circle_rounded,
-                    AppConstants.accentGreen,
-                  ),
-                  _buildDivider(isDark),
-                  _buildMetric(
-                    'Parcelas Pendentes',
-                    '${debtProvider.totalPendingInstallments} parcelas',
-                    Icons.calendar_month_rounded,
-                    AppConstants.primaryColor,
-                  ),
-                ],
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildMetric(
+                      'Total a Receber',
+                      CurrencyFormatter.format(debtProvider.totalOwedToMe),
+                      Icons.pending_actions_rounded,
+                      AppConstants.accentAmber,
+                    ),
+                    _buildDivider(isDark),
+                    _buildMetric(
+                      'Já Recebido',
+                      CurrencyFormatter.format(debtProvider.totalAlreadyReceived),
+                      Icons.check_circle_rounded,
+                      AppConstants.accentGreen,
+                    ),
+                    _buildDivider(isDark),
+                    _buildMetric(
+                      'Parcelas Pendentes',
+                      '${debtProvider.totalPendingInstallments} parcelas',
+                      Icons.calendar_month_rounded,
+                      AppConstants.primaryColor,
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // Tabs: Ativos / Quitados
             TabBar(
