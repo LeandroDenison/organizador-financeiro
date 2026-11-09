@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import '../models/notification_event_model.dart';
 import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
@@ -86,26 +86,30 @@ class NotificationProvider extends ChangeNotifier {
       text: text,
     );
 
-    // Check if Pix sender matches any active debtor
+    // Check if Pix sender or exact amount matches any active debtor
     String? matchedPerson;
     if (parsed != null && parsed.type == TransactionType.income && debtProvider != null) {
       final sender = parsed.senderName ?? parsed.merchant;
-      matchedPerson = debtProvider.findMatchingPerson(sender);
-      if (matchedPerson == null) {
-        matchedPerson = debtProvider.findMatchingPerson('$title $text');
-      }
+      matchedPerson = debtProvider.findMatchingPerson(sender, amount: parsed.amount);
+      matchedPerson ??= debtProvider.findMatchingPerson('$title $text', amount: parsed.amount);
     }
 
     String? createdTxId;
     final bool shouldAutoAdd = _autoAdd && parsed != null && parsed.amount > 0;
 
-    // If it's a Pix from a recognized debtor and auto-add is enabled, auto-abate!
+    // If it's a Pix from a recognized debtor and auto-add is enabled, auto-abate (identifying exact account by value if matched)!
     if (shouldAutoAdd && matchedPerson != null && debtProvider != null) {
+      final matchedDebt = debtProvider.findExactDebtByAmount(
+        personName: matchedPerson,
+        amount: parsed.amount,
+      );
       await debtProvider.abatePersonDebts(
         personName: matchedPerson,
-        amount: parsed!.amount,
+        amount: parsed.amount,
         financeProvider: financeProvider,
-        note: 'Pix automático ($appPackage)',
+        note: matchedDebt != null
+            ? 'Pix automático reconhecido para "${matchedDebt.description}" ($appPackage)'
+            : 'Pix automático ($appPackage)',
       );
     } else if (shouldAutoAdd) {
       final tx = TransactionModel(

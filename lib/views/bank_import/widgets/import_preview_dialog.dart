@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/transaction_model.dart';
 import '../../../providers/finance_provider.dart';
+import '../../../providers/debt_provider.dart';
 import '../../../utils/constants.dart';
 import '../../../utils/currency_formatter.dart';
 import '../../transactions/widgets/assign_to_debt_dialog.dart';
@@ -29,13 +30,53 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
     _selectedIds = widget.parsedTransactions.map((t) => t.id).toSet();
   }
 
-  void _importSelected() {
+  Future<void> _importSelected() async {
     final selectedList = widget.parsedTransactions
         .where((t) => _selectedIds.contains(t.id))
         .toList();
 
-    context.read<FinanceProvider>().addMultipleTransactions(selectedList);
-    Navigator.of(context).pop(selectedList.length);
+    final financeProvider = context.read<FinanceProvider>();
+    final debtProvider = context.read<DebtProvider>();
+
+    // Check if any imported income (Pix received) matches an active debtor / specific debt amount
+    final List<TransactionModel> finalTransactions = [];
+    for (final tx in selectedList) {
+      if (tx.type == TransactionType.income) {
+        final matchedPerson = debtProvider.findMatchingPerson(tx.title, amount: tx.amount);
+        if (matchedPerson != null) {
+          final matchedDebt = debtProvider.findExactDebtByAmount(
+            personName: matchedPerson,
+            amount: tx.amount,
+          );
+          await debtProvider.abatePersonDebts(
+            personName: matchedPerson,
+            amount: tx.amount,
+            financeProvider: financeProvider,
+            note: matchedDebt != null
+                ? 'Pix reconhecido no extrato para "${matchedDebt.description}"'
+                : 'Pix reconhecido no extrato (${widget.bankName})',
+            addToTransactions: false,
+          );
+          finalTransactions.add(
+            tx.copyWith(
+              personName: matchedPerson,
+              personId: matchedDebt?.id,
+              category: 'Empréstimo Recebido',
+              notes: matchedDebt != null
+                  ? 'Abatido automaticamente da conta: ${matchedDebt.description}'
+                  : 'Abatido automaticamente das contas de $matchedPerson',
+            ),
+          );
+          continue;
+        }
+      }
+      finalTransactions.add(tx);
+    }
+
+    await financeProvider.addMultipleTransactions(finalTransactions);
+    if (mounted) {
+      Navigator.of(context).pop(finalTransactions.length);
+    }
   }
 
   @override
@@ -185,6 +226,13 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
                   final tx = widget.parsedTransactions[index];
                   final isSelected = _selectedIds.contains(tx.id);
                   final isIncome = tx.type == TransactionType.income;
+                  final debtProvider = context.watch<DebtProvider>();
+                  final autoMatchedPerson = isIncome
+                      ? debtProvider.findMatchingPerson(tx.title, amount: tx.amount)
+                      : null;
+                  final autoMatchedDebt = autoMatchedPerson != null
+                      ? debtProvider.findExactDebtByAmount(personName: autoMatchedPerson, amount: tx.amount)
+                      : null;
 
                   return InkWell(
                     onTap: () {
@@ -246,6 +294,20 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                       color: AppConstants.primaryColor,
+                                    ),
+                                  ),
+                                ] else if (autoMatchedPerson != null) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    autoMatchedDebt != null
+                                        ? '✓ Abater de $autoMatchedPerson (${autoMatchedDebt.description})'
+                                        : '✓ Abater dívida de $autoMatchedPerson',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppConstants.accentGreen,
                                     ),
                                   ),
                                 ],

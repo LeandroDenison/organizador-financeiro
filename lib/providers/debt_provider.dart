@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import '../models/debt_model.dart';
 import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
@@ -30,14 +30,74 @@ class DebtProvider extends ChangeNotifier {
     return set.toList()..sort();
   }
 
-  String? findMatchingPerson(String text) {
-    if (text.isEmpty) return null;
-    final lower = text.toLowerCase();
-    for (final name in uniquePersonNames) {
-      if (lower.contains(name.toLowerCase()) || name.toLowerCase().contains(lower)) {
-        return name;
+  /// Normalizes text by removing accents and converting to lowercase for reliable matching
+  static String normalizeText(String input) {
+    const withDia = 'àáâãäåòóôõöøèéêëðçìíîïùúûüñšÿýžÀÁÂÃÄÅÒÓÔÕÖØÈÉÊËÐÇÌÍÎÏÙÚÛÜÑŠŸÝŽ';
+    const withoutDia = 'aaaaaaooooooeeeeeciiiiuuuunsyyzaaaaaaooooooeeeeeciiiiuuuunsyyz';
+    String output = input;
+    for (int i = 0; i < withDia.length; i++) {
+      output = output.replaceAll(withDia[i], withoutDia[i]);
+    }
+    return output.toLowerCase().trim();
+  }
+
+  /// Finds a matching debtor name from notification/statement text, optionally aided by exact amount matching
+  String? findMatchingPerson(String text, {double? amount}) {
+    final normText = normalizeText(text);
+    if (normText.isNotEmpty) {
+      // 1. Direct full-name match (accent-insensitive)
+      for (final name in uniquePersonNames) {
+        final normName = normalizeText(name);
+        if (normName.isNotEmpty && (normText.contains(normName) || normName.contains(normText))) {
+          return name;
+        }
+      }
+
+      // 2. First/last name token match (tokens >= 3 chars)
+      for (final name in uniquePersonNames) {
+        final tokens = normalizeText(name).split(RegExp(r'\s+')).where((t) => t.length >= 3);
+        for (final token in tokens) {
+          if (RegExp('\\b${RegExp.escape(token)}\\b').hasMatch(normText)) {
+            return name;
+          }
+        }
       }
     }
+
+    // 3. If an exact amount is provided, check if any active debt has this exact installment or remaining amount
+    if (amount != null && amount > 0) {
+      final matchingDebts = activeDebts.where((d) =>
+          (d.installmentValue - amount).abs() <= 0.02 ||
+          (d.remainingAmount - amount).abs() <= 0.02).toList();
+      if (matchingDebts.length == 1) {
+        return matchingDebts.first.personName.trim();
+      }
+    }
+
+    return null;
+  }
+
+  /// Finds the specific active debt of a person that matches the given amount (installment or remaining balance)
+  DebtModel? findExactDebtByAmount({String? personName, required double amount}) {
+    if (amount <= 0) return null;
+    final candidates = personName != null
+        ? activeDebts.where((d) => normalizeText(d.personName) == normalizeText(personName)).toList()
+        : activeDebts;
+
+    // Priority 1: Exact installment value match
+    for (final d in candidates) {
+      if ((d.installmentValue - amount).abs() <= 0.02) {
+        return d;
+      }
+    }
+
+    // Priority 2: Exact remaining balance match
+    for (final d in candidates) {
+      if ((d.remainingAmount - amount).abs() <= 0.02) {
+        return d;
+      }
+    }
+
     return null;
   }
 
@@ -188,7 +248,7 @@ class DebtProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Abate an amount across all active debts of a person (e.g. Sergio paid R$ 1.000)
+  /// Abate an amount across active debts of a person, prioritizing any account with an exact installment or balance match!
   Future<double> abatePersonDebts({
     required String personName,
     required double amount,
@@ -198,11 +258,56 @@ class DebtProvider extends ChangeNotifier {
   }) async {
     if (amount <= 0) return 0.0;
     final personDebts = activeDebts
-        .where((d) => d.personName.trim().toLowerCase() == personName.trim().toLowerCase())
+        .where((d) => normalizeText(d.personName) == normalizeText(personName))
         .toList();
 
     if (personDebts.isEmpty) return 0.0;
 
+    // 1. Check if the amount matches a specific account's installment value!
+    final exactInstallmentDebt = personDebts.cast<DebtModel?>().firstWhere(
+          (d) => d != null && (d.installmentValue - amount).abs() <= 0.02,
+          orElse: () => null,
+        );
+    if (exactInstallmentDebt != null) {
+      await payInstallment(
+        debtId: exactInstallmentDebt.id,
+        financeProvider: financeProvider,
+        customAmount: amount,
+        note: note ?? 'Parcela identificada pelo valor exato (${exactInstallmentDebt.description})',
+        addToTransactions: addToTransactions,
+      );
+      return amount;
+    }
+
+    // 2. Check if the amount matches a specific account's total remaining amount!
+    final exactRemainingDebt = personDebts.cast<DebtModel?>().firstWhere(
+          (d) => d != null && (d.remainingAmount - amount).abs() <= 0.02,
+          orElse: () => null,
+        );
+    if (exactRemainingDebt != null) {
+      await settleEntireDebt(
+        debtId: exactRemainingDebt.id,
+        financeProvider: financeProvider,
+        addToTransactions: addToTransactions,
+      );
+      return amount;
+    }
+
+    // 3. Check if the amount matches the sum of monthly installments of all active accounts of this person
+    final sumMonthlyInstallments = personDebts.fold(0.0, (s, d) => s + d.installmentValue);
+    if (personDebts.length > 1 && (sumMonthlyInstallments - amount).abs() <= 0.02) {
+      for (final d in personDebts) {
+        await payInstallment(
+          debtId: d.id,
+          financeProvider: financeProvider,
+          note: note ?? 'Parcela mensal consolidada (${d.description})',
+          addToTransactions: addToTransactions,
+        );
+      }
+      return amount;
+    }
+
+    // 4. Otherwise, distribute the partial/custom amount across the person's active debts
     double remainingToAbate = amount;
     double totalActuallyAbated = 0.0;
 

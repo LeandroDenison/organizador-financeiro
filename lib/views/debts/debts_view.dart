@@ -383,6 +383,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
         final totalRemaining = debts.fold(0.0, (s, d) => s + d.remainingAmount);
         final totalOriginal = debts.fold(0.0, (s, d) => s + d.totalAmount);
         final totalPaid = debts.fold(0.0, (s, d) => s + d.paidAmount);
+        final totalMonthlyInstallment = debts.fold(0.0, (s, d) => s + d.installmentValue);
         final overallProgress = totalOriginal > 0 ? (totalPaid / totalOriginal).clamp(0.0, 1.0) : 1.0;
 
         return Card(
@@ -517,7 +518,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 2),
+                                    const SizedBox(height: 4),
                                     Row(
                                       children: [
                                         Expanded(
@@ -530,6 +531,47 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                                           ),
                                         ),
                                         const SizedBox(width: 6),
+                                        // Botão manual para receber parcela desta conta específica
+                                        InkWell(
+                                          borderRadius: BorderRadius.circular(6),
+                                          onTap: () {
+                                            debtProvider.payInstallment(
+                                              debtId: d.id,
+                                              financeProvider: financeProvider,
+                                            );
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Parcela de "${d.description}" (${CurrencyFormatter.format(d.installmentValue)}) recebida de $personName!',
+                                                ),
+                                                backgroundColor: AppConstants.accentGreen,
+                                              ),
+                                            );
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: AppConstants.accentGreen.withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.check_rounded, size: 13, color: AppConstants.accentGreen),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  'Receber',
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppConstants.accentGreen,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
                                         InkWell(
                                           borderRadius: BorderRadius.circular(6),
                                           onTap: () {
@@ -543,7 +585,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                                             );
                                           },
                                           child: const Padding(
-                                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                             child: Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Color(0xFF25D366)),
                                           ),
                                         ),
@@ -563,10 +605,45 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
 
                 // Consolidated Actions for the Person
                 Wrap(
-                  spacing: 10,
+                  spacing: 8,
                   runSpacing: 8,
                   alignment: WrapAlignment.end,
                   children: [
+                    // Receber Parcela(s) do Mês manualmente na aba Por Pessoa
+                    FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppConstants.accentGreen.withValues(alpha: 0.15),
+                        foregroundColor: AppConstants.accentGreen,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      icon: const Icon(Icons.check_rounded, size: 16),
+                      label: Text(
+                        debts.length > 1
+                            ? 'Receber Mês (${CurrencyFormatter.format(totalMonthlyInstallment)})'
+                            : 'Receber (${CurrencyFormatter.format(totalMonthlyInstallment)})',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () async {
+                        await debtProvider.abatePersonDebts(
+                          personName: personName,
+                          amount: totalMonthlyInstallment,
+                          financeProvider: financeProvider,
+                          note: 'Recebimento manual das parcelas de $personName',
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Recebido ${CurrencyFormatter.format(totalMonthlyInstallment)} de $personName! Adicionado às receitas.',
+                              ),
+                              backgroundColor: AppConstants.accentGreen,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+
                     // Abater Valor Avulso (e.g. Sergio paid R$ 1.000)
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
