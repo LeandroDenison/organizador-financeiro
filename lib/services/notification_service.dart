@@ -67,24 +67,46 @@ class NotificationService {
     final isIncome = lower.contains('recebido') ||
         lower.contains('recebeu') ||
         lower.contains('pix recebido') ||
-        lower.contains('transferência recebida');
+        lower.contains('transferência recebida') ||
+        lower.contains('ted recebida') ||
+        lower.contains('te enviou um pix');
 
-    // Extract Merchant / Destination
-    String merchant = 'Transação Automática';
+    // Extract Merchant / Destination / Sender
+    String merchant = isIncome ? 'Pix Recebido' : 'Compra Cartão';
 
-    // Patterns for merchant:
-    // Nubank: "em [Merchant]." ou "no estabelecimento [Merchant]"
-    // Itaú: "em [Merchant]."
-    // Mercado Pago: "para [Merchant]"
-    final merchantRegex = RegExp(
-      r'(?:em|no|para|no estabelecimento)\s+([^.,;\n]+)',
-      caseSensitive: false,
-    );
-    final merchantMatch = merchantRegex.firstMatch(text);
-    if (merchantMatch != null) {
-      merchant = merchantMatch.group(1)?.trim() ?? merchant;
-    } else if (title.isNotEmpty && !title.toLowerCase().contains('compra') && !title.toLowerCase().contains('pix')) {
-      merchant = title;
+    if (isIncome) {
+      // Match sender names: "de Fulano de Tal" or "remetente Fulano"
+      final senderRegex = RegExp(
+        r'(?:de|enviado por|remetente)\s+([A-Za-zÀ-ÿ\s]{3,35})(?:\s+no|\s+de\s+r\$|\.|$)',
+        caseSensitive: false,
+      );
+      final senderMatch = senderRegex.firstMatch(text);
+      if (senderMatch != null) {
+        final rawSender = senderMatch.group(1)?.trim();
+        if (rawSender != null &&
+            !rawSender.toLowerCase().contains('banco') &&
+            !rawSender.toLowerCase().contains('r\$') &&
+            !rawSender.toLowerCase().contains('conta')) {
+          merchant = 'Pix: $rawSender';
+        }
+      }
+    } else {
+      // Patterns for expense merchant:
+      // Nubank: "em [Merchant]." ou "no estabelecimento [Merchant]"
+      // Itaú: "em [Merchant]."
+      // Mercado Pago: "para [Merchant]"
+      final merchantRegex = RegExp(
+        r'(?:em|no|para|no estabelecimento)\s+([^.,;\n]+)',
+        caseSensitive: false,
+      );
+      final merchantMatch = merchantRegex.firstMatch(text);
+      if (merchantMatch != null) {
+        merchant = merchantMatch.group(1)?.trim() ?? merchant;
+      } else if (title.isNotEmpty &&
+          !title.toLowerCase().contains('compra') &&
+          !title.toLowerCase().contains('pix')) {
+        merchant = title;
+      }
     }
 
     return NotificationParseResult(
