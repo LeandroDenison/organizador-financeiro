@@ -1,0 +1,455 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/finance_provider.dart';
+import '../../providers/debt_provider.dart';
+import '../../providers/app_state_provider.dart';
+import '../../services/firebase_service.dart';
+import '../../utils/currency_formatter.dart';
+import '../../utils/constants.dart';
+import '../../models/transaction_model.dart';
+import 'widgets/summary_card.dart';
+import 'widgets/category_pie_chart.dart';
+import '../transactions/widgets/add_transaction_dialog.dart';
+import '../debts/widgets/add_debt_dialog.dart';
+
+class DashboardView extends StatelessWidget {
+  const DashboardView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final finance = context.watch<FinanceProvider>();
+    final debts = context.watch<DebtProvider>();
+    final appState = context.watch<AppStateProvider>();
+    final firebase = context.watch<FirebaseService>();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 900;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Header: Title & Firebase status
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Visão Geral Financeira',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Acompanhe saldo, devedores e extratos bancários em tempo real',
+                      style: TextStyle(
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+                // Firebase Sync Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: firebase.isConnected
+                        ? AppConstants.accentGreen.withOpacity(0.12)
+                        : Colors.amber.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: firebase.isConnected
+                          ? AppConstants.accentGreen.withOpacity(0.3)
+                          : Colors.amber.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        firebase.isConnected ? Icons.cloud_done_rounded : Icons.cloud_queue_rounded,
+                        size: 16,
+                        color: firebase.isConnected ? AppConstants.accentGreen : Colors.amber.shade700,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        firebase.isConnected ? 'Firebase Conectado' : 'Modo Offline / Local',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: firebase.isConnected ? AppConstants.accentGreen : Colors.amber.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Summary Cards Grid
+            LayoutBuilder(
+              builder: (context, constraints) {
+                int crossAxisCount = constraints.maxWidth < 600
+                    ? 1
+                    : constraints.maxWidth < 1000
+                        ? 2
+                        : 4;
+
+                return GridView.count(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  childAspectRatio: constraints.maxWidth < 600 ? 2.4 : 1.7,
+                  children: [
+                    SummaryCard(
+                      title: 'Saldo Líquido',
+                      value: CurrencyFormatter.format(finance.balance),
+                      icon: Icons.account_balance_wallet_rounded,
+                      color: finance.balance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
+                      subtitle: finance.balance >= 0 ? 'Saldo positivo' : 'Atenção ao orçamento',
+                    ),
+                    SummaryCard(
+                      title: 'Receitas Totais',
+                      value: CurrencyFormatter.format(finance.totalIncome),
+                      icon: Icons.arrow_downward_rounded,
+                      color: AppConstants.accentGreen,
+                      subtitle: 'Salários e empréstimos recebidos',
+                    ),
+                    SummaryCard(
+                      title: 'Despesas Totais',
+                      value: CurrencyFormatter.format(finance.totalExpense),
+                      icon: Icons.arrow_upward_rounded,
+                      color: AppConstants.accentRed,
+                      subtitle: 'Cartões, compras e contas',
+                    ),
+                    SummaryCard(
+                      title: 'Quem me Deve (Ativos)',
+                      value: CurrencyFormatter.format(debts.totalOwedToMe),
+                      icon: Icons.handshake_rounded,
+                      color: AppConstants.primaryColor,
+                      subtitle: '${debts.totalPendingInstallments} parcelas pendentes',
+                      onTap: () => appState.setTab(2), // Navega para aba Quem me deve
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+
+            // Middle section: Charts & "Quem me deve" preview
+            if (isDesktop)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: _buildChartCard(context, isDark, finance),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    flex: 5,
+                    child: _buildDebtsCard(context, isDark, debts, appState),
+                  ),
+                ],
+              )
+            else ...[
+              _buildChartCard(context, isDark, finance),
+              const SizedBox(height: 20),
+              _buildDebtsCard(context, isDark, debts, appState),
+            ],
+
+            const SizedBox(height: 24),
+
+            // Recent Transactions Section
+            _buildRecentTransactions(context, isDark, finance, appState),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppConstants.primaryColor,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Nova Transação'),
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (_) => const AddTransactionDialog(),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildChartCard(BuildContext context, bool isDark, FinanceProvider finance) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Despesas por Categoria',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.grey.shade900,
+                ),
+              ),
+              Icon(Icons.pie_chart_rounded, color: AppConstants.primaryColor, size: 20),
+            ],
+          ),
+          const SizedBox(height: 16),
+          CategoryPieChart(expensesByCategory: finance.expensesByCategory),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDebtsCard(BuildContext context, bool isDark, DebtProvider debts, AppStateProvider appState) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Pessoas que me devem',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.grey.shade900,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => appState.setTab(2),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                label: const Text('Ver todas'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppConstants.primaryColor,
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (debts.activeDebts.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Center(
+                child: Text('Nenhum empréstimo ativo no momento!'),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: debts.activeDebts.take(3).length,
+              separatorBuilder: (_, __) => const Divider(height: 16),
+              itemBuilder: (context, index) {
+                final debt = debts.activeDebts[index];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          debt.personName,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        Text(
+                          CurrencyFormatter.format(debt.remainingAmount),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppConstants.accentAmber,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${debt.description} • Faltam ${debt.remainingInstallments} de ${debt.totalInstallments} parcelas (${CurrencyFormatter.format(debt.installmentValue)}/mês)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: debt.progress,
+                        minHeight: 6,
+                        backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                        valueColor: const AlwaysStoppedAnimation<Color>(AppConstants.accentGreen),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentTransactions(
+    BuildContext context,
+    bool isDark,
+    FinanceProvider finance,
+    AppStateProvider appState,
+  ) {
+    final recent = finance.transactions.take(6).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Últimas Movimentações',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.grey.shade900,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => appState.setTab(1),
+                icon: const Icon(Icons.list_alt_rounded, size: 16),
+                label: const Text('Ver extrato completo'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppConstants.primaryColor,
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (recent.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Center(child: Text('Nenhuma movimentação registrada')),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: recent.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 12,
+                color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+              ),
+              itemBuilder: (context, index) {
+                final tx = recent[index];
+                final isIncome = tx.type == TransactionType.income;
+
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor: isIncome
+                        ? AppConstants.accentGreen.withOpacity(0.15)
+                        : AppConstants.accentRed.withOpacity(0.15),
+                    child: Icon(
+                      AppConstants.getCategoryIcon(tx.category),
+                      color: isIncome ? AppConstants.accentGreen : AppConstants.accentRed,
+                      size: 20,
+                    ),
+                  ),
+                  title: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          tx.title,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        ),
+                      ),
+                      if (tx.bank != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppConstants.getBankColor(tx.bank).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            tx.bank!,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: AppConstants.getBankColor(tx.bank),
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (tx.source == TransactionSource.notification) ...[
+                        const SizedBox(width: 4),
+                        const Tooltip(
+                          message: 'Capturado via Notificação Android',
+                          child: Icon(Icons.notifications_active_rounded, size: 14, color: AppConstants.primaryColor),
+                        ),
+                      ],
+                    ],
+                  ),
+                  subtitle: Text(
+                    '${CurrencyFormatter.formatDate(tx.date)} • ${tx.category}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ),
+                  ),
+                  trailing: Text(
+                    '${isIncome ? '+' : '-'} ${CurrencyFormatter.format(tx.amount)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isIncome ? AppConstants.accentGreen : AppConstants.accentRed,
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
