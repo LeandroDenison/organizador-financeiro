@@ -5,6 +5,7 @@ import '../../providers/finance_provider.dart';
 import '../../providers/debt_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/firebase_service.dart';
+import '../../services/storage_service.dart';
 import '../../utils/constants.dart';
 
 class SettingsView extends StatefulWidget {
@@ -16,6 +17,9 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
   final _projectIdController = TextEditingController();
+  final _pixKeyController = TextEditingController();
+  final _pixNameController = TextEditingController();
+  final _pixCityController = TextEditingController();
 
   @override
   void initState() {
@@ -24,11 +28,26 @@ class _SettingsViewState extends State<SettingsView> {
     if (firebase.projectId != null) {
       _projectIdController.text = firebase.projectId!;
     }
+    _loadPixData();
+  }
+
+  Future<void> _loadPixData() async {
+    final key = await StorageService.getUserPixKey();
+    final name = await StorageService.getUserName();
+    final city = await StorageService.getUserCity();
+    setState(() {
+      _pixKeyController.text = key;
+      _pixNameController.text = name;
+      _pixCityController.text = city;
+    });
   }
 
   @override
   void dispose() {
     _projectIdController.dispose();
+    _pixKeyController.dispose();
+    _pixNameController.dispose();
+    _pixCityController.dispose();
     super.dispose();
   }
 
@@ -198,6 +217,114 @@ class _SettingsViewState extends State<SettingsView> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Pix Configuration Card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppConstants.accentGreen.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.pix_rounded, color: AppConstants.accentGreen, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Configuração do Pix & QR Code',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Dados usados na geração do QR Code e Pix Copia e Cola',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _pixKeyController,
+                    decoration: const InputDecoration(
+                      labelText: 'Sua Chave Pix Fixa',
+                      hintText: 'Ex: CPF, Telefone, E-mail ou Chave Aleatória EVP',
+                      prefixIcon: Icon(Icons.vpn_key_rounded, color: AppConstants.accentGreen),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _pixNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Nome do Titular',
+                            hintText: 'Ex: LEANDRO DENISON',
+                            prefixIcon: Icon(Icons.person_rounded),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _pixCityController,
+                          decoration: const InputDecoration(
+                            labelText: 'Cidade',
+                            hintText: 'Ex: FORTALEZA ou BRASILIA',
+                            prefixIcon: Icon(Icons.location_city_rounded),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppConstants.accentGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      icon: const Icon(Icons.save_rounded, size: 18),
+                      label: const Text('Salvar Dados do Pix'),
+                      onPressed: () async {
+                        await StorageService.setUserPixKey(_pixKeyController.text.trim());
+                        await StorageService.setUserName(_pixNameController.text.trim());
+                        await StorageService.setUserCity(_pixCityController.text.trim());
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Dados do Pix salvos com sucesso!'),
+                              backgroundColor: AppConstants.accentGreen,
+                            ),
+                          );
+                        }
+                      },
                     ),
                   ),
                 ],

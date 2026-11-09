@@ -64,8 +64,13 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
     }
   }
 
+  String _merchantName = 'LEANDRO DENISON';
+  String _merchantCity = 'BRASILIA';
+
   Future<void> _loadPixKeyAndGenerate() async {
     final pixKey = await StorageService.getUserPixKey();
+    _merchantName = await StorageService.getUserName();
+    _merchantCity = await StorageService.getUserCity();
     _pixKeyController.text = pixKey;
     _generateMessage(pixKey);
     setState(() => _isLoading = false);
@@ -78,6 +83,8 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
     _pixCopiaECola = PixPayloadService.generatePixCopiaECola(
       pixKey: pixKey,
       amount: amountToCharge,
+      merchantName: _merchantName,
+      merchantCity: _merchantCity,
       description: 'Cobranca ${widget.personName}',
     );
 

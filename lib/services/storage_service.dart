@@ -97,12 +97,32 @@ class StorageService {
 
   static Future<String> getUserPixKey() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('user_pix_key') ?? '11987654321';
+    return prefs.getString('user_pix_key') ?? '';
   }
 
   static Future<void> setUserPixKey(String pixKey) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_pix_key', pixKey);
+  }
+
+  static Future<String> getUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_pix_name') ?? 'LEANDRO DENISON';
+  }
+
+  static Future<void> setUserName(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_pix_name', name);
+  }
+
+  static Future<String> getUserCity() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_pix_city') ?? 'BRASILIA';
+  }
+
+  static Future<void> setUserCity(String city) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_pix_city', city);
   }
 
   static Future<String?> getStoredData(String key) async {
