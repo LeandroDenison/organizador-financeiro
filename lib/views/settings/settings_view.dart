@@ -1,12 +1,15 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state_provider.dart';
 import '../../providers/finance_provider.dart';
 import '../../providers/debt_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/savings_provider.dart';
+import '../../providers/subscription_provider.dart';
 import '../../services/firebase_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/pix_payload_service.dart';
+import '../../services/sample_data_service.dart';
 import '../../utils/constants.dart';
 
 class SettingsView extends StatefulWidget {
@@ -441,35 +444,99 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Todos os seus dados estão salvos com persistência local e são mantidos mesmo após fechar o navegador ou reiniciar o app.',
+                    'Controle os dados armazenados no dispositivo. Você pode zerar a base para começar limpo ou carregar os dados reais extraídos das faturas.',
                     style: TextStyle(
                       fontSize: 12,
                       color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppConstants.primaryColor,
-                    ),
-                    icon: const Icon(Icons.restart_alt_rounded),
-                    label: const Text('Restaurar Dados de Exemplo'),
-                    onPressed: () async {
-                      final finProvider = context.read<FinanceProvider>();
-                      final debtProv = context.read<DebtProvider>();
-                      final notifProv = context.read<NotificationProvider>();
-                      await finProvider.init();
-                      await debtProv.init();
-                      await notifProv.init();
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Dados de exemplo restaurados com sucesso!'),
-                            backgroundColor: AppConstants.accentGreen,
-                          ),
-                        );
-                      }
-                    },
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppConstants.accentGreen,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.download_done_rounded),
+                        label: const Text('Carregar Minhas Faturas (Nubank + Itaú)'),
+                        onPressed: () async {
+                          final fin = context.read<FinanceProvider>();
+                          final debt = context.read<DebtProvider>();
+                          
+                          // Limpa base e injeta dados reais do Denison
+                          await fin.clearTransactions();
+                          await debt.clearDebts();
+
+                          final realTxs = SampleDataService.getDenisonRealTransactions();
+                          await fin.addMultipleTransactions(realTxs);
+
+                          final realDebts = SampleDataService.getDenisonRealDebts();
+                          for (final d in realDebts) {
+                            await debt.addDebt(d);
+                          }
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Sucesso! ${realTxs.length} transações e ${realDebts.length} dívida (Sergio Lucas) carregadas.'),
+                                backgroundColor: AppConstants.accentGreen,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppConstants.accentRed,
+                          side: const BorderSide(color: AppConstants.accentRed),
+                        ),
+                        icon: const Icon(Icons.delete_sweep_rounded),
+                        label: const Text('Limpar Todos os Dados (Zerar App)'),
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Limpar Todos os Dados?'),
+                              content: const Text(
+                                'Esta ação apagará todas as transações, dívidas, notificações e caixinhas locais. Deseja continuar?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Cancelar'),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: AppConstants.accentRed),
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Sim, Limpar Tudo', style: TextStyle(color: Colors.white)),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirm == true && context.mounted) {
+                            await StorageService.clearAllData();
+                            await context.read<FinanceProvider>().clearTransactions();
+                            await context.read<DebtProvider>().clearDebts();
+                            await context.read<NotificationProvider>().clearAll();
+                            await context.read<SavingsProvider>().clearGoals();
+                            await context.read<SubscriptionProvider>().clearSubscriptions();
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Aplicativo zerado com sucesso! A base está 100% limpa.'),
+                                  backgroundColor: AppConstants.accentGreen,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),

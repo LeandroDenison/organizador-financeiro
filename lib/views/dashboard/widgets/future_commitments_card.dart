@@ -139,7 +139,13 @@ class FutureCommitmentsCard extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('A Receber:', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                              const Expanded(
+                                child: Text(
+                                  'A Receber:',
+                                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                               Text(
                                 '+${CurrencyFormatter.format(item['receivables'] as double)}',
                                 style: const TextStyle(
@@ -154,7 +160,13 @@ class FutureCommitmentsCard extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Assinaturas:', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                              const Expanded(
+                                child: Text(
+                                  'Assinaturas:',
+                                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                               Text(
                                 '-${CurrencyFormatter.format(item['fixedCosts'] as double)}',
                                 style: const TextStyle(
@@ -171,7 +183,13 @@ class FutureCommitmentsCard extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Líquido:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+                          const Expanded(
+                            child: Text(
+                              'Líquido:',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           Text(
                             CurrencyFormatter.format(net),
                             style: TextStyle(

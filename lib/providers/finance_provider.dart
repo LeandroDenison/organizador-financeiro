@@ -1,7 +1,6 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
-import '../services/sample_data_service.dart';
 import '../services/firebase_service.dart';
 
 class FinanceProvider extends ChangeNotifier {
@@ -21,14 +20,24 @@ class FinanceProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final stored = await StorageService.loadTransactions();
-    if (stored.isNotEmpty) {
-      _transactions = stored;
-    } else {
-      _transactions = SampleDataService.getInitialTransactions();
-      await StorageService.saveTransactions(_transactions);
+    // Remove legacy fake transactions if they exist
+    final cleaned = await StorageService.hasCleanedFakeData();
+    var stored = await StorageService.loadTransactions();
+
+    if (!cleaned) {
+      final hasFakes = stored.any((t) =>
+          t.title.contains('Salário Mensal') ||
+          t.title.contains('Pão de Açúcar') ||
+          t.title.contains('Posto Shell') ||
+          t.personName == 'Carlos Silva');
+      if (hasFakes) {
+        await StorageService.clearAllData();
+        stored = [];
+      }
+      await StorageService.markFakeDataCleaned();
     }
 
+    _transactions = stored;
     _isLoading = false;
     notifyListeners();
   }
@@ -122,6 +131,12 @@ class FinanceProvider extends ChangeNotifier {
   Future<void> deleteTransaction(String id) async {
     _transactions.removeWhere((t) => t.id == id);
     await _persist();
+    notifyListeners();
+  }
+
+  Future<void> clearTransactions() async {
+    _transactions = [];
+    await StorageService.saveTransactions([]);
     notifyListeners();
   }
 

@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 class PixPayloadService {
   /// Cleans and sanitizes a Pix key according to BACEN / DICT standards:

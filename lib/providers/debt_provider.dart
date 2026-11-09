@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import '../models/debt_model.dart';
 import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
@@ -57,15 +57,21 @@ class DebtProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final stored = await StorageService.loadDebts();
-    if (stored.isNotEmpty) {
-      _debts = stored;
-    } else {
-      _debts = SampleDataService.getInitialDebts();
-      await StorageService.saveDebts(_debts);
+    var stored = await StorageService.loadDebts();
+    final hasFakes = stored.any((d) => d.personName == 'Carlos Silva' || d.personName == 'Mariana Costa');
+    if (hasFakes) {
+      stored = [];
+      await StorageService.saveDebts([]);
     }
 
+    _debts = stored;
     _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> clearDebts() async {
+    _debts = [];
+    await StorageService.saveDebts([]);
     notifyListeners();
   }
 

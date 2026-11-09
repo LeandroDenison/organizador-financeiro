@@ -1,8 +1,8 @@
-import 'package:uuid/uuid.dart';
+﻿import 'package:uuid/uuid.dart';
 
 enum TransactionType { income, expense }
 
-enum TransactionSource { manual, ofx, csv, notification }
+enum TransactionSource { manual, ofx, csv, notification, pdf }
 
 class TransactionModel {
   final String id;

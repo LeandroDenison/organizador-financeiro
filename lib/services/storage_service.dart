@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
 import '../models/debt_model.dart';
@@ -133,5 +133,27 @@ class StorageService {
   static Future<void> setStoredData(String key, String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, value);
+  }
+
+  /// Limpa todos os dados falsos e transações armazenadas, resetando a base de dados
+  static Future<void> clearAllData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_transactionsKey);
+    await prefs.remove(_debtsKey);
+    await prefs.remove(_notificationsKey);
+    await prefs.remove('financial_savings_goals_v1');
+    await prefs.remove('financial_subscriptions_v1');
+    await prefs.remove('financial_budgets_v1');
+    await prefs.setBool('clean_real_data_v1', true);
+  }
+
+  static Future<bool> hasCleanedFakeData() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('clean_real_data_v1') ?? false;
+  }
+
+  static Future<void> markFakeDataCleaned() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('clean_real_data_v1', true);
   }
 }

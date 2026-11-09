@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class AppConstants {
   static const Color primaryColor = Color(0xFF6366F1); // Indigo

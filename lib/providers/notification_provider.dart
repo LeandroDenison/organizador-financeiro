@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import '../models/notification_event_model.dart';
 import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
@@ -42,13 +42,13 @@ class NotificationProvider extends ChangeNotifier {
       }
     });
 
-    final stored = await StorageService.loadNotifications();
-    if (stored.isNotEmpty) {
-      _notifications = stored;
-    } else {
-      _notifications = SampleDataService.getInitialNotifications();
-      await StorageService.saveNotifications(_notifications);
+    var stored = await StorageService.loadNotifications();
+    final hasFakes = stored.any((n) => n.rawText.contains('Pão de Açúcar') || n.rawText.contains('Farmácia São Paulo'));
+    if (hasFakes) {
+      stored = [];
+      await StorageService.saveNotifications([]);
     }
+    _notifications = stored;
 
     _isLoading = false;
     notifyListeners();

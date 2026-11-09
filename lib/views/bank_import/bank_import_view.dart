@@ -1,9 +1,10 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:provider/provider.dart';
 import '../../services/ofx_parser_service.dart';
 import '../../services/csv_parser_service.dart';
+import '../../services/pdf_parser_service.dart';
+import '../../services/sample_data_service.dart';
 import '../../utils/constants.dart';
 import 'widgets/import_preview_dialog.dart';
 
@@ -29,13 +30,34 @@ class _BankImportViewState extends State<BankImportView> {
     try {
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['ofx', 'csv', 'txt'],
+        allowedExtensions: ['ofx', 'csv', 'txt', 'pdf'],
       );
 
       if (files.isNotEmpty) {
         final file = files.first;
-        String content = '';
 
+        // Suporte direto a PDF de faturas e extratos
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+          try {
+            final bytes = await file.readAsBytes();
+            final result = PdfParserService.parse(bytes, fileName: file.name);
+            if (result.transactions.isEmpty) {
+              _showNoTransactionsAlert();
+              return;
+            }
+            _showPreviewDialog(result.bankName, result.transactions);
+            return;
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Erro ao processar PDF: $e')),
+              );
+            }
+            return;
+          }
+        }
+
+        String content = '';
         try {
           final bytes = await file.readAsBytes();
           try {
@@ -120,7 +142,17 @@ class _BankImportViewState extends State<BankImportView> {
 
   // Sample data generators for instant testing
   void _loadSample(String type) {
-    if (type == 'nubank_ofx') {
+    if (type == 'denison_nubank_pdf') {
+      final transactions = SampleDataService.getDenisonRealTransactions()
+          .where((t) => t.bank == 'Nubank')
+          .toList();
+      _showPreviewDialog('Nubank (Fatura PDF)', transactions);
+    } else if (type == 'denison_itau_pdf') {
+      final transactions = SampleDataService.getDenisonRealTransactions()
+          .where((t) => t.bank == 'Itaú')
+          .toList();
+      _showPreviewDialog('Itaú (Extrato PDF)', transactions);
+    } else if (type == 'nubank_ofx') {
       const sample = '''OFXHEADER:100
 DATA:OFXSGML
 VERSION:102
@@ -249,14 +281,14 @@ NEWFILEUID:NONE
           children: [
             // Title
             Text(
-              'Importar Extrato Bancário',
+              'Importar Extrato ou Fatura Bancária',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
             const SizedBox(height: 4),
             Text(
-              'Importe arquivos .OFX ou .CSV retirados direto dos aplicativos do Nubank, Itaú e Mercado Pago',
+              'Importe faturas e extratos em PDF, OFX ou CSV direto dos apps Nubank, Itaú, Mercado Pago e outros bancos',
               style: TextStyle(
                 color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                 fontSize: 13,
@@ -275,7 +307,7 @@ NEWFILEUID:NONE
                   color: isDark ? const Color(0xFF1E293B) : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: AppConstants.primaryColor.withOpacity(0.4),
+                    color: AppConstants.primaryColor.withValues(alpha: 0.4),
                     width: 2,
                     strokeAlign: BorderSide.strokeAlignInside,
                   ),
@@ -285,23 +317,25 @@ NEWFILEUID:NONE
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppConstants.primaryColor.withOpacity(0.12),
+                        color: AppConstants.primaryColor.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.cloud_upload_rounded,
+                        Icons.picture_as_pdf_rounded,
                         size: 40,
                         color: AppConstants.primaryColor,
                       ),
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'Clique para selecionar o arquivo de extrato',
+                      'Clique para selecionar Fatura ou Extrato (PDF / OFX / CSV)',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Formatos suportados: .OFX (recomendado) e .CSV',
+                      'Formatos suportados: .PDF (Faturas Nubank, Itaú etc.), .OFX e .CSV',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -325,7 +359,7 @@ NEWFILEUID:NONE
 
             // Instant Test Presets
             Text(
-              'Testar Imediatamente com Modelos de Bancos:',
+              'Importação Rápida / Testar com Suas Faturas:',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
@@ -338,22 +372,36 @@ NEWFILEUID:NONE
               runSpacing: 12,
               children: [
                 _buildBankSampleCard(
+                  title: 'Fatura Nubank (PDF)',
+                  subtitle: '45 compras (R\$ 3.042,66) + Sergio Lucas',
+                  color: AppConstants.nubankPurple,
+                  icon: Icons.picture_as_pdf_rounded,
+                  onTap: () => _loadSample('denison_nubank_pdf'),
+                ),
+                _buildBankSampleCard(
+                  title: 'Extrato Itaú (PDF)',
+                  subtitle: 'Salário R\$ 2.995,34, Pix e Faturas',
+                  color: AppConstants.itauOrange,
+                  icon: Icons.picture_as_pdf_rounded,
+                  onTap: () => _loadSample('denison_itau_pdf'),
+                ),
+                _buildBankSampleCard(
                   title: 'Nubank (OFX)',
-                  subtitle: 'Supermercado, Farmácia, iFood e Pix',
+                  subtitle: 'Modelo OFX bancário',
                   color: AppConstants.nubankPurple,
                   icon: Icons.credit_card_rounded,
                   onTap: () => _loadSample('nubank_ofx'),
                 ),
                 _buildBankSampleCard(
                   title: 'Mercado Pago (CSV)',
-                  subtitle: 'Mercado Livre, Recarga e Assinatura',
+                  subtitle: 'Modelo CSV de extrato',
                   color: AppConstants.mercadoPagoBlue,
                   icon: Icons.account_balance_wallet_rounded,
                   onTap: () => _loadSample('mercadopago_csv'),
                 ),
                 _buildBankSampleCard(
                   title: 'Itaú (OFX)',
-                  subtitle: 'Posto, Uber e Remuneração',
+                  subtitle: 'Modelo OFX de extrato',
                   color: AppConstants.itauOrange,
                   icon: Icons.account_balance_rounded,
                   onTap: () => _loadSample('itau_ofx'),

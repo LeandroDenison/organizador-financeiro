@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/subscription_model.dart';
 import '../services/storage_service.dart';
@@ -25,12 +25,24 @@ class SubscriptionProvider extends ChangeNotifier {
             .map((item) => SubscriptionModel.fromMap(Map<String, dynamic>.from(item as Map)))
             .toList();
       } catch (_) {
-        _loadDefaults();
+        _subscriptions = [];
       }
     } else {
-      _loadDefaults();
+      _subscriptions = [];
       await _persist();
     }
+    // Remove legacy fake subscriptions
+    final hasFakes = _subscriptions.any((s) => s.name == 'Netflix Premium' && s.amount == 55.90);
+    if (hasFakes) {
+      _subscriptions = [];
+      await _persist();
+    }
+    notifyListeners();
+  }
+
+  Future<void> clearSubscriptions() async {
+    _subscriptions = [];
+    await _persist();
     notifyListeners();
   }
 

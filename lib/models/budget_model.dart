@@ -1,4 +1,4 @@
-class BudgetModel {
+﻿class BudgetModel {
   final String category;
   double monthlyLimit;
 

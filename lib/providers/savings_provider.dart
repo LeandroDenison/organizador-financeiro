@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/savings_goal_model.dart';
 import '../services/storage_service.dart';
@@ -21,12 +21,24 @@ class SavingsProvider extends ChangeNotifier {
             .map((item) => SavingsGoalModel.fromMap(Map<String, dynamic>.from(item as Map)))
             .toList();
       } catch (_) {
-        _loadDefaults();
+        _goals = [];
       }
     } else {
-      _loadDefaults();
+      _goals = [];
       await _persist();
     }
+    // Remove legacy fake goals if existing
+    final hasFakes = _goals.any((g) => g.title == 'Reserva de Emergência' && g.currentAmount == 1850.0);
+    if (hasFakes) {
+      _goals = [];
+      await _persist();
+    }
+    notifyListeners();
+  }
+
+  Future<void> clearGoals() async {
+    _goals = [];
+    await _persist();
     notifyListeners();
   }
 

@@ -1,4 +1,4 @@
-import 'package:intl/intl.dart';
+﻿import 'package:intl/intl.dart';
 
 class CurrencyFormatter {
   static final NumberFormat _realFormat = NumberFormat.currency(

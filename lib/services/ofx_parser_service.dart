@@ -1,4 +1,4 @@
-import '../models/transaction_model.dart';
+﻿import '../models/transaction_model.dart';
 
 class OfxParseResult {
   final String? bankName;

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/notification_event_model.dart';
 import '../../providers/notification_provider.dart';
@@ -286,22 +286,25 @@ class _NotificationsViewState extends State<NotificationsView> {
                   color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
                 ),
               ),
-              child: SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Adicionar automaticamente ao detectar compra',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                subtitle: Text(
-                  'Se ativado, ao receber notificação do Nubank, Itaú ou Mercado Pago, ela vira despesa imediatamente sem precisar de confirmação manual.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              child: Material(
+                color: Colors.transparent,
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Adicionar automaticamente ao detectar compra',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                   ),
+                  subtitle: Text(
+                    'Se ativado, ao receber notificação do Nubank, Itaú ou Mercado Pago, ela vira despesa imediatamente sem precisar de confirmação manual.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ),
+                  ),
+                  value: notifProvider.autoAdd,
+                  activeColor: AppConstants.primaryColor,
+                  onChanged: (val) => notifProvider.setAutoAdd(val),
                 ),
-                value: notifProvider.autoAdd,
-                activeColor: AppConstants.primaryColor,
-                onChanged: (val) => notifProvider.setAutoAdd(val),
               ),
             ),
             const SizedBox(height: 24),
