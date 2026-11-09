@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
 import '../models/debt_model.dart';
@@ -155,5 +155,64 @@ class StorageService {
   static Future<void> markFakeDataCleaned() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('clean_real_data_v1', true);
+  }
+
+  /// Exports all app state (transactions, debts, savings, subscriptions, budgets, pix config) into a single JSON string
+  static Future<String> exportFullBackupJson() async {
+    final prefs = await SharedPreferences.getInstance();
+    final Map<String, dynamic> payload = {
+      'version': 1,
+      'exportedAt': DateTime.now().toIso8601String(),
+      'projectId': prefs.getString(_firebaseConfigKey) ?? 'organizador-financeiro-d77b4',
+      'driveFolders': {
+        'root': '1pRtJIwSE7_YEmAkoosnIdc-zYNO3PBW2',
+        'pdfs': '1D8OZczH_kSg9YdOwRsw6SjkG17Wmb7JC',
+        'backups': '1pdakzzI9FxXu9lLXMgrZNm-hhdxmKxM0',
+      },
+      'transactions': jsonDecode(prefs.getString(_transactionsKey) ?? '[]'),
+      'debts': jsonDecode(prefs.getString(_debtsKey) ?? '[]'),
+      'savings_goals': jsonDecode(prefs.getString('financial_savings_goals_v1') ?? '[]'),
+      'subscriptions': jsonDecode(prefs.getString('financial_subscriptions_v1') ?? '[]'),
+      'budgets': jsonDecode(prefs.getString('financial_budgets_v1') ?? '{}'),
+      'pix': {
+        'key': prefs.getString('user_pix_key') ?? '',
+        'name': prefs.getString('user_pix_name') ?? 'LEANDRO DENISON',
+        'city': prefs.getString('user_pix_city') ?? 'FORTALEZA',
+      },
+    };
+    return const JsonEncoder.withIndent('  ').convert(payload);
+  }
+
+  /// Restores all app state from a full backup JSON string
+  static Future<bool> importFullBackupJson(String jsonStr) async {
+    try {
+      final Map<String, dynamic> data = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final prefs = await SharedPreferences.getInstance();
+
+      if (data['transactions'] is List) {
+        await prefs.setString(_transactionsKey, jsonEncode(data['transactions']));
+      }
+      if (data['debts'] is List) {
+        await prefs.setString(_debtsKey, jsonEncode(data['debts']));
+      }
+      if (data['savings_goals'] is List) {
+        await prefs.setString('financial_savings_goals_v1', jsonEncode(data['savings_goals']));
+      }
+      if (data['subscriptions'] is List) {
+        await prefs.setString('financial_subscriptions_v1', jsonEncode(data['subscriptions']));
+      }
+      if (data['budgets'] is Map) {
+        await prefs.setString('financial_budgets_v1', jsonEncode(data['budgets']));
+      }
+      if (data['pix'] is Map) {
+        final pix = data['pix'] as Map;
+        if (pix['key'] != null) await prefs.setString('user_pix_key', pix['key'].toString());
+        if (pix['name'] != null) await prefs.setString('user_pix_name', pix['name'].toString());
+        if (pix['city'] != null) await prefs.setString('user_pix_city', pix['city'].toString());
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }

@@ -18,6 +18,7 @@ import 'package:organizador_financeiro/views/transactions/transactions_view.dart
 import 'package:organizador_financeiro/views/transactions/widgets/add_transaction_dialog.dart';
 import 'package:organizador_financeiro/views/transactions/widgets/assign_to_debt_dialog.dart';
 import 'package:organizador_financeiro/views/debts/debts_view.dart';
+import 'package:organizador_financeiro/views/settings/settings_view.dart';
 
 void main() {
   testWidgets('App basic smoke test on mobile screen (360dp width)', (WidgetTester tester) async {
@@ -159,5 +160,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Ativos'), findsOneWidget);
     expect(find.text('Quitados'), findsOneWidget);
+
+    // 4. Test SettingsView (Firebase + Google Drive cards on 360dp mobile screen)
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AppStateProvider()),
+          ChangeNotifierProvider.value(value: financeProvider),
+          ChangeNotifierProvider(create: (_) => DebtProvider()),
+          ChangeNotifierProvider(create: (_) => NotificationProvider()),
+          ChangeNotifierProvider(create: (_) => FirebaseService()),
+          ChangeNotifierProvider(create: (_) => BudgetProvider()),
+          ChangeNotifierProvider(create: (_) => SavingsProvider()),
+          ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SettingsView(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Google Drive'), findsWidgets);
   });
 }

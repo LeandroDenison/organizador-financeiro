@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state_provider.dart';
 import '../../providers/finance_provider.dart';
@@ -6,6 +7,7 @@ import '../../providers/debt_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/savings_provider.dart';
 import '../../providers/subscription_provider.dart';
+import '../../providers/budget_provider.dart';
 import '../../services/firebase_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/pix_payload_service.dart';
@@ -205,7 +207,65 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppConstants.accentGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+                        label: const Text('Sincronizar Agora (Push)'),
+                        onPressed: () async {
+                          final ok = await firebase.pushToFirestore();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(firebase.lastSyncMessage),
+                                backgroundColor: ok ? AppConstants.accentGreen : AppConstants.primaryColor,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppConstants.primaryColor,
+                          side: const BorderSide(color: AppConstants.primaryColor),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.cloud_download_rounded, size: 18),
+                        label: const Text('Restaurar da Nuvem (Pull)'),
+                        onPressed: () async {
+                          final ok = await firebase.pullFromFirestore();
+                          if (ok && context.mounted) {
+                            await context.read<FinanceProvider>().init();
+                            await context.read<DebtProvider>().init();
+                            await context.read<SavingsProvider>().init();
+                            await context.read<SubscriptionProvider>().init();
+                            await context.read<BudgetProvider>().init();
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  ok
+                                      ? 'Dados restaurados do Firestore com sucesso!'
+                                      : 'Nenhum snapshot remoto encontrado ainda no Firestore (${firebase.projectId}).',
+                                ),
+                                backgroundColor: ok ? AppConstants.accentGreen : Colors.amber.shade700,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -217,14 +277,13 @@ class _SettingsViewState extends State<SettingsView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Coleções sincronizadas automaticamente:',
+                          'Arquitetura Híbrida Gratuita (Firebase + Google Drive):',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '• /users/{userId}/transactions (Receitas e despesas)\n'
-                          '• /users/{userId}/debts (Pessoas que me devem e parcelas)\n'
-                          '• /users/{userId}/notifications (Histórico de capturas bancárias)',
+                          '• Firebase (${firebase.projectId}): Dados leves em JSON (transações, devedores, parcelas, caixinhas e tetos)\n'
+                          '• Google Drive (${FirebaseService.driveAccountEmail}): Arquivos pesados (PDFs de faturas, extratos e backups completos)',
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -232,6 +291,125 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                       ],
                     ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Google Drive Heavy Storage & Backups Card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.add_to_drive_rounded, color: Colors.blue, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Google Drive (Arquivos Pesados & Backups)',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'Conectado: ${FirebaseService.driveAccountEmail}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppConstants.accentGreen,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  const Text(
+                    'Pastas criadas automaticamente no seu Google Drive:',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDriveFolderRow(
+                    context,
+                    isDark: isDark,
+                    title: '📁 Organizador Financeiro (Pasta Raiz)',
+                    subtitle: 'ID: ${FirebaseService.driveRootFolderId}',
+                    url: firebase.driveRootUrl,
+                  ),
+                  const SizedBox(height: 6),
+                  _buildDriveFolderRow(
+                    context,
+                    isDark: isDark,
+                    title: '📄 Faturas e Extratos (PDF)',
+                    subtitle: '${firebase.driveFiles.length} PDFs arquivados (${firebase.driveFiles.map((f) => f.name).join(", ")})',
+                    url: firebase.drivePdfFolderUrl,
+                  ),
+                  const SizedBox(height: 6),
+                  _buildDriveFolderRow(
+                    context,
+                    isDark: isDark,
+                    title: '💾 Backups (JSON)',
+                    subtitle: 'Snapshots completos da base de dados',
+                    url: firebase.driveBackupFolderUrl,
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.copy_all_rounded, size: 18),
+                        label: const Text('Copiar Backup JSON Completo'),
+                        onPressed: () async {
+                          final jsonStr = await StorageService.exportFullBackupJson();
+                          await Clipboard.setData(ClipboardData(text: jsonStr));
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Backup JSON copiado para a área de transferência!'),
+                                backgroundColor: AppConstants.accentGreen,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.blue,
+                          side: const BorderSide(color: Colors.blue),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.restore_rounded, size: 18),
+                        label: const Text('Restaurar de JSON'),
+                        onPressed: () => _showRestoreBackupDialog(context),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -262,18 +440,21 @@ class _SettingsViewState extends State<SettingsView> {
                         child: const Icon(Icons.pix_rounded, color: AppConstants.accentGreen, size: 24),
                       ),
                       const SizedBox(width: 12),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Configuração do Pix & QR Code',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            'Dados usados na geração do QR Code e Pix Copia e Cola',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Configuração do Pix & QR Code',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'Dados usados na geração do QR Code e Pix Copia e Cola',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -385,39 +566,44 @@ class _SettingsViewState extends State<SettingsView> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppConstants.primaryColor.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          appState.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                          color: AppConstants.primaryColor,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Modo Escuro (Dark Mode)',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppConstants.primaryColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          Text(
-                            appState.isDarkMode ? 'Tema escuro ativo' : 'Tema claro ativo',
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          child: Icon(
+                            appState.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                            color: AppConstants.primaryColor,
+                            size: 24,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Modo Escuro (Dark Mode)',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                appState.isDarkMode ? 'Tema escuro ativo' : 'Tema claro ativo',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   Switch(
                     value: appState.isDarkMode,
-                    activeColor: AppConstants.primaryColor,
+                    activeThumbColor: AppConstants.primaryColor,
                     onChanged: (_) => appState.toggleDarkMode(),
                   ),
                 ],
@@ -543,6 +729,121 @@ class _SettingsViewState extends State<SettingsView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDriveFolderRow(
+    BuildContext context, {
+    required bool isDark,
+    required String title,
+    required String subtitle,
+    required String url,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Copiar Link da Pasta no Google Drive',
+            icon: const Icon(Icons.link_rounded, size: 18, color: Colors.blue),
+            visualDensity: VisualDensity.compact,
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: url));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Link do Google Drive copiado: $url'),
+                    backgroundColor: Colors.blue,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRestoreBackupDialog(BuildContext context) {
+    final jsonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restaurar Backup JSON'),
+        content: SizedBox(
+          width: 440,
+          child: TextField(
+            controller: jsonController,
+            maxLines: 6,
+            decoration: const InputDecoration(
+              labelText: 'Cole aqui o conteúdo do arquivo JSON de backup',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final raw = jsonController.text.trim();
+              if (raw.isEmpty) return;
+              final ok = await StorageService.importFullBackupJson(raw);
+              if (ok && context.mounted) {
+                await context.read<FinanceProvider>().init();
+                await context.read<DebtProvider>().init();
+                await context.read<SavingsProvider>().init();
+                await context.read<SubscriptionProvider>().init();
+                await context.read<BudgetProvider>().init();
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Backup restaurado com sucesso!'),
+                      backgroundColor: AppConstants.accentGreen,
+                    ),
+                  );
+                }
+              } else if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('JSON inválido. Verifique o conteúdo colado.'),
+                    backgroundColor: AppConstants.accentRed,
+                  ),
+                );
+              }
+            },
+            child: const Text('Restaurar'),
+          ),
+        ],
       ),
     );
   }
