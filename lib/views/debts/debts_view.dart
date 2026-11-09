@@ -276,102 +276,48 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth < 700 ? 1 : 2;
+        final isMobileGrid = constraints.maxWidth < 700;
 
-        return GridView.builder(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: constraints.maxWidth < 700 ? 2.1 : 2.0,
-          ),
-          itemCount: list.length,
-          itemBuilder: (context, index) {
-            final debt = list[index];
-
-            return Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
-                ),
+        Widget buildDebtCard(DebtModel debt) {
+          return Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
               ),
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Header of card: Avatar, Name, Description, Menu
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: AppConstants.primaryColor.withOpacity(0.15),
-                          child: Text(
-                            debt.personName.isNotEmpty ? debt.personName[0].toUpperCase() : '?',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppConstants.primaryColor,
-                            ),
+            ),
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header of card: Avatar, Name, Description, Menu
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: AppConstants.primaryColor.withOpacity(0.15),
+                        child: Text(
+                          debt.personName.isNotEmpty ? debt.personName[0].toUpperCase() : '?',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppConstants.primaryColor,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                debt.personName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                              Text(
-                                debt.description,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              CurrencyFormatter.format(debt.remainingAmount),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: debt.isSettled ? AppConstants.accentGreen : AppConstants.accentAmber,
-                              ),
+                              debt.personName,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
                             Text(
-                              'de ${CurrencyFormatter.format(debt.totalAmount)}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    // Progress bar & installments
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Parcelas: ${debt.remainingInstallments} restantes de ${debt.totalInstallments}',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                            Text(
-                              '${CurrencyFormatter.format(debt.installmentValue)}/mês • Dia ${debt.dueDay}',
+                              debt.description,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -379,86 +325,156 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: debt.progress,
-                            minHeight: 8,
-                            backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              debt.isSettled ? AppConstants.accentGreen : AppConstants.primaryColor,
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            CurrencyFormatter.format(debt.remainingAmount),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: debt.isSettled ? AppConstants.accentGreen : AppConstants.accentAmber,
                             ),
+                          ),
+                          Text(
+                            'de ${CurrencyFormatter.format(debt.totalAmount)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Progress bar & installments
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Parcelas: ${debt.remainingInstallments} restantes de ${debt.totalInstallments}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            '${CurrencyFormatter.format(debt.installmentValue)}/mês',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: debt.progress,
+                          minHeight: 8,
+                          backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            debt.isSettled ? AppConstants.accentGreen : AppConstants.primaryColor,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
 
-                    // Bottom Actions: Receive Installment & Details
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        if (!debt.isSettled)
-                          FilledButton.tonalIcon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppConstants.accentGreen.withOpacity(0.15),
-                              foregroundColor: AppConstants.accentGreen,
-                            ),
-                            icon: const Icon(Icons.check_rounded, size: 16),
-                            label: Text('Receber 1 Parcela (${CurrencyFormatter.format(debt.installmentValue)})'),
-                            onPressed: () {
-                              debtProvider.payInstallment(
-                                debtId: debt.id,
-                                financeProvider: financeProvider,
-                              );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Parcela recebida de ${debt.personName}! Adicionada às receitas.',
-                                  ),
-                                  backgroundColor: AppConstants.accentGreen,
-                                ),
-                              );
-                            },
-                          )
-                        else
-                          const Row(
-                            children: [
-                              Icon(Icons.verified_rounded, size: 16, color: AppConstants.accentGreen),
-                              SizedBox(width: 4),
-                              Text(
-                                'Quitado com sucesso',
-                                style: TextStyle(color: AppConstants.accentGreen, fontWeight: FontWeight.bold, fontSize: 12),
-                              ),
-                            ],
+                  // Bottom Actions: Receive Installment & Details
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      if (!debt.isSettled)
+                        FilledButton.tonalIcon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppConstants.accentGreen.withOpacity(0.15),
+                            foregroundColor: AppConstants.accentGreen,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           ),
-                        Row(
+                          icon: const Icon(Icons.check_rounded, size: 16),
+                          label: Text('Receber (${CurrencyFormatter.format(debt.installmentValue)})'),
+                          onPressed: () {
+                            debtProvider.payInstallment(
+                              debtId: debt.id,
+                              financeProvider: financeProvider,
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Parcela recebida de ${debt.personName}! Adicionada às receitas.',
+                                ),
+                                backgroundColor: AppConstants.accentGreen,
+                              ),
+                            );
+                          },
+                        )
+                      else
+                        const Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            TextButton(
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (_) => DebtDetailDialog(debt: debt),
-                                );
-                              },
-                              child: const Text('Ver Detalhes'),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                              color: Colors.grey.shade400,
-                              onPressed: () {
-                                debtProvider.deleteDebt(debt.id);
-                              },
+                            Icon(Icons.verified_rounded, size: 16, color: AppConstants.accentGreen),
+                            SizedBox(width: 4),
+                            Text(
+                              'Quitado com sucesso',
+                              style: TextStyle(color: AppConstants.accentGreen, fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (_) => DebtDetailDialog(debt: debt),
+                              );
+                            },
+                            child: const Text('Ver Detalhes'),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                            color: Colors.grey.shade400,
+                            onPressed: () {
+                              debtProvider.deleteDebt(debt.id);
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            );
-          },
+            ),
+          );
+        }
+
+        if (isMobileGrid) {
+          return ListView.separated(
+            itemCount: list.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) => buildDebtCard(list[index]),
+          );
+        }
+
+        return GridView.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.8,
+          ),
+          itemCount: list.length,
+          itemBuilder: (context, index) => buildDebtCard(list[index]),
         );
       },
     );

@@ -400,48 +400,66 @@ class DashboardView extends StatelessWidget {
                       size: 20,
                     ),
                   ),
-                  title: Row(
+                  title: Text(
+                    tx.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Text(
-                          tx.title,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${CurrencyFormatter.formatDate(tx.date)} • ${tx.category}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                         ),
                       ),
-                      if (tx.bank != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppConstants.getBankColor(tx.bank).withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            tx.bank!,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: AppConstants.getBankColor(tx.bank),
+                      const SizedBox(height: 2),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 2,
+                        children: [
+                          if (tx.bank != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppConstants.getBankColor(tx.bank).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                tx.bank!,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppConstants.getBankColor(tx.bank),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                      if (tx.source == TransactionSource.notification) ...[
-                        const SizedBox(width: 4),
-                        const Tooltip(
-                          message: 'Capturado via Notificação Android',
-                          child: Icon(Icons.notifications_active_rounded, size: 14, color: AppConstants.primaryColor),
-                        ),
-                      ],
+                          if (tx.source == TransactionSource.notification)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.notifications_active_rounded, size: 10, color: Colors.blue),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    'Notificação',
+                                    style: TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
-                  ),
-                  subtitle: Text(
-                    '${CurrencyFormatter.formatDate(tx.date)} • ${tx.category}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                    ),
                   ),
                   trailing: Text(
                     '${isIncome ? '+' : '-'} ${CurrencyFormatter.format(tx.amount)}',
