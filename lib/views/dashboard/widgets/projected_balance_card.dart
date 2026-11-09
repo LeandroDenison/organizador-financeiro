@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/finance_provider.dart';
 import '../../../providers/debt_provider.dart';
@@ -122,12 +122,15 @@ class ProjectedBalanceCard extends StatelessWidget {
                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                 ),
               ),
-              Text(
-                CurrencyFormatter.format(projectedBalance),
-                style: TextStyle(
-                  fontSize: isMobile ? 22 : 26,
-                  fontWeight: FontWeight.bold,
-                  color: statusColor,
+              Expanded(
+                child: Text(
+                  CurrencyFormatter.format(projectedBalance),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: isMobile ? 22 : 26,
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                  ),
                 ),
               ),
             ],

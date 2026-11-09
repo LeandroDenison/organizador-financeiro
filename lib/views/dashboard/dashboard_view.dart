@@ -230,15 +230,19 @@ class DashboardView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Despesas por Categoria',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.grey.shade900,
+              Expanded(
+                child: Text(
+                  'Despesas por Categoria',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.grey.shade900,
+                  ),
                 ),
               ),
-              Icon(Icons.pie_chart_rounded, color: AppConstants.primaryColor, size: 20),
+              const SizedBox(width: 8),
+              const Icon(Icons.pie_chart_rounded, color: AppConstants.primaryColor, size: 20),
             ],
           ),
           const SizedBox(height: 16),

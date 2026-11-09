@@ -1,4 +1,4 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../models/transaction_model.dart';
 
@@ -34,7 +34,7 @@ class PdfParserService {
         lower.contains('nu pagamentos') ||
         lower.contains('nupay') ||
         lower.contains('resumo da fatura') ||
-        (text.contains('••••') && lower.contains('transações de'));
+        (text.contains('••••') && lower.contains('transações'));
 
     final isItau = lower.contains('itaú') ||
         lower.contains('itau') ||
@@ -50,16 +50,15 @@ class PdfParserService {
     }
   }
 
-  /// Parses Nubank credit card invoice
+  /// Parses Nubank credit card invoice (supports both single-line and multi-line Syncfusion extraction)
   static PdfParseResult _parseNubankInvoice(String text) {
     final List<TransactionModel> transactions = [];
     final lines = text.split(RegExp(r'\r?\n'));
 
-    // Try extracting owner and total
     String? owner;
     double? invoiceTotal;
 
-    final totalRegex = RegExp(r'Total a pagar\s+R\$\s*([\d\.,]+)', caseSensitive: false);
+    final totalRegex = RegExp(r'Total a pagar[\s\r\n]+R\$\s*([\d\.,]+)', caseSensitive: false);
     final totalMatch = totalRegex.firstMatch(text);
     if (totalMatch != null) {
       invoiceTotal = _parseAmount(totalMatch.group(1)!);
@@ -70,11 +69,10 @@ class PdfParserService {
       owner = 'Denison Leandro Siqueira Carneiro';
     }
 
-    // Identify statement year (defaults to current year or found in "FATURA 13 NOV 2026")
     int invoiceYear = DateTime.now().year;
-    final yearMatch = RegExp(r'\b202[4-9]\b').firstMatch(text);
+    final yearMatch = RegExp(r'FATURA\s+\d{1,2}\s+[A-Z]{3}\s+(202\d)', caseSensitive: false).firstMatch(text);
     if (yearMatch != null) {
-      invoiceYear = int.tryParse(yearMatch.group(0)!) ?? invoiceYear;
+      invoiceYear = int.tryParse(yearMatch.group(1)!) ?? invoiceYear;
     }
 
     final monthMap = {
@@ -82,24 +80,44 @@ class PdfParserService {
       'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12,
     };
 
-    // Regex for date prefix: e.g. "06 OUT" or "04 NOV"
-    final datePrefixRegex = RegExp(r'^\s*(\d{2})\s+([A-Za-z]{3})\b');
-    // Regex for money at end of line: e.g. "R$ 159,30" or "−R$ 152,42" or "-R$ 2.534,37"
-    final moneyEndRegex = RegExp(r'(?:[−\-]?\s*R\$\s*|\b)([−\-]?)(\d{1,3}(?:\.\d{3})*,\d{2})\s*$');
+    // Date prefix: e.g. "06 OUT" or "04 NOV", NOT followed by a 4-digit year (which would be a due/closing date)
+    final datePrefixRegex = RegExp(
+      r'^\s*(\d{2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\b(?!\s+\d{4})',
+      caseSensitive: false,
+    );
+
+    // Money at end of line or standalone line: e.g. "R$ 159,30" or "−R$ 152,42" or "-R$ 2.534,37"
+    final moneyEndRegex = RegExp(r'([−\-]?\s*R\$\s*)([−\-]?)(\d{1,3}(?:\.\d{3})*,\d{2})\s*$');
+
+    // Only parse transactions after the "TRANSAÇÕES" section header if present in the document
+    final hasTransactionsSection = lines.any((l) => l.trim().toUpperCase().startsWith('TRANSAÇÕES'));
+    bool inTransactionsSection = !hasTransactionsSection;
 
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i].trim();
       if (line.isEmpty) continue;
 
-      // Ignore headers, totals, and sections like "Pagamento em 06 OUT"
+      final upper = line.toUpperCase();
+      if (upper.startsWith('TRANSAÇÕES')) {
+        inTransactionsSection = true;
+        continue;
+      }
+
+      // Stop if we hit legal footer notes at the end of page 7
+      if (line.startsWith('Em cumprimento à regulação') ||
+          line.startsWith('Como assegurado pela Resolução')) {
+        inTransactionsSection = false;
+        continue;
+      }
+
+      if (!inTransactionsSection) continue;
+
+      // Ignore summary/header lines
       if (line.contains('Pagamento em') ||
-          line.contains('RESUMO DA FATURA') ||
-          line.contains('PRÓXIMAS FATURAS') ||
-          line.contains('LIMITES DISPONÍVEIS') ||
-          line.contains('VALOR MÁXIMO PARA') ||
           line.contains('Pagamentos e Financiamentos') ||
           line.startsWith('Total de compras') ||
-          line.startsWith('Total a pagar')) {
+          line.startsWith('Total a pagar') ||
+          line.startsWith('D E L S Carneiro')) {
         continue;
       }
 
@@ -109,72 +127,120 @@ class PdfParserService {
         final monthStr = dateMatch.group(2)!.toLowerCase();
         final month = monthMap[monthStr] ?? 1;
 
-        // Content after date
         String rest = line.substring(dateMatch.end).trim();
 
-        // Check if amount is on the same line
-        var moneyMatch = moneyEndRegex.firstMatch(rest);
         String title = '';
         double? amount;
         bool isNegative = false;
 
-        if (moneyMatch != null) {
-          final sign = moneyMatch.group(1);
-          final rawVal = moneyMatch.group(2)!;
+        final sameLineMoney = moneyEndRegex.firstMatch(rest);
+        if (sameLineMoney != null) {
+          final prefix = sameLineMoney.group(1)!;
+          final sign = sameLineMoney.group(2)!;
+          final rawVal = sameLineMoney.group(3)!;
           amount = _parseAmount(rawVal);
-          if (sign == '-' || rest.contains('−R\$') || rest.contains('-R\$') || rest.toLowerCase().contains('estorno')) {
+          if (prefix.contains('-') || prefix.contains('−') || sign.isNotEmpty || rest.toLowerCase().contains('estorno')) {
             isNegative = true;
           }
-          title = rest.substring(0, moneyMatch.start).trim();
+          title = rest.substring(0, sameLineMoney.start).trim();
         } else {
-          // Amount might be on subsequent lines (e.g. multi-line transactions like Western Union or Steam)
-          title = rest;
-          for (int j = i + 1; j < lines.length && j <= i + 4; j++) {
-            final nextLine = lines[j].trim();
-            if (datePrefixRegex.hasMatch(nextLine)) break; // Hit next transaction
+          // Multi-line transaction (Syncfusion default extraction puts date, card, description, and amount on separate lines)
+          final List<String> titleParts = [];
+          if (rest.isNotEmpty) {
+            titleParts.add(rest);
+          }
 
-            // Skip conversion info like "Conversão: BRL 5.24 = USD 1 = R$ 5,24" or "IOF + R$ 437,90"
-            if (nextLine.toLowerCase().contains('conversão:') ||
-                nextLine.toLowerCase().contains('conversao:') ||
-                nextLine.toLowerCase().contains('total a pagar:') ||
-                nextLine.toLowerCase().contains('divididos em')) {
+          for (int j = i + 1; j < lines.length && j <= i + 8; j++) {
+            final nextLine = lines[j].trim();
+            if (nextLine.isEmpty) continue;
+
+            // Stop if we hit the next transaction date or page footer
+            if (datePrefixRegex.hasMatch(nextLine) ||
+                RegExp(r'^\d+\s*de\s*\d+$').hasMatch(nextLine) ||
+                nextLine.startsWith('Pagamentos e Financiamentos') ||
+                nextLine.startsWith('Em cumprimento')) {
+              break;
+            }
+
+            // Skip card mask standalone lines like "•••• 5480"
+            if (RegExp(r'^••••\s*\d{4}$').hasMatch(nextLine)) {
+              continue;
+            }
+
+            // Skip intermediate currency conversion or financing info lines
+            final lowerNext = nextLine.toLowerCase();
+            if (lowerNext.startsWith('brl ') ||
+                lowerNext.contains('conversão:') ||
+                lowerNext.contains('conversao:') ||
+                lowerNext.contains('total a pagar:') ||
+                lowerNext.contains('divididos em')) {
               continue;
             }
 
             final nextMoneyMatch = moneyEndRegex.firstMatch(nextLine);
             if (nextMoneyMatch != null) {
-              final sign = nextMoneyMatch.group(1);
-              final rawVal = nextMoneyMatch.group(2)!;
+              final beforeMoney = nextLine.substring(0, nextMoneyMatch.start).trim();
+              if (beforeMoney.isNotEmpty) {
+                titleParts.add(beforeMoney);
+              }
+              final prefix = nextMoneyMatch.group(1)!;
+              final sign = nextMoneyMatch.group(2)!;
+              final rawVal = nextMoneyMatch.group(3)!;
               amount = _parseAmount(rawVal);
-              if (sign == '-' || nextLine.contains('−R\$') || nextLine.contains('-R\$')) {
+              if (prefix.contains('-') || prefix.contains('−') || sign.isNotEmpty) {
                 isNegative = true;
               }
-              i = j; // Advance
+              i = j; // Advance outer loop
               break;
+            } else {
+              titleParts.add(nextLine);
             }
           }
+          title = titleParts.join(' ');
         }
 
-        if (amount != null && amount > 0) {
-          // Clean title
-          title = _cleanDescription(title);
-          if (title.isNotEmpty) {
-            final category = _detectCategory(title);
-            final type = isNegative ? TransactionType.income : TransactionType.expense;
+        title = _cleanDescription(title);
 
-            transactions.add(
-              TransactionModel(
-                title: title,
-                amount: amount,
-                date: DateTime(invoiceYear, month, day),
-                type: type,
-                category: category,
-                bank: 'Nubank',
-                source: TransactionSource.pdf,
-                notes: isNegative ? 'Estorno / Devolução de compra' : 'Fatura Nubank',
-              ),
-            );
+        // Ignore "Pagamento em 06 OUT"
+        if (title.toLowerCase().startsWith('pagamento em')) {
+          continue;
+        }
+
+        if (title.toLowerCase().contains('estorno')) {
+          isNegative = true;
+        }
+
+        if (amount != null && amount > 0 && title.isNotEmpty) {
+          final category = _detectCategory(title);
+          final type = isNegative ? TransactionType.income : TransactionType.expense;
+
+          // Extract installment reference if present (e.g. "Parcela 4/10")
+          String? installmentRef;
+          final instMatch = RegExp(r'Parcela\s+(\d+/\d+)', caseSensitive: false).firstMatch(title);
+          if (instMatch != null) {
+            installmentRef = instMatch.group(1);
           }
+
+          // Detect if it belongs to Sergio Lucas
+          String? personName;
+          if (title.toLowerCase().contains('sergio lucas')) {
+            personName = 'Sergio Lucas';
+          }
+
+          transactions.add(
+            TransactionModel(
+              title: title,
+              amount: amount,
+              date: DateTime(invoiceYear, month, day),
+              type: type,
+              category: category,
+              bank: 'Nubank',
+              source: TransactionSource.pdf,
+              installmentRef: installmentRef,
+              personName: personName,
+              notes: isNegative ? 'Estorno / Devolução de compra' : 'Fatura Nubank',
+            ),
+          );
         }
       }
     }
@@ -187,7 +253,7 @@ class PdfParserService {
     );
   }
 
-  /// Parses Itaú checking account statement
+  /// Parses Itaú checking account statement (supports both single-line and multi-line Syncfusion extraction)
   static PdfParseResult _parseItauStatement(String text) {
     final List<TransactionModel> transactions = [];
     final lines = text.split(RegExp(r'\r?\n'));
@@ -197,48 +263,53 @@ class PdfParserService {
       owner = 'Denison Leandro Siqueira Carneiro';
     }
 
-    // Pattern: 06/11/2026 FATURA PAGA Itaú Click M -83,42
-    // or: 05/11/2026 PAGTO Salários 2.995,34
-    final itauLineRegex = RegExp(r'^(\d{2}/\d{2}/\d{4})\s+(.+?)\s+([−\-]?\s*\d{1,3}(?:\.\d{3})*,\d{2})(?:\s+([−\-]?\s*\d{1,3}(?:\.\d{3})*,\d{2}))?$');
+    final singleLineRegex = RegExp(
+      r'^(\d{2}/\d{2}/\d{4})\s+(.+?)\s+([−\-]?\s*\d{1,3}(?:\.\d{3})*,\d{2})(?:\s+([−\-]?\s*\d{1,3}(?:\.\d{3})*,\d{2}))?$',
+    );
+    final standaloneDateRegex = RegExp(r'^(\d{2}/\d{2}/\d{4})$');
+    final standaloneMoneyRegex = RegExp(r'^([−\-]?\s*\d{1,3}(?:\.\d{3})*,\d{2})$');
 
-    for (final line in lines) {
-      final trimmed = line.trim();
+    for (int i = 0; i < lines.length; i++) {
+      final trimmed = lines[i].trim();
       if (trimmed.isEmpty) continue;
-      if (trimmed.contains('SALDO DO DIA') || trimmed.contains('saldo em conta')) continue;
+      if (trimmed.contains('SALDO DO DIA') || trimmed.contains('saldo em conta') || trimmed.contains('emitido em')) {
+        continue;
+      }
 
-      final match = itauLineRegex.firstMatch(trimmed);
-      if (match != null) {
-        final dateStr = match.group(1)!;
-        final rawTitle = match.group(2)!.trim();
-        final rawVal = match.group(3)!.trim();
+      // Case 1: Single line "06/11/2026 FATURA PAGA Itaú Click M -83,42"
+      final singleMatch = singleLineRegex.firstMatch(trimmed);
+      if (singleMatch != null) {
+        final dateStr = singleMatch.group(1)!;
+        final rawTitle = singleMatch.group(2)!.trim();
+        final rawVal = singleMatch.group(3)!.trim();
+        if (!rawTitle.contains('SALDO DO DIA')) {
+          _addItauTransaction(transactions, dateStr, rawTitle, rawVal);
+        }
+        continue;
+      }
 
-        // Date parse DD/MM/YYYY
-        final dateParts = dateStr.split('/');
-        final day = int.tryParse(dateParts[0]) ?? 1;
-        final month = int.tryParse(dateParts[1]) ?? 1;
-        final year = int.tryParse(dateParts[2]) ?? DateTime.now().year;
+      // Case 2: Multi-line Syncfusion extraction:
+      // Line i: "06/11/2026"
+      // Line i+1: "FATURA PAGA Itaú Click M"
+      // Line i+2: "-83,42"
+      final dateMatch = standaloneDateRegex.firstMatch(trimmed);
+      if (dateMatch != null && i + 2 < lines.length) {
+        // Check if previous line was "emitido em:"
+        if (i > 0 && lines[i - 1].toLowerCase().contains('emitido em')) {
+          continue;
+        }
+        final dateStr = dateMatch.group(1)!;
+        final nextTitle = lines[i + 1].trim();
+        final nextVal = lines[i + 2].trim();
 
-        final isNegative = rawVal.contains('-') || rawVal.contains('−');
-        final cleanValStr = rawVal.replaceAll(RegExp(r'[^\d,]'), '');
-        final amount = _parseAmount(cleanValStr);
+        if (nextTitle.contains('SALDO DO DIA')) {
+          i += 2;
+          continue;
+        }
 
-        if (amount > 0) {
-          final cleanTitle = _cleanDescription(rawTitle);
-          final category = _detectItauCategory(cleanTitle, isNegative);
-          final type = isNegative ? TransactionType.expense : TransactionType.income;
-
-          transactions.add(
-            TransactionModel(
-              title: cleanTitle,
-              amount: amount,
-              date: DateTime(year, month, day),
-              type: type,
-              category: category,
-              bank: 'Itaú',
-              source: TransactionSource.pdf,
-              notes: 'Extrato Itaú Conta Corrente',
-            ),
-          );
+        if (standaloneMoneyRegex.hasMatch(nextVal)) {
+          _addItauTransaction(transactions, dateStr, nextTitle, nextVal);
+          i += 2;
         }
       }
     }
@@ -248,6 +319,41 @@ class PdfParserService {
       transactions: transactions,
       accountOwner: owner,
     );
+  }
+
+  static void _addItauTransaction(
+    List<TransactionModel> transactions,
+    String dateStr,
+    String rawTitle,
+    String rawVal,
+  ) {
+    final dateParts = dateStr.split('/');
+    final day = int.tryParse(dateParts[0]) ?? 1;
+    final month = int.tryParse(dateParts[1]) ?? 1;
+    final year = int.tryParse(dateParts[2]) ?? DateTime.now().year;
+
+    final isNegative = rawVal.contains('-') || rawVal.contains('−');
+    final cleanValStr = rawVal.replaceAll(RegExp(r'[^\d,]'), '');
+    final amount = _parseAmount(cleanValStr);
+
+    if (amount > 0) {
+      final cleanTitle = _cleanDescription(rawTitle);
+      final category = _detectItauCategory(cleanTitle, isNegative);
+      final type = isNegative ? TransactionType.expense : TransactionType.income;
+
+      transactions.add(
+        TransactionModel(
+          title: cleanTitle,
+          amount: amount,
+          date: DateTime(year, month, day),
+          type: type,
+          category: category,
+          bank: 'Itaú',
+          source: TransactionSource.pdf,
+          notes: 'Extrato Itaú Conta Corrente',
+        ),
+      );
+    }
   }
 
   /// Parses generic statements from PDF text
@@ -303,7 +409,8 @@ class PdfParserService {
 
   static String _cleanDescription(String text) {
     return text
-        .replaceAll(RegExp(r'••••\s*\d{4}'), '') // Remove card digits like •••• 6377
+        .replaceAll(RegExp(r'••••\s*\d{4}'), '')
+        .replaceAll(RegExp(r'\s*-\s*NuPay', caseSensitive: false), '')
         .replaceAll(RegExp(r'NuPay', caseSensitive: false), '')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
