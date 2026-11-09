@@ -44,6 +44,7 @@ dependencies:
   shared_preferences: ^2.5.6
   csv: ^8.0.0
   url_launcher: ^6.3.3
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

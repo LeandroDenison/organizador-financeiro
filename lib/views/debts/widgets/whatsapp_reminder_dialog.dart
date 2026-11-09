@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../../models/debt_model.dart';
 import '../../../services/storage_service.dart';
+import '../../../services/pix_payload_service.dart';
 import '../../../utils/constants.dart';
 import '../../../utils/currency_formatter.dart';
 
@@ -40,6 +42,8 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
   bool _chargeAllAccounts = true;
   DebtModel? _selectedDebt;
   bool _includeAbatements = true;
+  bool _showQrCode = false;
+  String _pixCopiaECola = '';
 
   @override
   void initState() {
@@ -51,6 +55,15 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
     _loadPixKeyAndGenerate();
   }
 
+  double get _currentAmountToCharge {
+    if (_chargeAllAccounts && widget.debts.length > 1) {
+      return widget.debts.fold(0.0, (s, d) => s + d.remainingAmount);
+    } else {
+      final target = _selectedDebt ?? widget.debts.first;
+      return target.remainingAmount;
+    }
+  }
+
   Future<void> _loadPixKeyAndGenerate() async {
     final pixKey = await StorageService.getUserPixKey();
     _pixKeyController.text = pixKey;
@@ -59,6 +72,15 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
   }
 
   void _generateMessage(String pixKey) {
+    final amountToCharge = _currentAmountToCharge;
+
+    // Generate BACEN standard Pix Copia e Cola with predefined exact amount
+    _pixCopiaECola = PixPayloadService.generatePixCopiaECola(
+      pixKey: pixKey,
+      amount: amountToCharge,
+      description: 'Cobranca ${widget.personName}',
+    );
+
     final buffer = StringBuffer();
     buffer.writeln('Olá ${widget.personName}! Tudo bem?');
     buffer.writeln('Passando para te mandar o resumo financeiro das suas contas em aberto:');
@@ -97,7 +119,6 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
       // Specific single account bill
       final target = _selectedDebt ?? widget.debts.first;
       final nextInst = target.paidInstallments + 1;
-      final valueStr = CurrencyFormatter.format(target.installmentValue);
 
       buffer.writeln(
         'Lembrando da parcela $nextInst de ${target.totalInstallments} (${CurrencyFormatter.format(target.installmentValue)}/mês) referente a "${target.description}", com vencimento dia ${target.dueDay}.',
@@ -113,6 +134,13 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
 
     buffer.writeln();
     buffer.writeln('Minha chave Pix: ${pixKey.isNotEmpty ? pixKey : "[INSERIR SUA CHAVE PIX]"}');
+
+    if (_pixCopiaECola.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('Ou pague direto com o Pix Copia e Cola (valor exato de ${CurrencyFormatter.format(amountToCharge)} já preenchido):');
+      buffer.writeln(_pixCopiaECola);
+    }
+
     buffer.writeln();
     buffer.writeln('Qualquer dúvida ou comprovante me manda aqui, valeu!');
 
@@ -173,6 +201,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasMultiple = widget.debts.length > 1;
+    final amountToCharge = _currentAmountToCharge;
 
     return AlertDialog(
       title: Row(
@@ -197,8 +226,8 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                 ),
                 Text(
                   hasMultiple
-                      ? '${widget.debts.length} contas ativas cadastradas'
-                      : 'Lembrete educado com chave Pix',
+                      ? '${widget.debts.length} contas • Valor a cobrar: ${CurrencyFormatter.format(amountToCharge)}'
+                      : 'Lembrete com Pix Copia e Cola de ${CurrencyFormatter.format(amountToCharge)}',
                   style: TextStyle(
                     fontSize: 11,
                     color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -292,6 +321,119 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                       ],
                     ],
 
+                    // Chave Pix Fixa
+                    TextField(
+                      controller: _pixKeyController,
+                      decoration: const InputDecoration(
+                        labelText: 'Sua Chave Pix Cadastrada',
+                        hintText: 'CPF, Celular, E-mail ou Chave Aleatória',
+                        prefixIcon: Icon(Icons.pix_rounded, color: AppConstants.accentGreen),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      onChanged: _onPixKeyChanged,
+                    ),
+                    const SizedBox(height: 10),
+
+                    // QR Code Card with Predefined Amount
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppConstants.accentGreen.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppConstants.accentGreen.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.qr_code_2_rounded, color: AppConstants.accentGreen, size: 22),
+                                  const SizedBox(width: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Pix Copia e Cola / QR Code',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
+                                      Text(
+                                        'Valor já predefinido: ${CurrencyFormatter.format(amountToCharge)}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppConstants.accentGreen,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() => _showQrCode = !_showQrCode);
+                                },
+                                child: Text(_showQrCode ? 'Ocultar QR' : 'Ver QR Code'),
+                              ),
+                            ],
+                          ),
+                          if (_showQrCode && _pixCopiaECola.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: QrImageView(
+                                  data: _pixCopiaECola,
+                                  version: QrVersions.auto,
+                                  size: 160.0,
+                                  backgroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'O pagador aponta a câmera e o valor já aparece preenchido!',
+                              style: TextStyle(fontSize: 11, color: Colors.grey),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppConstants.accentGreen,
+                              side: const BorderSide(color: AppConstants.accentGreen),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.content_copy_rounded, size: 16),
+                            label: const Text('Copiar Código Pix Copia e Cola'),
+                            onPressed: _pixCopiaECola.isEmpty
+                                ? null
+                                : () {
+                                    Clipboard.setData(ClipboardData(text: _pixCopiaECola));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Código Pix Copia e Cola de ${CurrencyFormatter.format(amountToCharge)} copiado!',
+                                        ),
+                                        backgroundColor: AppConstants.accentGreen,
+                                      ),
+                                    );
+                                  },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
                     // Checkbox for Abatements
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
@@ -308,26 +450,12 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                         });
                       },
                     ),
-                    const SizedBox(height: 8),
-
-                    // Chave Pix
-                    TextField(
-                      controller: _pixKeyController,
-                      decoration: const InputDecoration(
-                        labelText: 'Sua Chave Pix para Recebimento',
-                        hintText: 'CPF, Celular, E-mail ou Chave Aleatória',
-                        prefixIcon: Icon(Icons.pix_rounded, color: AppConstants.accentGreen),
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                      onChanged: _onPixKeyChanged,
-                    ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 6),
 
                     // Mensagem pré-formatada editável
                     TextField(
                       controller: _messageController,
-                      maxLines: 7,
+                      maxLines: 8,
                       style: const TextStyle(fontSize: 13),
                       decoration: const InputDecoration(
                         labelText: 'Mensagem Formatada (Você pode editar antes de enviar)',
@@ -336,17 +464,17 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                     ),
                     const SizedBox(height: 8),
 
-                    // Copiar texto
+                    // Copiar texto completo
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
-                        icon: const Icon(Icons.copy_rounded, size: 16),
-                        label: const Text('Copiar Texto'),
+                        icon: const Icon(Icons.copy_all_rounded, size: 16),
+                        label: const Text('Copiar Mensagem Completa'),
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: _messageController.text));
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Mensagem e chave Pix copiadas!'),
+                              content: Text('Mensagem, chave Pix e código Copia e Cola copiados!'),
                               backgroundColor: AppConstants.accentGreen,
                             ),
                           );
