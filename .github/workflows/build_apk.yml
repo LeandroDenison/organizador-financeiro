@@ -1,0 +1,51 @@
+name: Compilar APK Android
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: # Permite disparar manualmente com 1 clique no GitHub
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Instalar dependências
+        run: flutter pub get
+
+      - name: Compilar APK Android (Release)
+        run: flutter build apk --release
+
+      - name: Salvar APK como Artefato para Download
+        uses: actions/upload-artifact@v4
+        with:
+          name: organizador-financeiro-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Criar Release no GitHub com o APK
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          files: build/app/outputs/flutter-apk/app-release.apk
+          tag_name: v1.0.0
+          name: "Organizador Financeiro v1.0.0"
+          body: "Versão para Android com suporte a captura de notificações, extratos e devedores."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
