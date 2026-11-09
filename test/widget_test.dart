@@ -16,6 +16,7 @@ import 'package:organizador_financeiro/services/pdf_parser_service.dart';
 import 'package:organizador_financeiro/views/bank_import/widgets/import_preview_dialog.dart';
 import 'package:organizador_financeiro/views/transactions/transactions_view.dart';
 import 'package:organizador_financeiro/views/transactions/widgets/add_transaction_dialog.dart';
+import 'package:organizador_financeiro/views/transactions/widgets/assign_to_debt_dialog.dart';
 import 'package:organizador_financeiro/views/debts/debts_view.dart';
 
 void main() {
@@ -85,9 +86,27 @@ void main() {
 
     final financeProvider = FinanceProvider();
     final parsed = PdfParserService.parseText(
-      'TRANSAÇÕES\n01 NOV\n•••• 9736\nMeatz Burger Fortaleza\nR\$ 70,00\n28 OUT\n•••• 9736\nSupermercado Cometa\nR\$ 18,19',
+      'TRANSAÇÕES\n06 OUT\n•••• 5480\nAmazon - Parcela 4/10\nR\$ 159,30\n01 NOV\n•••• 9736\nMeatz Burger Fortaleza\nR\$ 70,00\n28 OUT\n•••• 9736\nSupermercado Cometa\nR\$ 18,19',
     ).transactions;
     await financeProvider.addMultipleTransactions(parsed);
+
+    // 0. Test AssignToDebtDialog auto-recognizes Parcela 4/10 (7 remaining of R$ 159,30 = R$ 1.115,10)
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: financeProvider),
+          ChangeNotifierProvider(create: (_) => DebtProvider()),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: AssignToDebtDialog(transaction: parsed.first),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Parcela 4 de 10'), findsOneWidget);
+    expect(find.textContaining('Faltam 7 parcelas'), findsOneWidget);
 
     // 1. Test AddTransactionDialog
     await tester.pumpWidget(

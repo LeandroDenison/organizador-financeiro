@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/transaction_model.dart';
+import '../../../models/debt_model.dart';
 import '../../../providers/finance_provider.dart';
 import '../../../providers/debt_provider.dart';
 import '../../../utils/constants.dart';
@@ -233,6 +234,12 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
                   final autoMatchedDebt = autoMatchedPerson != null
                       ? debtProvider.findExactDebtByAmount(personName: autoMatchedPerson, amount: tx.amount)
                       : null;
+                  final instInfo = !isIncome
+                      ? (DebtModel.parseInstallmentInfo(tx.title) ??
+                          (tx.installmentRef != null
+                              ? DebtModel.parseInstallmentInfo('Parcela ${tx.installmentRef}')
+                              : null))
+                      : null;
 
                   return InkWell(
                     onTap: () {
@@ -284,6 +291,19 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
                                     color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                   ),
                                 ),
+                                if (instInfo != null) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Parcela ${instInfo.currentInstallment}/${instInfo.totalInstallments} • Faltam ${instInfo.remainingIncludingCurrent}x (${CurrencyFormatter.format(tx.amount * instInfo.remainingIncludingCurrent)})',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppConstants.accentAmber,
+                                    ),
+                                  ),
+                                ],
                                 if (tx.personName != null) ...[
                                   const SizedBox(height: 2),
                                   Text(

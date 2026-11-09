@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/transaction_model.dart';
+import '../../models/debt_model.dart';
 import '../../providers/finance_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/currency_formatter.dart';
@@ -199,6 +200,12 @@ class TransactionsView extends StatelessWidget {
                       itemBuilder: (context, index) {
                         final tx = transactions[index];
                         final isIncome = tx.type == TransactionType.income;
+                        final instInfo = !isIncome
+                            ? (DebtModel.parseInstallmentInfo(tx.title) ??
+                                (tx.installmentRef != null
+                                    ? DebtModel.parseInstallmentInfo('Parcela ${tx.installmentRef}')
+                                    : null))
+                            : null;
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 10),
@@ -304,6 +311,26 @@ class TransactionsView extends StatelessWidget {
                                                   ),
                                                 if (tx.source != TransactionSource.manual)
                                                   _buildSourceBadge(tx.source),
+                                                if (instInfo != null)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 7,
+                                                      vertical: 2,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: AppConstants.accentAmber
+                                                          .withValues(alpha: 0.15),
+                                                      borderRadius: BorderRadius.circular(5),
+                                                    ),
+                                                    child: Text(
+                                                      'Parcela ${instInfo.currentInstallment}/${instInfo.totalInstallments} • Faltam ${instInfo.remainingIncludingCurrent}x (${CurrencyFormatter.format(tx.amount * instInfo.remainingIncludingCurrent)})',
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: AppConstants.accentAmber,
+                                                      ),
+                                                    ),
+                                                  ),
                                                 if (tx.personName != null)
                                                   Container(
                                                     padding: const EdgeInsets.symmetric(

@@ -19,16 +19,29 @@ class AssignToDebtDialog extends StatefulWidget {
 class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
   final _descriptionController = TextEditingController();
   final _newPersonController = TextEditingController();
+  final _currentInstallmentController = TextEditingController(text: '1');
   final _installmentsController = TextEditingController(text: '1');
   final _dueDayController = TextEditingController(text: '10');
 
   String? _selectedPerson;
   bool _isCreatingNewPerson = false;
+  bool _isInstallmentValue = false; // true when transaction.amount is 1 installment (e.g. "Parcela 4/10")
 
   @override
   void initState() {
     super.initState();
     _descriptionController.text = widget.transaction.title;
+
+    final parsedInfo = DebtModel.parseInstallmentInfo(widget.transaction.title) ??
+        (widget.transaction.installmentRef != null
+            ? DebtModel.parseInstallmentInfo('Parcela ${widget.transaction.installmentRef}')
+            : null);
+
+    if (parsedInfo != null) {
+      _isInstallmentValue = true;
+      _currentInstallmentController.text = '${parsedInfo.currentInstallment}';
+      _installmentsController.text = '${parsedInfo.totalInstallments}';
+    }
   }
 
   @override
@@ -46,6 +59,7 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
   void dispose() {
     _descriptionController.dispose();
     _newPersonController.dispose();
+    _currentInstallmentController.dispose();
     _installmentsController.dispose();
     _dueDayController.dispose();
     super.dispose();
@@ -63,19 +77,36 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
       return;
     }
 
-    final installments = int.tryParse(_installmentsController.text) ?? 1;
-    final dueDay = int.tryParse(_dueDayController.text) ?? 10;
+    final totalInst = (int.tryParse(_installmentsController.text) ?? 1).clamp(1, 72);
+    final currentInst = (int.tryParse(_currentInstallmentController.text) ?? 1).clamp(1, totalInst);
+    final dueDay = (int.tryParse(_dueDayController.text) ?? 10).clamp(1, 31);
     final description = _descriptionController.text.trim().isNotEmpty
         ? _descriptionController.text.trim()
         : widget.transaction.title;
 
+    final int remainingInst = _isInstallmentValue
+        ? (totalInst - currentInst + 1).clamp(1, totalInst)
+        : totalInst;
+
+    final double instVal = _isInstallmentValue
+        ? widget.transaction.amount
+        : (totalInst > 0 ? (widget.transaction.amount / totalInst) : widget.transaction.amount);
+
+    final double fullTotalAmount = _isInstallmentValue
+        ? (widget.transaction.amount * totalInst)
+        : widget.transaction.amount;
+
+    final double remainingTotalAmount = instVal * remainingInst;
+
     final debt = DebtModel(
       personName: personName,
       description: description,
-      totalAmount: widget.transaction.amount,
-      totalInstallments: installments.clamp(1, 48),
-      remainingInstallments: installments.clamp(1, 48),
-      dueDay: dueDay.clamp(1, 31),
+      totalAmount: fullTotalAmount,
+      totalInstallments: totalInst,
+      remainingInstallments: remainingInst,
+      installmentValue: instVal,
+      customRemainingAmount: remainingTotalAmount,
+      dueDay: dueDay,
     );
 
     // 1. Add debt to DebtProvider
@@ -86,6 +117,7 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
           widget.transaction.copyWith(
             personName: personName,
             personId: debt.id,
+            installmentRef: totalInst > 1 ? '$currentInst/$totalInst' : widget.transaction.installmentRef,
             notes: '${widget.transaction.notes ?? ""}\nAtribuído a $personName em Quem me Deve'
                 .trim(),
           ),
@@ -95,7 +127,9 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Despesa atribuída com sucesso a $personName! Nova conta criada em Quem me Deve.',
+          totalInst > 1
+              ? 'Atribuído a $personName: Parcela $currentInst/$totalInst (restam $remainingInst de ${CurrencyFormatter.format(instVal)})!'
+              : 'Despesa atribuída com sucesso a $personName!',
         ),
         backgroundColor: AppConstants.accentGreen,
       ),
@@ -108,9 +142,18 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
     final names = debtProvider.uniquePersonNames;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final int instCount = int.tryParse(_installmentsController.text) ?? 1;
-    final double instVal =
-        instCount > 0 ? (widget.transaction.amount / instCount) : widget.transaction.amount;
+    final int totalInst = (int.tryParse(_installmentsController.text) ?? 1).clamp(1, 72);
+    final int currentInst = (int.tryParse(_currentInstallmentController.text) ?? 1).clamp(1, totalInst);
+    final int remainingInst = _isInstallmentValue
+        ? (totalInst - currentInst + 1).clamp(1, totalInst)
+        : totalInst;
+    final double instVal = _isInstallmentValue
+        ? widget.transaction.amount
+        : (totalInst > 0 ? (widget.transaction.amount / totalInst) : widget.transaction.amount);
+    final double fullTotalAmount = _isInstallmentValue
+        ? (widget.transaction.amount * totalInst)
+        : widget.transaction.amount;
+    final double remainingTotalAmount = instVal * remainingInst;
 
     return AlertDialog(
       title: Row(
@@ -251,32 +294,64 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
               ),
               const SizedBox(height: 12),
 
+              // Toggle whether invoice value is 1 installment or total amount
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text(
+                  'Valor acima é de 1 parcela da fatura',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  _isInstallmentValue
+                      ? 'Multiplica pelas parcelas restantes (ideal p/ compras parceladas no cartão)'
+                      : 'Divide o valor pelo número de parcelas',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                value: _isInstallmentValue,
+                onChanged: (val) => setState(() => _isInstallmentValue = val),
+              ),
+              const SizedBox(height: 8),
+
               // Installments & Due Day
               Row(
                 children: [
+                  if (_isInstallmentValue) ...[
+                    Expanded(
+                      child: TextField(
+                        controller: _currentInstallmentController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Parcela Atual',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   Expanded(
                     child: TextField(
                       controller: _installmentsController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Nº Parcelas',
-                        prefixIcon: Icon(Icons.numbers_rounded),
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      decoration: InputDecoration(
+                        labelText: _isInstallmentValue ? 'Total Parcelas' : 'Nº Parcelas',
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
                       controller: _dueDayController,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'Dia Vencimento',
-                        prefixIcon: Icon(Icons.calendar_today_rounded),
+                        labelText: 'Dia Venc.',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
                     ),
                   ),
@@ -286,21 +361,34 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
 
               // Installment value preview
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppConstants.primaryColor.withOpacity(0.08),
+                  color: AppConstants.primaryColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '$instCount x de ${CurrencyFormatter.format(instVal)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppConstants.primaryColor),
+                      _isInstallmentValue
+                          ? 'Parcela $currentInst de $totalInst (${CurrencyFormatter.format(instVal)}/mês)'
+                          : '$totalInst x de ${CurrencyFormatter.format(instVal)}/mês',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppConstants.primaryColor,
+                      ),
                     ),
-                    const Text(
-                      'Será cobrado mensalmente',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    const SizedBox(height: 3),
+                    Text(
+                      _isInstallmentValue
+                          ? 'Faltam $remainingInst parcelas • Saldo restante: ${CurrencyFormatter.format(remainingTotalAmount)} (Total ${totalInst}x: ${CurrencyFormatter.format(fullTotalAmount)})'
+                          : 'Total a cobrar: ${CurrencyFormatter.format(fullTotalAmount)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                      ),
                     ),
                   ],
                 ),

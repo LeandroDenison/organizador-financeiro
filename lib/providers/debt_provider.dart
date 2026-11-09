@@ -106,7 +106,10 @@ class DebtProvider extends ChangeNotifier {
   }
 
   double get totalAlreadyReceived {
-    return _debts.fold(0.0, (sum, d) => sum + d.paidAmount);
+    return _debts.fold(
+      0.0,
+      (sum, d) => sum + (d.paymentHistory.isNotEmpty ? d.receivedInAppAmount : d.paidAmount),
+    );
   }
 
   int get totalPendingInstallments {
@@ -124,7 +127,40 @@ class DebtProvider extends ChangeNotifier {
       await StorageService.saveDebts([]);
     }
 
-    _debts = stored;
+    // Auto-repair any existing debt created from an installment title (e.g. "Parcela 4/10") that was saved with totalInstallments == 1
+    bool repairedAny = false;
+    final List<DebtModel> migrated = [];
+    for (final d in stored) {
+      final info = DebtModel.parseInstallmentInfo(d.description);
+      if (info != null && d.totalInstallments == 1 && info.totalInstallments > 1) {
+        final double instVal = d.installmentValue > 0 ? d.installmentValue : d.totalAmount;
+        final int totalInst = info.totalInstallments;
+        final double fullTotalAmount = instVal * totalInst;
+        final int paymentsMadeInApp = d.paymentHistory.length;
+        final int newRemainingInst = (info.remainingIncludingCurrent - paymentsMadeInApp).clamp(0, totalInst);
+        final bool nowSettled = newRemainingInst <= 0;
+
+        migrated.add(
+          d.copyWith(
+            totalAmount: fullTotalAmount,
+            totalInstallments: totalInst,
+            remainingInstallments: newRemainingInst,
+            installmentValue: instVal,
+            customRemainingAmount: newRemainingInst * instVal,
+            isSettled: nowSettled,
+          ),
+        );
+        repairedAny = true;
+      } else {
+        migrated.add(d);
+      }
+    }
+
+    if (repairedAny) {
+      await StorageService.saveDebts(migrated);
+    }
+
+    _debts = migrated;
     _isLoading = false;
     notifyListeners();
   }
@@ -156,8 +192,9 @@ class DebtProvider extends ChangeNotifier {
 
     final installmentNum = current.paidInstallments + 1;
     final amountPaid = customAmount ?? current.installmentValue;
-    final newRemaining = current.remainingInstallments - 1;
-    final isNowSettled = newRemaining <= 0;
+    final newRemaining = (current.remainingInstallments - 1).clamp(0, current.totalInstallments);
+    final newRemainingBalance = (current.remainingAmount - amountPaid).clamp(0.0, current.totalAmount);
+    final isNowSettled = newRemaining <= 0 || newRemainingBalance <= 0.01;
 
     final newPayment = DebtPaymentRecord(
       date: DateTime.now(),
@@ -169,7 +206,8 @@ class DebtProvider extends ChangeNotifier {
     final updatedPayments = List<DebtPaymentRecord>.from(current.paymentHistory)..add(newPayment);
 
     _debts[index] = current.copyWith(
-      remainingInstallments: newRemaining > 0 ? newRemaining : 0,
+      remainingInstallments: isNowSettled ? 0 : newRemaining,
+      customRemainingAmount: isNowSettled ? 0.0 : newRemainingBalance,
       isSettled: isNowSettled,
       paymentHistory: updatedPayments,
     );
@@ -224,7 +262,8 @@ class DebtProvider extends ChangeNotifier {
         : (isNowSettled ? 0 : current.remainingInstallments);
 
     _debts[index] = current.copyWith(
-      remainingInstallments: newRemainingInst,
+      remainingInstallments: isNowSettled ? 0 : newRemainingInst,
+      customRemainingAmount: isNowSettled ? 0.0 : remainingAfter,
       isSettled: isNowSettled,
       paymentHistory: updatedPayments,
     );
@@ -356,6 +395,7 @@ class DebtProvider extends ChangeNotifier {
     final validRemaining = newRemaining.clamp(0, current.totalInstallments);
     _debts[index] = current.copyWith(
       remainingInstallments: validRemaining,
+      customRemainingAmount: validRemaining * current.installmentValue,
       isSettled: validRemaining == 0,
     );
 
@@ -383,6 +423,7 @@ class DebtProvider extends ChangeNotifier {
 
     _debts[index] = current.copyWith(
       remainingInstallments: 0,
+      customRemainingAmount: 0.0,
       isSettled: true,
       paymentHistory: List<DebtPaymentRecord>.from(current.paymentHistory)..add(newPayment),
     );
