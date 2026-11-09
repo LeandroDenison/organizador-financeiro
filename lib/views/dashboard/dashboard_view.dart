@@ -12,6 +12,7 @@ import 'widgets/category_pie_chart.dart';
 import 'widgets/projected_balance_card.dart';
 import 'widgets/budget_alert_banner.dart';
 import 'widgets/future_commitments_card.dart';
+import 'widgets/debtor_pix_alert_banner.dart';
 import '../transactions/widgets/add_transaction_dialog.dart';
 import '../debts/widgets/add_debt_dialog.dart';
 
@@ -102,6 +103,9 @@ class DashboardView extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
+
+            // Debtor Pix Recognition Alert (if someone sent Pix to abate accounts)
+            const DebtorPixAlertBanner(),
 
             // Feature 4: Budget Limit Alerts (if any threshold reached)
             const BudgetAlertBanner(),

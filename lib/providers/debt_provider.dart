@@ -16,6 +16,31 @@ class DebtProvider extends ChangeNotifier {
   List<DebtModel> get activeDebts => _debts.where((d) => !d.isSettled).toList();
   List<DebtModel> get settledDebts => _debts.where((d) => d.isSettled).toList();
 
+  Map<String, List<DebtModel>> get activeDebtsByPerson {
+    final Map<String, List<DebtModel>> map = {};
+    for (final d in activeDebts) {
+      final key = d.personName.trim();
+      map.putIfAbsent(key, () => []).add(d);
+    }
+    return map;
+  }
+
+  List<String> get uniquePersonNames {
+    final set = _debts.map((d) => d.personName.trim()).where((name) => name.isNotEmpty).toSet();
+    return set.toList()..sort();
+  }
+
+  String? findMatchingPerson(String text) {
+    if (text.isEmpty) return null;
+    final lower = text.toLowerCase();
+    for (final name in uniquePersonNames) {
+      if (lower.contains(name.toLowerCase()) || name.toLowerCase().contains(lower)) {
+        return name;
+      }
+    }
+    return null;
+  }
+
   double get totalOwedToMe {
     return activeDebts.fold(0.0, (sum, d) => sum + d.remainingAmount);
   }
@@ -102,6 +127,114 @@ class DebtProvider extends ChangeNotifier {
 
     await _persist();
     notifyListeners();
+  }
+
+  /// Abate a custom amount on a specific debt (e.g. Sergio paid R$ 1.000)
+  Future<void> abateDebtAmount({
+    required String debtId,
+    required double amount,
+    required FinanceProvider financeProvider,
+    String? note,
+    bool addToTransactions = true,
+  }) async {
+    final index = _debts.indexWhere((d) => d.id == debtId);
+    if (index == -1 || amount <= 0) return;
+
+    final current = _debts[index];
+    final actualAbatement = amount > current.remainingAmount ? current.remainingAmount : amount;
+
+    final newPayment = DebtPaymentRecord(
+      date: DateTime.now(),
+      amount: actualAbatement,
+      installmentNumber: current.paidInstallments + 1,
+      note: note ?? 'Abatimento avulso / parcial',
+    );
+
+    final updatedPayments = List<DebtPaymentRecord>.from(current.paymentHistory)..add(newPayment);
+    final remainingAfter = (current.remainingAmount - actualAbatement).clamp(0.0, double.infinity);
+    final isNowSettled = remainingAfter <= 0.01;
+    final int newRemainingInst = current.installmentValue > 0
+        ? (remainingAfter / current.installmentValue).ceil()
+        : (isNowSettled ? 0 : current.remainingInstallments);
+
+    _debts[index] = current.copyWith(
+      remainingInstallments: newRemainingInst,
+      isSettled: isNowSettled,
+      paymentHistory: updatedPayments,
+    );
+
+    if (addToTransactions) {
+      await financeProvider.addTransaction(
+        TransactionModel(
+          title: '${current.personName} - Abatimento Recebido',
+          amount: actualAbatement,
+          date: DateTime.now(),
+          type: TransactionType.income,
+          category: 'Empréstimo Recebido',
+          personId: current.id,
+          personName: current.personName,
+          notes: note ?? 'Abatimento de dívida (${current.description})',
+        ),
+      );
+    }
+
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Abate an amount across all active debts of a person (e.g. Sergio paid R$ 1.000)
+  Future<double> abatePersonDebts({
+    required String personName,
+    required double amount,
+    required FinanceProvider financeProvider,
+    String? note,
+    bool addToTransactions = true,
+  }) async {
+    if (amount <= 0) return 0.0;
+    final personDebts = activeDebts
+        .where((d) => d.personName.trim().toLowerCase() == personName.trim().toLowerCase())
+        .toList();
+
+    if (personDebts.isEmpty) return 0.0;
+
+    double remainingToAbate = amount;
+    double totalActuallyAbated = 0.0;
+
+    for (final debt in personDebts) {
+      if (remainingToAbate <= 0.001) break;
+
+      final canAbate = debt.remainingAmount;
+      final amountForThisDebt = remainingToAbate >= canAbate ? canAbate : remainingToAbate;
+
+      await abateDebtAmount(
+        debtId: debt.id,
+        amount: amountForThisDebt,
+        financeProvider: financeProvider,
+        note: note ?? 'Abatimento de $personName',
+        addToTransactions: false,
+      );
+
+      remainingToAbate -= amountForThisDebt;
+      totalActuallyAbated += amountForThisDebt;
+    }
+
+    if (addToTransactions && totalActuallyAbated > 0) {
+      await financeProvider.addTransaction(
+        TransactionModel(
+          title: '$personName - Abatimento de Contas',
+          amount: totalActuallyAbated,
+          date: DateTime.now(),
+          type: TransactionType.income,
+          category: 'Empréstimo Recebido',
+          personName: personName,
+          notes: note ?? 'Abatimento distribuído nas contas de $personName',
+        ),
+      );
+    }
+
+    await _persist();
+    notifyListeners();
+    return totalActuallyAbated;
   }
 
   Future<void> updateRemainingInstallments(String debtId, int newRemaining) async {

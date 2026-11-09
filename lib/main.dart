@@ -25,7 +25,7 @@ void main() async {
   await debtProvider.init();
 
   final notificationProvider = NotificationProvider();
-  await notificationProvider.init(financeProvider);
+  await notificationProvider.init(financeProvider, debtProvider);
 
   final firebaseService = FirebaseService();
   await firebaseService.init();

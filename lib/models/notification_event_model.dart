@@ -14,6 +14,8 @@ class NotificationEventModel {
   NotificationStatus status;
   final bool autoAdded;
   String? createdTransactionId;
+  String? matchedPersonName;
+  bool isDebtAbatementCandidate;
 
   NotificationEventModel({
     String? id,
@@ -27,6 +29,8 @@ class NotificationEventModel {
     this.status = NotificationStatus.pending,
     this.autoAdded = false,
     this.createdTransactionId,
+    this.matchedPersonName,
+    this.isDebtAbatementCandidate = false,
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
 
@@ -43,6 +47,8 @@ class NotificationEventModel {
       'status': status.name,
       'autoAdded': autoAdded,
       'createdTransactionId': createdTransactionId,
+      'matchedPersonName': matchedPersonName,
+      'isDebtAbatementCandidate': isDebtAbatementCandidate,
     };
   }
 
@@ -64,6 +70,8 @@ class NotificationEventModel {
       ),
       autoAdded: map['autoAdded'] as bool? ?? false,
       createdTransactionId: map['createdTransactionId'] as String?,
+      matchedPersonName: map['matchedPersonName'] as String?,
+      isDebtAbatementCandidate: map['isDebtAbatementCandidate'] as bool? ?? false,
     );
   }
 }

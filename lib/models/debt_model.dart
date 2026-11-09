@@ -69,14 +69,27 @@ class DebtModel {
         createdAt = createdAt ?? DateTime.now(),
         paymentHistory = paymentHistory ?? [];
 
-  int get paidInstallments => totalInstallments - remainingInstallments;
+  int get paidInstallments {
+    if (installmentValue > 0) {
+      return (paidAmount / installmentValue).floor().clamp(0, totalInstallments);
+    }
+    return totalInstallments - remainingInstallments;
+  }
 
-  double get remainingAmount => remainingInstallments * installmentValue;
+  double get paidAmount {
+    if (paymentHistory.isNotEmpty) {
+      return paymentHistory.fold(0.0, (sum, p) => sum + p.amount);
+    }
+    return totalAmount - (remainingInstallments * installmentValue);
+  }
 
-  double get paidAmount => totalAmount - remainingAmount;
+  double get remainingAmount {
+    final rem = totalAmount - paidAmount;
+    return rem > 0.01 ? rem : 0.0;
+  }
 
   double get progress =>
-      totalInstallments > 0 ? (paidInstallments / totalInstallments).clamp(0.0, 1.0) : 1.0;
+      totalAmount > 0 ? (paidAmount / totalAmount).clamp(0.0, 1.0) : 1.0;
 
   Map<String, dynamic> toMap() {
     return {

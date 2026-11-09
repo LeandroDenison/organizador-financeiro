@@ -4,6 +4,7 @@ import '../../../models/transaction_model.dart';
 import '../../../providers/finance_provider.dart';
 import '../../../utils/constants.dart';
 import '../../../utils/currency_formatter.dart';
+import '../../transactions/widgets/assign_to_debt_dialog.dart';
 
 class ImportPreviewDialog extends StatefulWidget {
   final String bankName;
@@ -191,22 +192,62 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
                             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                           ),
                         ),
-                        Text(
-                          '${isIncome ? '+' : '-'} ${CurrencyFormatter.format(tx.amount)}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: isIncome ? AppConstants.accentGreen : AppConstants.accentRed,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${isIncome ? '+' : '-'} ${CurrencyFormatter.format(tx.amount)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: isIncome ? AppConstants.accentGreen : AppConstants.accentRed,
+                              ),
+                            ),
+                            if (!isIncome) ...[
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                                color: AppConstants.primaryColor,
+                                tooltip: 'Atribuir a Quem me Deve',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () async {
+                                  final assigned = await showDialog<bool>(
+                                    context: context,
+                                    builder: (_) => AssignToDebtDialog(transaction: tx),
+                                  );
+                                  if (assigned == true) {
+                                    setState(() {});
+                                  }
+                                },
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
-                    subtitle: Text(
-                      '${CurrencyFormatter.formatDate(tx.date)} • ${tx.category}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                      ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${CurrencyFormatter.formatDate(tx.date)} • ${tx.category}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          ),
+                        ),
+                        if (tx.personName != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Atribuído a: ${tx.personName}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppConstants.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   );
                 },

@@ -6,6 +6,7 @@ import '../services/sample_data_service.dart';
 import '../services/notification_service.dart';
 import '../services/ofx_parser_service.dart';
 import 'finance_provider.dart';
+import 'debt_provider.dart';
 
 class NotificationProvider extends ChangeNotifier {
   List<NotificationEventModel> _notifications = [];
@@ -21,7 +22,7 @@ class NotificationProvider extends ChangeNotifier {
   List<NotificationEventModel> get pendingNotifications =>
       _notifications.where((n) => n.status == NotificationStatus.pending).toList();
 
-  Future<void> init([FinanceProvider? financeProvider]) async {
+  Future<void> init([FinanceProvider? financeProvider, DebtProvider? debtProvider]) async {
     _isLoading = true;
     notifyListeners();
 
@@ -36,6 +37,7 @@ class NotificationProvider extends ChangeNotifier {
           title: title,
           text: text,
           financeProvider: financeProvider,
+          debtProvider: debtProvider,
         );
       }
     });
@@ -76,6 +78,7 @@ class NotificationProvider extends ChangeNotifier {
     required String title,
     required String text,
     required FinanceProvider financeProvider,
+    DebtProvider? debtProvider,
   }) async {
     final parsed = NotificationService.parseNotificationText(
       appPackage: appPackage,
@@ -83,12 +86,30 @@ class NotificationProvider extends ChangeNotifier {
       text: text,
     );
 
+    // Check if Pix sender matches any active debtor
+    String? matchedPerson;
+    if (parsed != null && parsed.type == TransactionType.income && debtProvider != null) {
+      final sender = parsed.senderName ?? parsed.merchant;
+      matchedPerson = debtProvider.findMatchingPerson(sender);
+      if (matchedPerson == null) {
+        matchedPerson = debtProvider.findMatchingPerson('$title $text');
+      }
+    }
+
     String? createdTxId;
     final bool shouldAutoAdd = _autoAdd && parsed != null && parsed.amount > 0;
 
-    if (shouldAutoAdd) {
+    // If it's a Pix from a recognized debtor and auto-add is enabled, auto-abate!
+    if (shouldAutoAdd && matchedPerson != null && debtProvider != null) {
+      await debtProvider.abatePersonDebts(
+        personName: matchedPerson,
+        amount: parsed!.amount,
+        financeProvider: financeProvider,
+        note: 'Pix automático ($appPackage)',
+      );
+    } else if (shouldAutoAdd) {
       final tx = TransactionModel(
-        title: parsed.merchant,
+        title: parsed!.merchant,
         amount: parsed.amount,
         date: DateTime.now(),
         type: parsed.type,
@@ -111,9 +132,36 @@ class NotificationProvider extends ChangeNotifier {
       status: shouldAutoAdd ? NotificationStatus.approved : NotificationStatus.pending,
       autoAdded: shouldAutoAdd,
       createdTransactionId: createdTxId,
+      matchedPersonName: matchedPerson,
+      isDebtAbatementCandidate: matchedPerson != null,
     );
 
     _notifications.insert(0, event);
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Manually trigger debt abatement from a received Pix notification
+  Future<void> abateFromNotification({
+    required NotificationEventModel event,
+    required String personName,
+    required DebtProvider debtProvider,
+    required FinanceProvider financeProvider,
+  }) async {
+    final amount = event.parsedAmount ?? 0.0;
+    if (amount <= 0) return;
+
+    await debtProvider.abatePersonDebts(
+      personName: personName,
+      amount: amount,
+      financeProvider: financeProvider,
+      note: 'Pix de $personName abatido pelo usuário',
+    );
+
+    event.status = NotificationStatus.approved;
+    event.matchedPersonName = personName;
+    event.isDebtAbatementCandidate = true;
+
     await _persist();
     notifyListeners();
   }

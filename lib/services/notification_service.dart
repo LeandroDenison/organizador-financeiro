@@ -6,12 +6,14 @@ import '../models/transaction_model.dart';
 class NotificationParseResult {
   final double amount;
   final String merchant;
+  final String? senderName;
   final String bankName;
   final TransactionType type;
 
   NotificationParseResult({
     required this.amount,
     required this.merchant,
+    this.senderName,
     required this.bankName,
     required this.type,
   });
@@ -73,28 +75,34 @@ class NotificationService {
 
     // Extract Merchant / Destination / Sender
     String merchant = isIncome ? 'Pix Recebido' : 'Compra Cartão';
+    String? senderName;
 
     if (isIncome) {
-      // Match sender names: "de Fulano de Tal" or "remetente Fulano"
-      final senderRegex = RegExp(
+      // Pattern 1: "[Nome] te enviou um Pix"
+      final senderSentRegex = RegExp(
+        r'([A-Za-zÀ-ÿ\s]{3,35})\s+te enviou um pix',
+        caseSensitive: false,
+      );
+      final matchSent = senderSentRegex.firstMatch(fullText);
+
+      // Pattern 2: "de [Nome]" or "remetente [Nome]" or "enviado por [Nome]"
+      final senderDeRegex = RegExp(
         r'(?:de|enviado por|remetente)\s+([A-Za-zÀ-ÿ\s]{3,35})(?:\s+no|\s+de\s+r\$|\.|$)',
         caseSensitive: false,
       );
-      final senderMatch = senderRegex.firstMatch(text);
-      if (senderMatch != null) {
-        final rawSender = senderMatch.group(1)?.trim();
-        if (rawSender != null &&
-            !rawSender.toLowerCase().contains('banco') &&
-            !rawSender.toLowerCase().contains('r\$') &&
-            !rawSender.toLowerCase().contains('conta')) {
-          merchant = 'Pix: $rawSender';
-        }
+      final matchDe = senderDeRegex.firstMatch(fullText);
+
+      final rawSender = matchSent?.group(1)?.trim() ?? matchDe?.group(1)?.trim();
+      if (rawSender != null &&
+          !rawSender.toLowerCase().contains('banco') &&
+          !rawSender.toLowerCase().contains('r\$') &&
+          !rawSender.toLowerCase().contains('conta') &&
+          rawSender.length >= 3) {
+        senderName = rawSender;
+        merchant = 'Pix: $rawSender';
       }
     } else {
       // Patterns for expense merchant:
-      // Nubank: "em [Merchant]." ou "no estabelecimento [Merchant]"
-      // Itaú: "em [Merchant]."
-      // Mercado Pago: "para [Merchant]"
       final merchantRegex = RegExp(
         r'(?:em|no|para|no estabelecimento)\s+([^.,;\n]+)',
         caseSensitive: false,
@@ -112,6 +120,7 @@ class NotificationService {
     return NotificationParseResult(
       amount: amount,
       merchant: merchant,
+      senderName: senderName,
       bankName: bankName,
       type: isIncome ? TransactionType.income : TransactionType.expense,
     );

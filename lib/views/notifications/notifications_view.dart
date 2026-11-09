@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/notification_event_model.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/finance_provider.dart';
+import '../../providers/debt_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/currency_formatter.dart';
 
@@ -30,13 +31,23 @@ class _NotificationsViewState extends State<NotificationsView> {
   void _simulatePreset(String bank) {
     final notifProvider = context.read<NotificationProvider>();
     final finProvider = context.read<FinanceProvider>();
+    final debtProvider = context.read<DebtProvider>();
 
-    if (bank == 'nubank') {
+    if (bank == 'pix_sergio') {
+      notifProvider.onNotificationReceived(
+        appPackage: 'com.nu.production',
+        title: 'Transferência recebida',
+        text: 'Você recebeu um Pix de R\$ 1.000,00 de Sérgio no Nubank.',
+        financeProvider: finProvider,
+        debtProvider: debtProvider,
+      );
+    } else if (bank == 'nubank') {
       notifProvider.onNotificationReceived(
         appPackage: 'com.nu.production',
         title: 'Compra aprovada no Cartão Nubank',
         text: 'Compra de R\$ 98,50 aprovada em Outback Steakhouse.',
         financeProvider: finProvider,
+        debtProvider: debtProvider,
       );
     } else if (bank == 'itau') {
       notifProvider.onNotificationReceived(
@@ -44,6 +55,7 @@ class _NotificationsViewState extends State<NotificationsView> {
         title: 'Cartão Itaú',
         text: 'Compra aprovada de R\$ 120,00 no cartão final 8821 em Posto Ipiranga.',
         financeProvider: finProvider,
+        debtProvider: debtProvider,
       );
     } else if (bank == 'mercadopago') {
       notifProvider.onNotificationReceived(
@@ -51,6 +63,7 @@ class _NotificationsViewState extends State<NotificationsView> {
         title: 'Pagamento aprovado',
         text: 'Você pagou R\$ 32,90 para Livraria Saraiva no débito Mercado Pago.',
         financeProvider: finProvider,
+        debtProvider: debtProvider,
       );
     }
 
@@ -67,12 +80,14 @@ class _NotificationsViewState extends State<NotificationsView> {
 
     final notifProvider = context.read<NotificationProvider>();
     final finProvider = context.read<FinanceProvider>();
+    final debtProvider = context.read<DebtProvider>();
 
     notifProvider.onNotificationReceived(
       appPackage: _selectedPackage,
       title: _customTitleController.text.trim(),
       text: _customTextController.text.trim(),
       financeProvider: finProvider,
+      debtProvider: debtProvider,
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -249,6 +264,15 @@ class _NotificationsViewState extends State<NotificationsView> {
               children: [
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
+                    backgroundColor: AppConstants.accentGreen,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.pix_rounded),
+                  label: const Text('Simular Pix de Sérgio (R\$ 1.000,00)'),
+                  onPressed: () => _simulatePreset('pix_sergio'),
+                ),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppConstants.nubankPurple,
                     foregroundColor: Colors.white,
                   ),
@@ -415,25 +439,81 @@ class _NotificationsViewState extends State<NotificationsView> {
                             style: const TextStyle(fontSize: 13),
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          if (notif.matchedPersonName != null) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppConstants.accentAmber.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppConstants.accentAmber.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.person_pin_rounded, size: 14, color: AppConstants.accentAmber),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Pix de Devedor Reconhecido: ${notif.matchedPersonName}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppConstants.accentAmber,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
                             children: [
                               if (notif.parsedAmount != null)
                                 Text(
                                   'Detectado: ${CurrencyFormatter.format(notif.parsedAmount!)} (${notif.parsedMerchant ?? "Estabelecimento"})',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: AppConstants.accentRed,
+                                    color: AppConstants.accentGreen,
                                   ),
                                 ),
                               if (notif.status == NotificationStatus.pending)
-                                Row(
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
                                   children: [
+                                    if (notif.matchedPersonName != null)
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppConstants.accentAmber,
+                                          foregroundColor: Colors.black87,
+                                        ),
+                                        icon: const Icon(Icons.price_check_rounded, size: 16),
+                                        label: Text('Abater Contas de ${notif.matchedPersonName}'),
+                                        onPressed: () {
+                                          notifProvider.abateFromNotification(
+                                            event: notif,
+                                            personName: notif.matchedPersonName!,
+                                            debtProvider: context.read<DebtProvider>(),
+                                            financeProvider: finProvider,
+                                          );
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Pix de ${CurrencyFormatter.format(notif.parsedAmount ?? 0)} abatido das contas de ${notif.matchedPersonName}!',
+                                              ),
+                                              backgroundColor: AppConstants.accentGreen,
+                                            ),
+                                          );
+                                        },
+                                      ),
                                     TextButton(
                                       onPressed: () => notifProvider.ignoreNotification(notif),
                                       child: const Text('Ignorar'),
                                     ),
-                                    const SizedBox(width: 8),
                                     ElevatedButton(
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: AppConstants.accentGreen,

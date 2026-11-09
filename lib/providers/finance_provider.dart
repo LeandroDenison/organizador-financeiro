@@ -110,6 +110,15 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateTransaction(TransactionModel updated) async {
+    final index = _transactions.indexWhere((t) => t.id == updated.id);
+    if (index != -1) {
+      _transactions[index] = updated;
+      await _persist();
+      notifyListeners();
+    }
+  }
+
   Future<void> deleteTransaction(String id) async {
     _transactions.removeWhere((t) => t.id == id);
     await _persist();

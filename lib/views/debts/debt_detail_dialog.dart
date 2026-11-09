@@ -6,6 +6,7 @@ import '../../providers/finance_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/currency_formatter.dart';
 import 'widgets/whatsapp_reminder_dialog.dart';
+import 'widgets/abatement_dialog.dart';
 
 class DebtDetailDialog extends StatelessWidget {
   final DebtModel debt;
@@ -254,23 +255,48 @@ class DebtDetailDialog extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF25D366),
-                      side: const BorderSide(color: Color(0xFF25D366)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppConstants.accentAmber,
+                          side: const BorderSide(color: AppConstants.accentAmber),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        icon: const Icon(Icons.price_check_rounded, size: 18),
+                        label: const Text('Abater Valor Avulso'),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => AbatementDialog(
+                              personName: currentDebt.personName,
+                              specificDebt: currentDebt,
+                              totalOwed: currentDebt.remainingAmount,
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                    icon: const Icon(Icons.chat_bubble_outline_rounded),
-                    label: const Text('Enviar Lembrete com Chave Pix no WhatsApp'),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => WhatsAppReminderDialog(debt: currentDebt),
-                      );
-                    },
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF25D366),
+                          side: const BorderSide(color: Color(0xFF25D366)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                        label: const Text('Cobrar WhatsApp'),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => WhatsAppReminderDialog.single(currentDebt),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
               ] else ...[

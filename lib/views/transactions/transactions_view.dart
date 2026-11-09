@@ -5,6 +5,7 @@ import '../../providers/finance_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/currency_formatter.dart';
 import 'widgets/add_transaction_dialog.dart';
+import 'widgets/assign_to_debt_dialog.dart';
 
 class TransactionsView extends StatelessWidget {
   const TransactionsView({super.key});
@@ -296,6 +297,23 @@ class TransactionsView extends StatelessWidget {
                                           : AppConstants.accentRed,
                                     ),
                                   ),
+                                  if (!isIncome && tx.personName == null) ...[
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                                      color: AppConstants.primaryColor,
+                                      tooltip: 'Atribuir a Quem me Deve',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (_) => AssignToDebtDialog(transaction: tx),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                  const SizedBox(width: 4),
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline_rounded, size: 18),
                                     color: Colors.grey.shade400,
