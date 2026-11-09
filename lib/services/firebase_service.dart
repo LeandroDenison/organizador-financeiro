@@ -194,6 +194,9 @@ class FirebaseService extends ChangeNotifier {
     if (_status != FirebaseSyncStatus.connected) return;
     _lastSyncTime = DateTime.now();
     notifyListeners();
+    if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+      await pushToFirestore();
+    }
   }
 
   @override
