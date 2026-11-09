@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/transaction_model.dart';
 import '../../../providers/finance_provider.dart';
@@ -63,6 +63,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
     }
 
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       title: const Text('Nova Transação'),
       content: SingleChildScrollView(
         child: SizedBox(
@@ -73,28 +74,31 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Type selector: Expense / Income
-                SegmentedButton<TransactionType>(
-                  segments: const [
-                    ButtonSegment(
-                      value: TransactionType.expense,
-                      label: Text('Despesa'),
-                      icon: Icon(Icons.arrow_upward_rounded, color: AppConstants.accentRed),
-                    ),
-                    ButtonSegment(
-                      value: TransactionType.income,
-                      label: Text('Receita'),
-                      icon: Icon(Icons.arrow_downward_rounded, color: AppConstants.accentGreen),
-                    ),
-                  ],
-                  selected: {_type},
-                  onSelectionChanged: (set) {
-                    setState(() {
-                      _type = set.first;
-                      _category = _type == TransactionType.expense
-                          ? AppConstants.defaultExpenseCategories.first
-                          : AppConstants.defaultIncomeCategories.first;
-                    });
-                  },
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<TransactionType>(
+                    segments: const [
+                      ButtonSegment(
+                        value: TransactionType.expense,
+                        label: Text('Despesa'),
+                        icon: Icon(Icons.arrow_upward_rounded, color: AppConstants.accentRed),
+                      ),
+                      ButtonSegment(
+                        value: TransactionType.income,
+                        label: Text('Receita'),
+                        icon: Icon(Icons.arrow_downward_rounded, color: AppConstants.accentGreen),
+                      ),
+                    ],
+                    selected: {_type},
+                    onSelectionChanged: (set) {
+                      setState(() {
+                        _type = set.first;
+                        _category = _type == TransactionType.expense
+                            ? AppConstants.defaultExpenseCategories.first
+                            : AppConstants.defaultIncomeCategories.first;
+                      });
+                    },
+                  ),
                 ),
                 const SizedBox(height: 16),
 
@@ -136,27 +140,37 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         value: _category,
                         decoration: const InputDecoration(
                           labelText: 'Categoria',
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           border: OutlineInputBorder(),
                         ),
                         items: categories
-                            .map((cat) => DropdownMenuItem(value: cat, child: Text(cat, overflow: TextOverflow.ellipsis)))
+                            .map((cat) => DropdownMenuItem(
+                                  value: cat,
+                                  child: Text(cat, overflow: TextOverflow.ellipsis),
+                                ))
                             .toList(),
                         onChanged: (val) => setState(() => _category = val!),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         value: _bank,
                         decoration: const InputDecoration(
                           labelText: 'Banco/Cartão',
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           border: OutlineInputBorder(),
                         ),
                         items: AppConstants.supportedBanks
-                            .map((b) => DropdownMenuItem(value: b, child: Text(b, overflow: TextOverflow.ellipsis)))
+                            .map((b) => DropdownMenuItem(
+                                  value: b,
+                                  child: Text(b, overflow: TextOverflow.ellipsis),
+                                ))
                             .toList(),
                         onChanged: (val) => setState(() => _bank = val!),
                       ),

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/transaction_model.dart';
 import '../../../models/debt_model.dart';
@@ -191,6 +191,7 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
               if (names.isNotEmpty && !_isCreatingNewPerson) ...[
                 DropdownButtonFormField<String>(
                   value: _selectedPerson,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Selecionar Pessoa Cadastrada',
                     prefixIcon: Icon(Icons.person_rounded),

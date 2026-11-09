@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -350,6 +350,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                       if (!_chargeAllAccounts) ...[
                         DropdownButtonFormField<DebtModel>(
                           value: _selectedDebt,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Selecione a conta para cobrar',
                             prefixIcon: Icon(Icons.receipt_rounded),

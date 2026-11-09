@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/transaction_model.dart';
 import '../../providers/finance_provider.dart';
@@ -201,136 +201,207 @@ class TransactionsView extends StatelessWidget {
                         final isIncome = tx.type == TransactionType.income;
 
                         return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
+                          margin: const EdgeInsets.only(bottom: 10),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                             side: BorderSide(
                               color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
                             ),
                           ),
                           color: isDark ? const Color(0xFF1E293B) : Colors.white,
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: isIncome
-                                    ? AppConstants.accentGreen.withOpacity(0.15)
-                                    : AppConstants.accentRed.withOpacity(0.15),
-                                child: Icon(
-                                  AppConstants.getCategoryIcon(tx.category),
-                                  color: isIncome
-                                      ? AppConstants.accentGreen
-                                      : AppConstants.accentRed,
-                                  size: 20,
-                                ),
-                              ),
-                              title: Text(
-                                tx.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${CurrencyFormatter.formatDate(tx.date)} • ${tx.category}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                    ),
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: isIncome
+                                      ? AppConstants.accentGreen.withValues(alpha: 0.15)
+                                      : AppConstants.accentRed.withValues(alpha: 0.15),
+                                  child: Icon(
+                                    AppConstants.getCategoryIcon(tx.category),
+                                    color: isIncome
+                                        ? AppConstants.accentGreen
+                                        : AppConstants.accentRed,
+                                    size: 20,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 4,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      if (tx.bank != null)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppConstants.getBankColor(tx.bank)
-                                                .withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            tx.bank!,
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppConstants.getBankColor(tx.bank),
+                                      // Row 1: Full Title + Amount
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              tx.title,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      if (tx.source != TransactionSource.manual)
-                                        _buildSourceBadge(tx.source),
-                                      if (tx.personName != null)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppConstants.primaryColor.withOpacity(0.12),
-                                            borderRadius: BorderRadius.circular(4),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '${isIncome ? '+' : '-'} ${CurrencyFormatter.format(tx.amount)}',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: isIncome
+                                                  ? AppConstants.accentGreen
+                                                  : AppConstants.accentRed,
+                                            ),
                                           ),
-                                          child: Text(
-                                            'Devedor: ${tx.personName}',
-                                            style: const TextStyle(
-                                                fontSize: 10, color: AppConstants.primaryColor),
-                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      // Row 2: Full Date & Category
+                                      Text(
+                                        '${CurrencyFormatter.formatDate(tx.date)} • ${tx.category}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                         ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      // Row 3: Badges on left + Action buttons on right
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Wrap(
+                                              spacing: 6,
+                                              runSpacing: 4,
+                                              crossAxisAlignment: WrapCrossAlignment.center,
+                                              children: [
+                                                if (tx.bank != null)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 7,
+                                                      vertical: 2,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: AppConstants.getBankColor(tx.bank)
+                                                          .withValues(alpha: 0.15),
+                                                      borderRadius: BorderRadius.circular(5),
+                                                    ),
+                                                    child: Text(
+                                                      tx.bank!,
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: AppConstants.getBankColor(tx.bank),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                if (tx.source != TransactionSource.manual)
+                                                  _buildSourceBadge(tx.source),
+                                                if (tx.personName != null)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 7,
+                                                      vertical: 2,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: AppConstants.primaryColor
+                                                          .withValues(alpha: 0.12),
+                                                      borderRadius: BorderRadius.circular(5),
+                                                    ),
+                                                    child: Text(
+                                                      'Devedor: ${tx.personName}',
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: AppConstants.primaryColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (!isIncome && tx.personName == null) ...[
+                                                InkWell(
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  onTap: () {
+                                                    showDialog(
+                                                      context: context,
+                                                      builder: (_) =>
+                                                          AssignToDebtDialog(transaction: tx),
+                                                    );
+                                                  },
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: AppConstants.primaryColor
+                                                          .withValues(alpha: 0.1),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: const Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          Icons.person_add_alt_1_rounded,
+                                                          size: 14,
+                                                          color: AppConstants.primaryColor,
+                                                        ),
+                                                        SizedBox(width: 4),
+                                                        Text(
+                                                          'Cobrar',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: AppConstants.primaryColor,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                              ],
+                                              InkWell(
+                                                borderRadius: BorderRadius.circular(6),
+                                                onTap: () {
+                                                  finance.deleteTransaction(tx.id);
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                          'Transação "${tx.title}" removida'),
+                                                      duration: const Duration(seconds: 2),
+                                                    ),
+                                                  );
+                                                },
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(4),
+                                                  child: Icon(
+                                                    Icons.delete_outline_rounded,
+                                                    size: 18,
+                                                    color: Colors.grey.shade400,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   ),
-                                ],
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${isIncome ? '+' : '-'} ${CurrencyFormatter.format(tx.amount)}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: isIncome
-                                          ? AppConstants.accentGreen
-                                          : AppConstants.accentRed,
-                                    ),
-                                  ),
-                                  if (!isIncome && tx.personName == null) ...[
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-                                      color: AppConstants.primaryColor,
-                                      tooltip: 'Atribuir a Quem me Deve',
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      onPressed: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (_) => AssignToDebtDialog(transaction: tx),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                                    color: Colors.grey.shade400,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    onPressed: () {
-                                      finance.deleteTransaction(tx.id);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Transação "${tx.title}" removida'),
-                                          duration: const Duration(seconds: 2),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -349,7 +420,7 @@ class TransactionsView extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.15),
+            color: Colors.blue.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Row(
@@ -364,11 +435,23 @@ class TransactionsView extends StatelessWidget {
             ],
           ),
         );
+      case TransactionSource.pdf:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.deepPurple.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Text(
+            'PDF',
+            style: TextStyle(fontSize: 10, color: Colors.deepPurple, fontWeight: FontWeight.bold),
+          ),
+        );
       case TransactionSource.ofx:
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.teal.withOpacity(0.15),
+            color: Colors.teal.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Text(
@@ -380,7 +463,7 @@ class TransactionsView extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.amber.withOpacity(0.15),
+            color: Colors.amber.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Text(

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/notification_event_model.dart';
 import '../../providers/notification_provider.dart';
@@ -383,6 +383,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                     children: [
                       DropdownButtonFormField<String>(
                         value: _selectedPackage,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Aplicativo / Banco Emissor',
                           border: OutlineInputBorder(),

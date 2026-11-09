@@ -421,89 +421,107 @@ class DashboardView extends StatelessWidget {
                 final tx = recent[index];
                 final isIncome = tx.type == TransactionType.income;
 
-                return Material(
-                  color: Colors.transparent,
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundColor: isIncome
-                          ? AppConstants.accentGreen.withOpacity(0.15)
-                          : AppConstants.accentRed.withOpacity(0.15),
-                      child: Icon(
-                        AppConstants.getCategoryIcon(tx.category),
-                        color: isIncome ? AppConstants.accentGreen : AppConstants.accentRed,
-                        size: 20,
-                      ),
-                    ),
-                    title: Text(
-                      tx.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 2),
-                        Text(
-                          '${CurrencyFormatter.formatDate(tx.date)} • ${tx.category}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                          ),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        radius: 19,
+                        backgroundColor: isIncome
+                            ? AppConstants.accentGreen.withValues(alpha: 0.15)
+                            : AppConstants.accentRed.withValues(alpha: 0.15),
+                        child: Icon(
+                          AppConstants.getCategoryIcon(tx.category),
+                          color: isIncome ? AppConstants.accentGreen : AppConstants.accentRed,
+                          size: 18,
                         ),
-                        const SizedBox(height: 2),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 2,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (tx.bank != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppConstants.getBankColor(tx.bank).withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  tx.bank!,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppConstants.getBankColor(tx.bank),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    tx.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                                   ),
                                 ),
-                              ),
-                            if (tx.source == TransactionSource.notification)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(4),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${isIncome ? '+' : '-'} ${CurrencyFormatter.format(tx.amount)}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: isIncome ? AppConstants.accentGreen : AppConstants.accentRed,
+                                  ),
                                 ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.notifications_active_rounded, size: 10, color: Colors.blue),
-                                    SizedBox(width: 2),
-                                    Text(
-                                      'Notificação',
-                                      style: TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${CurrencyFormatter.formatDate(tx.date)} • ${tx.category}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              ),
+                            ),
+                            if (tx.bank != null || tx.source != TransactionSource.manual) ...[
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 2,
+                                children: [
+                                  if (tx.bank != null)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppConstants.getBankColor(tx.bank).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        tx.bank!,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppConstants.getBankColor(tx.bank),
+                                        ),
+                                      ),
                                     ),
-                                  ],
-                                ),
+                                  if (tx.source == TransactionSource.notification)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.notifications_active_rounded, size: 10, color: Colors.blue),
+                                          SizedBox(width: 2),
+                                          Text(
+                                            'Notificação',
+                                            style: TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
                               ),
+                            ],
                           ],
                         ),
-                      ],
-                    ),
-                    trailing: Text(
-                      '${isIncome ? '+' : '-'} ${CurrencyFormatter.format(tx.amount)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: isIncome ? AppConstants.accentGreen : AppConstants.accentRed,
                       ),
-                    ),
+                    ],
                   ),
                 );
               },

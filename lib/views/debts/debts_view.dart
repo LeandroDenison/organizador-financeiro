@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/debt_model.dart';
 import '../../providers/debt_provider.dart';
@@ -145,57 +145,56 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
             const SizedBox(height: 14),
 
             // Mode Toggle (Por Pessoa vs Todas as Contas) & Tabs (Ativos / Quitados)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: TabBar(
-                    controller: _tabController,
-                    indicatorColor: AppConstants.primaryColor,
-                    labelColor: AppConstants.primaryColor,
-                    isScrollable: true,
-                    tabs: [
-                      Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('Ativos'),
-                            const SizedBox(width: 6),
-                            Badge(
-                              label: Text('${debtProvider.activeDebts.length}'),
-                              backgroundColor: AppConstants.primaryColor,
-                            ),
-                          ],
+            if (isMobile) ...[
+              TabBar(
+                controller: _tabController,
+                indicatorColor: AppConstants.primaryColor,
+                labelColor: AppConstants.primaryColor,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                isScrollable: false,
+                tabs: [
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Flexible(child: Text('Ativos', overflow: TextOverflow.ellipsis)),
+                        const SizedBox(width: 6),
+                        Badge(
+                          label: Text('${debtProvider.activeDebts.length}'),
+                          backgroundColor: AppConstants.primaryColor,
                         ),
-                      ),
-                      Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('Quitados'),
-                            const SizedBox(width: 6),
-                            Badge(
-                              label: Text('${debtProvider.settledDebts.length}'),
-                              backgroundColor: Colors.grey,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                // Toggle Group by Person
-                SegmentedButton<bool>(
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Flexible(child: Text('Quitados', overflow: TextOverflow.ellipsis)),
+                        const SizedBox(width: 6),
+                        Badge(
+                          label: Text('${debtProvider.settledDebts.length}'),
+                          backgroundColor: Colors.grey,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<bool>(
                   segments: const [
                     ButtonSegment(
                       value: true,
                       icon: Icon(Icons.group_rounded, size: 16),
-                      label: Text('Por Pessoa', style: TextStyle(fontSize: 11)),
+                      label: Text('Por Pessoa', style: TextStyle(fontSize: 12)),
                     ),
                     ButtonSegment(
                       value: false,
                       icon: Icon(Icons.list_alt_rounded, size: 16),
-                      label: Text('Por Conta', style: TextStyle(fontSize: 11)),
+                      label: Text('Por Conta', style: TextStyle(fontSize: 12)),
                     ),
                   ],
                   selected: {_groupByPerson},
@@ -203,8 +202,68 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                     setState(() => _groupByPerson = newVal.first);
                   },
                 ),
-              ],
-            ),
+              ),
+            ] else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: TabBar(
+                      controller: _tabController,
+                      indicatorColor: AppConstants.primaryColor,
+                      labelColor: AppConstants.primaryColor,
+                      isScrollable: true,
+                      tabs: [
+                        Tab(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('Ativos'),
+                              const SizedBox(width: 6),
+                              Badge(
+                                label: Text('${debtProvider.activeDebts.length}'),
+                                backgroundColor: AppConstants.primaryColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Tab(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('Quitados'),
+                              const SizedBox(width: 6),
+                              Badge(
+                                label: Text('${debtProvider.settledDebts.length}'),
+                                backgroundColor: Colors.grey,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Toggle Group by Person
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(
+                        value: true,
+                        icon: Icon(Icons.group_rounded, size: 16),
+                        label: Text('Por Pessoa', style: TextStyle(fontSize: 11)),
+                      ),
+                      ButtonSegment(
+                        value: false,
+                        icon: Icon(Icons.list_alt_rounded, size: 16),
+                        label: Text('Por Conta', style: TextStyle(fontSize: 11)),
+                      ),
+                    ],
+                    selected: {_groupByPerson},
+                    onSelectionChanged: (newVal) {
+                      setState(() => _groupByPerson = newVal.first);
+                    },
+                  ),
+                ],
+              ),
             const SizedBox(height: 14),
 
             // Tab Views
@@ -429,48 +488,69 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                       const SizedBox(height: 8),
                       ...debts.map((d) {
                         return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          padding: const EdgeInsets.symmetric(vertical: 6.0),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.receipt_outlined, size: 16, color: AppConstants.primaryColor),
+                              const Padding(
+                                padding: EdgeInsets.only(top: 2),
+                                child: Icon(Icons.receipt_outlined, size: 16, color: AppConstants.primaryColor),
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      d.description,
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            d.description,
+                                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          CurrencyFormatter.format(d.remainingAmount),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        ),
+                                      ],
                                     ),
-                                    Text(
-                                      'Faltam ${d.remainingInstallments} de ${d.totalInstallments} parcelas (${CurrencyFormatter.format(d.installmentValue)}/mês) • Vence dia ${d.dueDay}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                      ),
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'Faltam ${d.remainingInstallments} de ${d.totalInstallments}x (${CurrencyFormatter.format(d.installmentValue)}/mês) • Dia ${d.dueDay}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        InkWell(
+                                          borderRadius: BorderRadius.circular(6),
+                                          onTap: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (_) => WhatsAppReminderDialog(
+                                                personName: personName,
+                                                debts: [d],
+                                                initialSelectedDebt: d,
+                                              ),
+                                            );
+                                          },
+                                          child: const Padding(
+                                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            child: Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Color(0xFF25D366)),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ),
-                              Text(
-                                CurrencyFormatter.format(d.remainingAmount),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                              const SizedBox(width: 8),
-                              // Button to charge specifically this debt
-                              IconButton(
-                                tooltip: 'Cobrar só esta conta no WhatsApp',
-                                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Color(0xFF25D366)),
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (_) => WhatsAppReminderDialog(
-                                      personName: personName,
-                                      debts: [d],
-                                      initialSelectedDebt: d,
-                                    ),
-                                  );
-                                },
                               ),
                             ],
                           ),

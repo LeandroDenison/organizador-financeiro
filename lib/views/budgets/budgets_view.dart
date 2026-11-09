@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/finance_provider.dart';
@@ -223,6 +223,7 @@ class BudgetsView extends StatelessWidget {
             children: [
               DropdownButtonFormField<String>(
                 value: selectedCategory,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Categoria',
                   prefixIcon: Icon(Icons.category_rounded),

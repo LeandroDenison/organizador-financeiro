@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:organizador_financeiro/main.dart';
 import 'package:organizador_financeiro/providers/app_state_provider.dart';
 import 'package:organizador_financeiro/providers/finance_provider.dart';
@@ -13,6 +14,9 @@ import 'package:organizador_financeiro/providers/subscription_provider.dart';
 import 'package:organizador_financeiro/services/firebase_service.dart';
 import 'package:organizador_financeiro/services/pdf_parser_service.dart';
 import 'package:organizador_financeiro/views/bank_import/widgets/import_preview_dialog.dart';
+import 'package:organizador_financeiro/views/transactions/transactions_view.dart';
+import 'package:organizador_financeiro/views/transactions/widgets/add_transaction_dialog.dart';
+import 'package:organizador_financeiro/views/debts/debts_view.dart';
 
 void main() {
   testWidgets('App basic smoke test on mobile screen (360dp width)', (WidgetTester tester) async {
@@ -70,5 +74,71 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Extrato: Nubank'), findsOneWidget);
     expect(find.textContaining('Amazon - Parcela 4/10'), findsOneWidget);
+  });
+
+  testWidgets('AddTransactionDialog, TransactionsView and DebtsView render on 360dp mobile screen without overflow', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(720, 1600);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final financeProvider = FinanceProvider();
+    final parsed = PdfParserService.parseText(
+      'TRANSAÇÕES\n01 NOV\n•••• 9736\nMeatz Burger Fortaleza\nR\$ 70,00\n28 OUT\n•••• 9736\nSupermercado Cometa\nR\$ 18,19',
+    ).transactions;
+    await financeProvider.addMultipleTransactions(parsed);
+
+    // 1. Test AddTransactionDialog
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: financeProvider),
+          ChangeNotifierProvider(create: (_) => DebtProvider()),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: AddTransactionDialog(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Nova Transação'), findsOneWidget);
+
+    // 2. Test TransactionsView
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: financeProvider),
+          ChangeNotifierProvider(create: (_) => DebtProvider()),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: TransactionsView(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Meatz Burger Fortaleza'), findsOneWidget);
+
+    // 3. Test DebtsView
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: financeProvider),
+          ChangeNotifierProvider(create: (_) => DebtProvider()),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: DebtsView(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Ativos'), findsOneWidget);
+    expect(find.text('Quitados'), findsOneWidget);
   });
 }

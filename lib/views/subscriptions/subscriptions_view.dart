@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/subscription_provider.dart';
 import '../../models/subscription_model.dart';
@@ -301,6 +301,7 @@ class SubscriptionsView extends StatelessWidget {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: selectedBank,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Banco / Cartão',
                   prefixIcon: Icon(Icons.credit_card_rounded),
