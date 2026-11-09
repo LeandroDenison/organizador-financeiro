@@ -7,6 +7,9 @@ import '../utils/constants.dart';
 import 'dashboard/dashboard_view.dart';
 import 'transactions/transactions_view.dart';
 import 'debts/debts_view.dart';
+import 'savings/savings_goals_view.dart';
+import 'subscriptions/subscriptions_view.dart';
+import 'budgets/budgets_view.dart';
 import 'bank_import/bank_import_view.dart';
 import 'notifications/notifications_view.dart';
 import 'settings/settings_view.dart';
@@ -25,12 +28,15 @@ class MainLayout extends StatelessWidget {
     final isDesktop = screenWidth >= 850;
 
     final List<Widget> pages = const [
-      DashboardView(),
-      TransactionsView(),
-      DebtsView(),
-      BankImportView(),
-      NotificationsView(),
-      SettingsView(),
+      DashboardView(), // 0
+      TransactionsView(), // 1
+      DebtsView(), // 2
+      SavingsGoalsView(), // 3
+      SubscriptionsView(), // 4
+      BudgetsView(), // 5
+      BankImportView(), // 6
+      NotificationsView(), // 7
+      SettingsView(), // 8
     ];
 
     if (isDesktop) {
@@ -81,7 +87,7 @@ class MainLayout extends StatelessWidget {
                     ),
                   ),
                   const Divider(height: 1),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
 
                   // Navigation Items
                   Expanded(
@@ -113,13 +119,35 @@ class MainLayout extends StatelessWidget {
                         _buildNavItem(
                           context,
                           index: 3,
+                          icon: Icons.savings_rounded,
+                          label: 'Caixinhas & Metas',
+                          currentIndex: appState.currentTabIndex,
+                        ),
+                        _buildNavItem(
+                          context,
+                          index: 4,
+                          icon: Icons.repeat_rounded,
+                          label: 'Assinaturas Fixas',
+                          currentIndex: appState.currentTabIndex,
+                        ),
+                        _buildNavItem(
+                          context,
+                          index: 5,
+                          icon: Icons.pie_chart_rounded,
+                          label: 'Tetos de Gastos',
+                          currentIndex: appState.currentTabIndex,
+                        ),
+                        const Divider(height: 16),
+                        _buildNavItem(
+                          context,
+                          index: 6,
                           icon: Icons.upload_file_rounded,
                           label: 'Importar Extrato',
                           currentIndex: appState.currentTabIndex,
                         ),
                         _buildNavItem(
                           context,
-                          index: 4,
+                          index: 7,
                           icon: Icons.notifications_active_rounded,
                           label: 'Captura Android',
                           badgeCount: notifProvider.pendingNotifications.length,
@@ -127,7 +155,7 @@ class MainLayout extends StatelessWidget {
                         ),
                         _buildNavItem(
                           context,
-                          index: 5,
+                          index: 8,
                           icon: Icons.settings_rounded,
                           label: 'Configurações',
                           currentIndex: appState.currentTabIndex,
@@ -192,8 +220,131 @@ class MainLayout extends StatelessWidget {
       );
     }
 
-    // Mobile Layout with Bottom Navigation Bar
+    // Mobile Navigation Drawer & Bottom Bar
     return Scaffold(
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(
+                color: AppConstants.primaryColor,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.wallet_rounded, color: AppConstants.primaryColor, size: 28),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Organizador Financeiro',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const Text(
+                    'Multiplataforma & Inteligente',
+                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard_rounded),
+              title: const Text('Visão Geral'),
+              selected: appState.currentTabIndex == 0,
+              onTap: () {
+                Navigator.pop(context);
+                appState.setTab(0);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt_long_rounded),
+              title: const Text('Extrato / Transações'),
+              selected: appState.currentTabIndex == 1,
+              onTap: () {
+                Navigator.pop(context);
+                appState.setTab(1);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.handshake_rounded),
+              title: const Text('Quem me Deve'),
+              trailing: debtProvider.activeDebts.isNotEmpty
+                  ? Badge(label: Text('${debtProvider.activeDebts.length}'))
+                  : null,
+              selected: appState.currentTabIndex == 2,
+              onTap: () {
+                Navigator.pop(context);
+                appState.setTab(2);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.savings_rounded),
+              title: const Text('Caixinhas & Metas'),
+              selected: appState.currentTabIndex == 3,
+              onTap: () {
+                Navigator.pop(context);
+                appState.setTab(3);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.repeat_rounded),
+              title: const Text('Assinaturas Fixas'),
+              selected: appState.currentTabIndex == 4,
+              onTap: () {
+                Navigator.pop(context);
+                appState.setTab(4);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.pie_chart_rounded),
+              title: const Text('Tetos de Gastos'),
+              selected: appState.currentTabIndex == 5,
+              onTap: () {
+                Navigator.pop(context);
+                appState.setTab(5);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.upload_file_rounded),
+              title: const Text('Importar Extrato (OFX/CSV)'),
+              selected: appState.currentTabIndex == 6,
+              onTap: () {
+                Navigator.pop(context);
+                appState.setTab(6);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_active_rounded),
+              title: const Text('Captura Android'),
+              trailing: notifProvider.pendingNotifications.isNotEmpty
+                  ? Badge(label: Text('${notifProvider.pendingNotifications.length}'))
+                  : null,
+              selected: appState.currentTabIndex == 7,
+              onTap: () {
+                Navigator.pop(context);
+                appState.setTab(7);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_rounded),
+              title: const Text('Configurações'),
+              selected: appState.currentTabIndex == 8,
+              onTap: () {
+                Navigator.pop(context);
+                appState.setTab(8);
+              },
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
         title: Row(
           children: [
@@ -206,17 +357,16 @@ class MainLayout extends StatelessWidget {
               child: const Icon(Icons.wallet_rounded, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 8),
-            const Text('Organizador Financeiro', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              _getPageTitle(appState.currentTabIndex),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         actions: [
           IconButton(
             icon: Icon(appState.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded),
             onPressed: () => appState.toggleDarkMode(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_rounded),
-            onPressed: () => appState.setTab(5),
           ),
         ],
       ),
@@ -225,8 +375,14 @@ class MainLayout extends StatelessWidget {
         children: pages,
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: appState.currentTabIndex.clamp(0, 4),
-        onDestinationSelected: (idx) => appState.setTab(idx),
+        selectedIndex: appState.currentTabIndex < 4 ? appState.currentTabIndex : 4,
+        onDestinationSelected: (idx) {
+          if (idx < 4) {
+            appState.setTab(idx);
+          } else {
+            _showMobileMoreMenu(context, appState, notifProvider);
+          }
+        },
         destinations: [
           const NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
@@ -248,21 +404,128 @@ class MainLayout extends StatelessWidget {
             label: 'Devedores',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.upload_file_outlined),
-            selectedIcon: Icon(Icons.upload_file_rounded),
-            label: 'Importar',
+            icon: Icon(Icons.savings_outlined),
+            selectedIcon: Icon(Icons.savings_rounded),
+            label: 'Caixinhas',
           ),
           NavigationDestination(
             icon: Badge(
               isLabelVisible: notifProvider.pendingNotifications.isNotEmpty,
               label: Text('${notifProvider.pendingNotifications.length}'),
-              child: const Icon(Icons.notifications_active_outlined),
+              child: const Icon(Icons.grid_view_rounded),
             ),
-            selectedIcon: const Icon(Icons.notifications_active_rounded),
-            label: 'Notificações',
+            selectedIcon: const Icon(Icons.grid_view_rounded),
+            label: 'Mais',
           ),
         ],
       ),
+    );
+  }
+
+  String _getPageTitle(int index) {
+    switch (index) {
+      case 0:
+        return 'Visão Geral';
+      case 1:
+        return 'Extrato';
+      case 2:
+        return 'Quem me Deve';
+      case 3:
+        return 'Caixinhas & Metas';
+      case 4:
+        return 'Assinaturas Fixas';
+      case 5:
+        return 'Tetos de Gastos';
+      case 6:
+        return 'Importar Extrato';
+      case 7:
+        return 'Captura Android';
+      case 8:
+        return 'Configurações';
+      default:
+        return 'Organizador';
+    }
+  }
+
+  void _showMobileMoreMenu(
+    BuildContext context,
+    AppStateProvider appState,
+    NotificationProvider notifProvider,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.repeat_rounded, color: AppConstants.primaryColor),
+                  title: const Text('Assinaturas & Custos Fixos'),
+                  subtitle: const Text('Detector de assinaturas e dreno anual'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    appState.setTab(4);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.pie_chart_rounded, color: AppConstants.accentAmber),
+                  title: const Text('Tetos de Gastos por Categoria'),
+                  subtitle: const Text('Limites mensais e alertas automáticos'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    appState.setTab(5);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.upload_file_rounded, color: AppConstants.accentGreen),
+                  title: const Text('Importar Extrato Bancário'),
+                  subtitle: const Text('Arquivos OFX e CSV (Nubank, Itaú, Mercado Pago)'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    appState.setTab(6);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.notifications_active_rounded, color: Colors.blue),
+                  title: const Text('Captura Android de Pix & Compras'),
+                  subtitle: const Text('Leitura de notificações em tempo real'),
+                  trailing: notifProvider.pendingNotifications.isNotEmpty
+                      ? Badge(label: Text('${notifProvider.pendingNotifications.length}'))
+                      : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    appState.setTab(7);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.settings_rounded, color: Colors.grey),
+                  title: const Text('Configurações & Firebase'),
+                  subtitle: const Text('Ajustes, sincronização e tema'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    appState.setTab(8);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -282,7 +545,9 @@ class MainLayout extends StatelessWidget {
       child: ListTile(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         selected: isSelected,
-        selectedTileColor: isDark ? AppConstants.primaryColor.withOpacity(0.2) : AppConstants.primaryColor.withOpacity(0.1),
+        selectedTileColor: isDark
+            ? AppConstants.primaryColor.withOpacity(0.2)
+            : AppConstants.primaryColor.withOpacity(0.1),
         leading: Icon(
           icon,
           color: isSelected

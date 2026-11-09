@@ -9,6 +9,9 @@ import '../../utils/constants.dart';
 import '../../models/transaction_model.dart';
 import 'widgets/summary_card.dart';
 import 'widgets/category_pie_chart.dart';
+import 'widgets/projected_balance_card.dart';
+import 'widgets/budget_alert_banner.dart';
+import 'widgets/future_commitments_card.dart';
 import '../transactions/widgets/add_transaction_dialog.dart';
 import '../debts/widgets/add_debt_dialog.dart';
 
@@ -98,7 +101,14 @@ class DashboardView extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+
+            // Feature 4: Budget Limit Alerts (if any threshold reached)
+            const BudgetAlertBanner(),
+
+            // Feature 3: Projected Balance at End of Month
+            const ProjectedBalanceCard(),
+            const SizedBox(height: 20),
 
             // Summary Cards Grid
             LayoutBuilder(
@@ -150,6 +160,10 @@ class DashboardView extends StatelessWidget {
                 );
               },
             ),
+            const SizedBox(height: 24),
+
+            // Feature 2: Future Commitments Radar (Next 6 Months)
+            const FutureCommitmentsCard(),
             const SizedBox(height: 24),
 
             // Middle section: Charts & "Quem me deve" preview

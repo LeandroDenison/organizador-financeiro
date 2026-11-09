@@ -6,6 +6,7 @@ import '../../providers/finance_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/currency_formatter.dart';
 import 'widgets/add_debt_dialog.dart';
+import 'widgets/whatsapp_reminder_dialog.dart';
 import 'debt_detail_dialog.dart';
 
 class DebtsView extends StatefulWidget {
@@ -414,6 +415,22 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                                 ),
                                 backgroundColor: AppConstants.accentGreen,
                               ),
+                            );
+                          },
+                        ),
+                      if (!debt.isSettled)
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF25D366),
+                            side: const BorderSide(color: Color(0xFF25D366)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          ),
+                          icon: const Icon(Icons.chat_bubble_outline_rounded, size: 15),
+                          label: const Text('Cobrar WhatsApp'),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (_) => WhatsAppReminderDialog(debt: debt),
                             );
                           },
                         )

@@ -5,6 +5,9 @@ import 'providers/app_state_provider.dart';
 import 'providers/finance_provider.dart';
 import 'providers/debt_provider.dart';
 import 'providers/notification_provider.dart';
+import 'providers/budget_provider.dart';
+import 'providers/savings_provider.dart';
+import 'providers/subscription_provider.dart';
 import 'services/firebase_service.dart';
 import 'utils/constants.dart';
 import 'views/main_layout.dart';
@@ -27,6 +30,15 @@ void main() async {
   final firebaseService = FirebaseService();
   await firebaseService.init();
 
+  final budgetProvider = BudgetProvider();
+  await budgetProvider.init();
+
+  final savingsProvider = SavingsProvider();
+  await savingsProvider.init();
+
+  final subscriptionProvider = SubscriptionProvider();
+  await subscriptionProvider.init();
+
   runApp(
     MultiProvider(
       providers: [
@@ -35,6 +47,9 @@ void main() async {
         ChangeNotifierProvider.value(value: debtProvider),
         ChangeNotifierProvider.value(value: notificationProvider),
         ChangeNotifierProvider.value(value: firebaseService),
+        ChangeNotifierProvider.value(value: budgetProvider),
+        ChangeNotifierProvider.value(value: savingsProvider),
+        ChangeNotifierProvider.value(value: subscriptionProvider),
       ],
       child: const FinancialOrganizerApp(),
     ),

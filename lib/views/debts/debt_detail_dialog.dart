@@ -5,6 +5,7 @@ import '../../providers/debt_provider.dart';
 import '../../providers/finance_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/currency_formatter.dart';
+import 'widgets/whatsapp_reminder_dialog.dart';
 
 class DebtDetailDialog extends StatelessWidget {
   final DebtModel debt;
@@ -252,7 +253,26 @@ class DebtDetailDialog extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF25D366),
+                      side: const BorderSide(color: Color(0xFF25D366)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    icon: const Icon(Icons.chat_bubble_outline_rounded),
+                    label: const Text('Enviar Lembrete com Chave Pix no WhatsApp'),
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => WhatsAppReminderDialog(debt: currentDebt),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
               ] else ...[
                 Container(
                   padding: const EdgeInsets.all(12),

@@ -94,4 +94,24 @@ class StorageService {
       await prefs.setString(_firebaseConfigKey, projectId);
     }
   }
+
+  static Future<String> getUserPixKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_pix_key') ?? '11987654321';
+  }
+
+  static Future<void> setUserPixKey(String pixKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_pix_key', pixKey);
+  }
+
+  static Future<String?> getStoredData(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(key);
+  }
+
+  static Future<void> setStoredData(String key, String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, value);
+  }
 }
