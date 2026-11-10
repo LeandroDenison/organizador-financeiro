@@ -116,7 +116,7 @@ class FirebaseService extends ChangeNotifier {
 
       final resp = await http.get(_firestoreDocUri).timeout(const Duration(seconds: 6));
       if (resp.statusCode >= 200 && resp.statusCode < 300) {
-        final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
+        final decoded = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
         final fields = decoded['fields'] as Map<String, dynamic>?;
         final remoteUpdatedAt = fields?['updatedAt']?['stringValue'] as String?;
         final payloadJson = fields?['payloadJson']?['stringValue'] as String?;
@@ -158,7 +158,7 @@ class FirebaseService extends ChangeNotifier {
     try {
       final resp = await http.get(_firestoreDocUri).timeout(const Duration(seconds: 5));
       if (resp.statusCode >= 200 && resp.statusCode < 300 && !_isPushing) {
-        final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
+        final decoded = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
         final fields = decoded['fields'] as Map<String, dynamic>?;
         final remoteUpdatedAt = fields?['updatedAt']?['stringValue'] as String?;
         final payloadJson = fields?['payloadJson']?['stringValue'] as String?;
@@ -267,7 +267,7 @@ class FirebaseService extends ChangeNotifier {
     try {
       final resp = await http.get(_firestoreDocUri).timeout(const Duration(seconds: 6));
       if (resp.statusCode >= 200 && resp.statusCode < 300) {
-        final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
+        final decoded = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
         final fields = decoded['fields'] as Map<String, dynamic>?;
         final remoteUpdatedAt = fields?['updatedAt']?['stringValue'] as String?;
         final payloadJson = fields?['payloadJson']?['stringValue'] as String?;

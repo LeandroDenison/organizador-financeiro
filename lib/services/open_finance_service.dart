@@ -187,7 +187,7 @@ class OpenFinanceService {
       throw Exception('Falha ao autenticar na Pluggy (${resp.statusCode}). Verifique as credenciais.');
     }
 
-    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
     final apiKey = data['apiKey']?.toString();
     if (apiKey == null || apiKey.isEmpty) {
       throw Exception('API Key não retornada pela Pluggy.');
@@ -212,7 +212,7 @@ class OpenFinanceService {
             .timeout(const Duration(seconds: 15));
 
         if (resp.statusCode >= 200 && resp.statusCode < 300) {
-          final data = jsonDecode(resp.body) as Map<String, dynamic>;
+          final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
           final results = (data['results'] as List<dynamic>?) ?? [];
 
           for (final raw in results) {
@@ -301,7 +301,7 @@ class OpenFinanceService {
             .timeout(const Duration(seconds: 15));
 
         var accData = accResp.statusCode >= 200 && accResp.statusCode < 300
-            ? (jsonDecode(accResp.body) as Map<String, dynamic>)
+            ? (jsonDecode(utf8.decode(accResp.bodyBytes)) as Map<String, dynamic>)
             : <String, dynamic>{};
         var results = (accData['results'] as List<dynamic>?) ?? [];
 
@@ -318,7 +318,7 @@ class OpenFinanceService {
                 )
                 .timeout(const Duration(seconds: 15));
             if (fallbackResp.statusCode >= 200 && fallbackResp.statusCode < 300) {
-              final fallbackData = jsonDecode(fallbackResp.body) as Map<String, dynamic>;
+              final fallbackData = jsonDecode(utf8.decode(fallbackResp.bodyBytes)) as Map<String, dynamic>;
               final fallbackResults = (fallbackData['results'] as List<dynamic>?) ?? [];
               if (fallbackResults.isNotEmpty) {
                 results = fallbackResults;
@@ -351,7 +351,7 @@ class OpenFinanceService {
 
             if (txResp.statusCode < 200 || txResp.statusCode >= 300) break;
 
-            final txData = jsonDecode(txResp.body) as Map<String, dynamic>;
+            final txData = jsonDecode(utf8.decode(txResp.bodyBytes)) as Map<String, dynamic>;
             final txResults = (txData['results'] as List<dynamic>?) ?? [];
             if (txResults.isEmpty) break;
 
@@ -523,7 +523,7 @@ class OpenFinanceService {
           }
 
           if (accResp.statusCode >= 200 && accResp.statusCode < 300) {
-            final accData = jsonDecode(accResp.body) as Map<String, dynamic>;
+            final accData = jsonDecode(utf8.decode(accResp.bodyBytes)) as Map<String, dynamic>;
             final results = (accData['results'] as List<dynamic>?) ?? [];
 
             for (final accObj in results) {
