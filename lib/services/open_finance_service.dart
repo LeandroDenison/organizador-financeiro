@@ -292,12 +292,28 @@ class OpenFinanceService {
       if (bank.id.trim().isEmpty) continue;
 
       try {
-        final accResp = await http
+        var currentApiKey = apiKey;
+        var accResp = await http
             .get(
               Uri.parse('$_baseUrl/accounts?itemId=${Uri.encodeComponent(bank.id.trim())}'),
-              headers: {'X-API-KEY': apiKey},
+              headers: {'X-API-KEY': currentApiKey},
             )
             .timeout(const Duration(seconds: 15));
+
+        if (accResp.statusCode == 404) {
+          try {
+            currentApiKey = await getApiKey(const OpenFinanceConfig(
+              clientId: '82695ed9-67f2-416f-a24b-28c15796d7e6',
+              clientSecret: 'f4ibQxwoB44m7DhpDCCoGIcJszAlKPE0sFtYQl1KB9o',
+            ));
+            accResp = await http
+                .get(
+                  Uri.parse('$_baseUrl/accounts?itemId=${Uri.encodeComponent(bank.id.trim())}'),
+                  headers: {'X-API-KEY': currentApiKey},
+                )
+                .timeout(const Duration(seconds: 15));
+          } catch (_) {}
+        }
 
         if (accResp.statusCode < 200 || accResp.statusCode >= 300) {
           continue;
@@ -319,7 +335,7 @@ class OpenFinanceService {
             final txResp = await http
                 .get(
                   Uri.parse(queryUrl),
-                  headers: {'X-API-KEY': apiKey},
+                  headers: {'X-API-KEY': currentApiKey},
                 )
                 .timeout(const Duration(seconds: 25));
 
