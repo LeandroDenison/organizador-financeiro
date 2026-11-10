@@ -93,13 +93,18 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
   double _getMonthInstallmentAmount() {
     if (_chargeAllAccounts && widget.debts.length > 1) {
       return widget.debts.fold(0.0, (s, d) {
-        final due = d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue;
+        // If including abatement line, use the gross monthly installment so deduction is not double-counted
+        final due = _includeAbatementInBill
+            ? (d.installmentValue > 0 ? d.installmentValue : d.totalAmount)
+            : (d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue);
         return s + due;
       });
     } else {
       final target = _selectedDebt ?? (widget.debts.isNotEmpty ? widget.debts.first : null);
       if (target == null) return 0.0;
-      return target.remainingAmount < target.installmentValue ? target.remainingAmount : target.installmentValue;
+      return _includeAbatementInBill
+          ? (target.installmentValue > 0 ? target.installmentValue : target.totalAmount)
+          : (target.remainingAmount < target.installmentValue ? target.remainingAmount : target.installmentValue);
     }
   }
 
@@ -148,7 +153,10 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
       for (int i = 0; i < widget.debts.length; i++) {
         final d = widget.debts[i];
         totalRemaining += d.remainingAmount;
-        final monthDue = d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue;
+        // In gross invoice, show full installment so the abatement deduction below is crystal clear
+        final monthDue = _includeAbatementInBill
+            ? (d.installmentValue > 0 ? d.installmentValue : d.totalAmount)
+            : (d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue);
         totalThisMonth += monthDue;
 
         final nextInst = d.paidInstallments + 1;
@@ -186,7 +194,9 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
       // Specific single account bill
       final target = _selectedDebt ?? widget.debts.first;
       final nextInst = target.paidInstallments + 1;
-      final monthDue = target.remainingAmount < target.installmentValue ? target.remainingAmount : target.installmentValue;
+      final monthDue = _includeAbatementInBill
+          ? (target.installmentValue > 0 ? target.installmentValue : target.totalAmount)
+          : (target.remainingAmount < target.installmentValue ? target.remainingAmount : target.installmentValue);
 
       buffer.writeln(
         'Lembrando da parcela $nextInst de ${target.totalInstallments} (${CurrencyFormatter.format(monthDue)}/mês) referente a "${target.description}", com vencimento dia ${target.dueDay}.',
