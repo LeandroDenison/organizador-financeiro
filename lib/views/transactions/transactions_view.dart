@@ -336,22 +336,47 @@ class TransactionsView extends StatelessWidget {
                                                     ),
                                                   ),
                                                 if (tx.personName != null)
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                      horizontal: 7,
-                                                      vertical: 2,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      color: AppConstants.primaryColor
-                                                          .withValues(alpha: 0.12),
-                                                      borderRadius: BorderRadius.circular(5),
-                                                    ),
-                                                    child: Text(
-                                                      'Devedor: ${tx.personName}',
-                                                      style: const TextStyle(
-                                                        fontSize: 10,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: AppConstants.primaryColor,
+                                                  InkWell(
+                                                    borderRadius: BorderRadius.circular(5),
+                                                    onTap: () {
+                                                      showDialog(
+                                                        context: context,
+                                                        builder: (_) =>
+                                                            AssignToDebtDialog(transaction: tx),
+                                                      );
+                                                    },
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 7,
+                                                        vertical: 2,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: AppConstants.primaryColor
+                                                            .withValues(alpha: 0.12),
+                                                        borderRadius: BorderRadius.circular(5),
+                                                        border: Border.all(
+                                                          color: AppConstants.primaryColor
+                                                              .withValues(alpha: 0.3),
+                                                        ),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            'Devedor: ${tx.personName}',
+                                                            style: const TextStyle(
+                                                              fontSize: 10,
+                                                              fontWeight: FontWeight.w600,
+                                                              color: AppConstants.primaryColor,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 4),
+                                                          const Icon(
+                                                            Icons.edit_outlined,
+                                                            size: 10,
+                                                            color: AppConstants.primaryColor,
+                                                          ),
+                                                        ],
                                                       ),
                                                     ),
                                                   ),
@@ -361,7 +386,7 @@ class TransactionsView extends StatelessWidget {
                                           Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              if (!isIncome && tx.personName == null) ...[
+                                              if (!isIncome) ...[
                                                 InkWell(
                                                   borderRadius: BorderRadius.circular(6),
                                                   onTap: () {
@@ -377,25 +402,35 @@ class TransactionsView extends StatelessWidget {
                                                       vertical: 4,
                                                     ),
                                                     decoration: BoxDecoration(
-                                                      color: AppConstants.primaryColor
+                                                      color: (tx.personName != null
+                                                              ? AppConstants.accentAmber
+                                                              : AppConstants.primaryColor)
                                                           .withValues(alpha: 0.1),
                                                       borderRadius: BorderRadius.circular(6),
                                                     ),
-                                                    child: const Row(
+                                                    child: Row(
                                                       mainAxisSize: MainAxisSize.min,
                                                       children: [
                                                         Icon(
-                                                          Icons.person_add_alt_1_rounded,
+                                                          tx.personName != null
+                                                              ? Icons.edit_note_rounded
+                                                              : Icons.person_add_alt_1_rounded,
                                                           size: 14,
-                                                          color: AppConstants.primaryColor,
+                                                          color: tx.personName != null
+                                                              ? AppConstants.accentAmber
+                                                              : AppConstants.primaryColor,
                                                         ),
-                                                        SizedBox(width: 4),
+                                                        const SizedBox(width: 4),
                                                         Text(
-                                                          'Cobrar',
+                                                          tx.personName != null
+                                                              ? 'Editar Devedor'
+                                                              : 'Cobrar',
                                                           style: TextStyle(
                                                             fontSize: 11,
                                                             fontWeight: FontWeight.w600,
-                                                            color: AppConstants.primaryColor,
+                                                            color: tx.personName != null
+                                                                ? AppConstants.accentAmber
+                                                                : AppConstants.primaryColor,
                                                           ),
                                                         ),
                                                       ],

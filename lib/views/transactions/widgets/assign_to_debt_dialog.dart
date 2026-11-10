@@ -48,10 +48,19 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final names = context.read<DebtProvider>().uniquePersonNames;
-    if (_selectedPerson == null && names.isNotEmpty) {
-      _selectedPerson = names.first;
-    } else if (names.isEmpty) {
-      _isCreatingNewPerson = true;
+    if (_selectedPerson == null) {
+      if (widget.transaction.personName != null && widget.transaction.personName!.isNotEmpty) {
+        if (names.contains(widget.transaction.personName)) {
+          _selectedPerson = widget.transaction.personName;
+        } else {
+          _isCreatingNewPerson = true;
+          _newPersonController.text = widget.transaction.personName!;
+        }
+      } else if (names.isNotEmpty) {
+        _selectedPerson = names.first;
+      } else {
+        _isCreatingNewPerson = true;
+      }
     }
   }
 
@@ -63,6 +72,40 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
     _installmentsController.dispose();
     _dueDayController.dispose();
     super.dispose();
+  }
+
+  void _unassign() {
+    final debtProvider = context.read<DebtProvider>();
+    final financeProvider = context.read<FinanceProvider>();
+
+    // 1. Remove linked debt if any
+    final personId = widget.transaction.personId;
+    if (personId != null) {
+      debtProvider.deleteDebt(personId);
+    } else if (widget.transaction.personName != null) {
+      final matching = debtProvider.debts.where((d) =>
+          d.personName.toLowerCase() == widget.transaction.personName!.toLowerCase() &&
+          d.description.toLowerCase() == widget.transaction.title.toLowerCase()).toList();
+      for (final m in matching) {
+        debtProvider.deleteDebt(m.id);
+      }
+    }
+
+    // 2. Clear personName & personId on transaction
+    financeProvider.updateTransaction(
+      widget.transaction.copyWith(
+        personName: null,
+        personId: null,
+      ),
+    );
+
+    Navigator.of(context).pop(true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Atribuição de devedor removida com sucesso!'),
+        backgroundColor: AppConstants.accentAmber,
+      ),
+    );
   }
 
   void _save() {
@@ -97,6 +140,18 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
         : widget.transaction.amount;
 
     final double remainingTotalAmount = instVal * remainingInst;
+
+    // Delete previous debt if was previously linked to avoid duplication
+    if (widget.transaction.personId != null) {
+      context.read<DebtProvider>().deleteDebt(widget.transaction.personId!);
+    } else if (widget.transaction.personName != null) {
+      final matching = context.read<DebtProvider>().debts.where((d) =>
+          d.personName.toLowerCase() == widget.transaction.personName!.toLowerCase() &&
+          d.description.toLowerCase() == widget.transaction.title.toLowerCase()).toList();
+      for (final m in matching) {
+        context.read<DebtProvider>().deleteDebt(m.id);
+      }
+    }
 
     final debt = DebtModel(
       personName: personName,
@@ -164,13 +219,20 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
               color: AppConstants.primaryColor.withOpacity(0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.person_add_alt_1_rounded, color: AppConstants.primaryColor),
+            child: Icon(
+              widget.transaction.personName != null
+                  ? Icons.manage_accounts_rounded
+                  : Icons.person_add_alt_1_rounded,
+              color: AppConstants.primaryColor,
+            ),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Atribuir Conta a Alguém',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+              widget.transaction.personName != null
+                  ? 'Alterar / Remover Devedor'
+                  : 'Atribuir Conta a Alguém',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
             ),
           ),
         ],
@@ -398,6 +460,13 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
         ),
       ),
       actions: [
+        if (widget.transaction.personName != null)
+          TextButton.icon(
+            style: TextButton.styleFrom(foregroundColor: AppConstants.accentRed),
+            icon: const Icon(Icons.person_remove_rounded, size: 16),
+            label: const Text('Remover Devedor'),
+            onPressed: _unassign,
+          ),
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
@@ -405,7 +474,11 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
             foregroundColor: Colors.white,
           ),
           onPressed: _save,
-          child: const Text('Salvar em Quem me Deve'),
+          child: Text(
+            widget.transaction.personName != null
+                ? 'Atualizar Atribuição'
+                : 'Salvar em Quem me Deve',
+          ),
         ),
       ],
     );

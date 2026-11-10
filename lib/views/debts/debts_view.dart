@@ -936,8 +936,16 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                         IconButton(
                           icon: const Icon(Icons.delete_outline_rounded, size: 18),
                           color: Colors.grey.shade400,
+                          tooltip: 'Excluir cobrança',
                           onPressed: () {
+                            final desc = debt.description;
                             debtProvider.deleteDebt(debt.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Cobrança "$desc" removida.'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
                           },
                         ),
                       ],

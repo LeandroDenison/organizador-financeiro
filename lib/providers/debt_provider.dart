@@ -187,48 +187,6 @@ class DebtProvider extends ChangeNotifier {
       repairedAny = true;
     }
 
-    // Auto-sync any expense transactions marked with a personName that don't have a debt entry yet
-    try {
-      final txs = await StorageService.loadTransactions();
-      for (final tx in txs) {
-        if (tx.type == TransactionType.expense &&
-            tx.personName != null &&
-            tx.personName!.trim().isNotEmpty) {
-          final person = tx.personName!.trim();
-          final desc = tx.title.trim();
-          final alreadyHasDebt = migrated.any((d) =>
-              d.personName.toLowerCase() == person.toLowerCase() &&
-              (d.description.toLowerCase() == desc.toLowerCase() ||
-                  d.description.toLowerCase().contains(desc.toLowerCase()) ||
-                  desc.toLowerCase().contains(d.description.toLowerCase())));
-
-          if (!alreadyHasDebt) {
-            final info = DebtModel.parseInstallmentInfo(desc);
-            final totalInst = info?.totalInstallments ?? 1;
-            final currentInst = info?.currentInstallment ?? 1;
-            final remainingInst = info != null ? (totalInst - currentInst + 1) : 1;
-            final instVal = tx.amount;
-            final fullTotal = instVal * totalInst;
-            migrated.add(
-              DebtModel(
-                id: 'debt_tx_${tx.id}',
-                personName: person,
-                description: desc,
-                totalAmount: fullTotal,
-                totalInstallments: totalInst,
-                remainingInstallments: remainingInst,
-                installmentValue: instVal,
-                customRemainingAmount: instVal * remainingInst,
-                dueDay: 10,
-                createdAt: tx.date,
-              ),
-            );
-            repairedAny = true;
-          }
-        }
-      }
-    } catch (_) {}
-
     if (repairedAny) {
       await StorageService.saveDebts(migrated);
     }
