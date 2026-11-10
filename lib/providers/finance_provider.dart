@@ -72,10 +72,24 @@ class FinanceProvider extends ChangeNotifier {
     final repaired = <TransactionModel>[];
     final seenTxKeys = <String>{};
 
-    for (final t in stored) {
+    for (var t in stored) {
+      // 1. Keep strictly Open Finance transactions as requested
+      if (t.source != TransactionSource.ofx) {
+        modified = true;
+        continue;
+      }
+
       if (_isSelfTransfer(t) || _isPromotionalOrOffer(t)) {
         modified = true;
         continue;
+      }
+
+      final lower = t.title.toLowerCase();
+
+      // Clear mistakenly assigned person on Jim.Com or non-debt expenses
+      if (lower.contains('jim.com') && t.personName != null) {
+        t = t.copyWith(personName: null, personId: null);
+        modified = true;
       }
 
       final key = '${t.date.year}-${t.date.month}-${t.date.day}_${t.amount.toStringAsFixed(2)}_${t.type.name}_${t.title.trim().toLowerCase()}';
@@ -85,7 +99,6 @@ class FinanceProvider extends ChangeNotifier {
       }
       seenTxKeys.add(key);
 
-      final lower = t.title.toLowerCase();
       if (t.type == TransactionType.expense &&
           (lower.contains('pagto sal') || lower.contains('salário') || lower.contains('salario') || lower.contains('rend pago'))) {
         repaired.add(t.copyWith(type: TransactionType.income));

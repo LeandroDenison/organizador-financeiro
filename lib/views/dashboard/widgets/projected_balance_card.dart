@@ -125,7 +125,7 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                       Text(
                         _onlyMyBills
                             ? 'Sobra real do seu bolso sem depender de terceiros'
-                            : 'Fluxo total: Saldo + Devedores - Total de Contas',
+                            : 'Fluxo mensal: Receitas - Despesas + Devedores deste mês - Assinaturas',
                         style: TextStyle(
                           fontSize: 11,
                           color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,

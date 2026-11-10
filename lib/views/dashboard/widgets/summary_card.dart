@@ -7,6 +7,7 @@ class SummaryCard extends StatelessWidget {
   final Color color;
   final String? subtitle;
   final VoidCallback? onTap;
+  final Widget? actionWidget;
 
   const SummaryCard({
     super.key,
@@ -16,6 +17,7 @@ class SummaryCard extends StatelessWidget {
     required this.color,
     this.subtitle,
     this.onTap,
+    this.actionWidget,
   });
 
   @override
@@ -59,7 +61,11 @@ class SummaryCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 8),
+                if (actionWidget != null) ...[
+                  const SizedBox(width: 4),
+                  actionWidget!,
+                  const SizedBox(width: 6),
+                ],
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(

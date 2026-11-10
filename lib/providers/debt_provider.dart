@@ -199,8 +199,8 @@ class DebtProvider extends ChangeNotifier {
     final seenSubscriptionDebts = <String>{};
     final deduplicated = <DebtModel>[];
     for (final d in migrated) {
-      final normDesc = d.description.toLowerCase().replaceAll('ã', 'a').replaceAll(' ', '');
-      if (normDesc.contains('crunchyroll') && normDesc.contains('assinatura')) {
+      final normDesc = normalizeText(d.description).replaceAll(' ', '');
+      if (normDesc.contains('crunchyroll') && (normDesc.contains('assinatura') || normDesc.contains('divis'))) {
         if (seenSubscriptionDebts.contains('crunchyroll_assinatura')) {
           repairedAny = true;
           continue;
@@ -257,9 +257,13 @@ class DebtProvider extends ChangeNotifier {
     required int billingDay,
   }) async {
     final descPrefix = '$subscriptionName (Divisão de Assinatura)';
-    final existingIdx = _debts.indexWhere(
-      (d) => d.description.toLowerCase() == descPrefix.toLowerCase(),
-    );
+    final normSub = normalizeText(subscriptionName).replaceAll(' ', '');
+    final normPrefix = normalizeText(descPrefix).replaceAll(' ', '');
+
+    final existingIdx = _debts.indexWhere((d) {
+      final nd = normalizeText(d.description).replaceAll(' ', '');
+      return nd == normPrefix || (nd.contains(normSub) && (nd.contains('assinatura') || nd.contains('divis')));
+    });
 
     if (personName == null || personName.trim().isEmpty || thirdPartyAmount <= 0.01) {
       if (existingIdx != -1 && !_debts[existingIdx].isSettled && _debts[existingIdx].paymentHistory.isEmpty) {
@@ -271,11 +275,20 @@ class DebtProvider extends ChangeNotifier {
     }
 
     if (existingIdx != -1) {
+      // Remove any extra duplicate if exists
+      _debts.removeWhere((d) {
+        if (d.id == _debts[existingIdx].id) return false;
+        final nd = normalizeText(d.description).replaceAll(' ', '');
+        return nd == normPrefix || (nd.contains(normSub) && (nd.contains('assinatura') || nd.contains('divis')));
+      });
+
       final current = _debts[existingIdx];
       if (!current.isSettled &&
           (current.personName != personName.trim() ||
-              (current.installmentValue - thirdPartyAmount).abs() > 0.01)) {
+              (current.installmentValue - thirdPartyAmount).abs() > 0.01 ||
+              current.description != descPrefix)) {
         _debts[existingIdx] = current.copyWith(
+          description: descPrefix,
           personName: personName.trim(),
           totalAmount: thirdPartyAmount,
           installmentValue: thirdPartyAmount,
@@ -295,7 +308,9 @@ class DebtProvider extends ChangeNotifier {
           totalInstallments: 1,
           remainingInstallments: 1,
           installmentValue: thirdPartyAmount,
+          customRemainingAmount: thirdPartyAmount,
           dueDay: billingDay.clamp(1, 31),
+          createdAt: DateTime.now(),
         ),
       );
       await _persist();
@@ -562,7 +577,7 @@ class DebtProvider extends ChangeNotifier {
     final payment = current.paymentHistory[pIndex];
     final updatedPayments = List<DebtPaymentRecord>.from(current.paymentHistory)..removeAt(pIndex);
 
-    // Restaura o saldo restante somando o valor que havia sido pago
+    // Restaura o saldo restante somando o valor exato que havia sido pago
     final restoredRemaining = (current.remainingAmount + payment.amount).clamp(0.0, current.totalAmount);
     final restoredRemainingInst = current.installmentValue > 0
         ? (restoredRemaining / current.installmentValue).round().clamp(1, current.totalInstallments)
@@ -570,7 +585,7 @@ class DebtProvider extends ChangeNotifier {
 
     _debts[index] = current.copyWith(
       remainingInstallments: restoredRemainingInst,
-      customRemainingAmount: updatedPayments.isEmpty ? null : restoredRemaining,
+      customRemainingAmount: restoredRemaining,
       isSettled: false,
       paymentHistory: updatedPayments,
     );
@@ -579,7 +594,7 @@ class DebtProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Desfaz todos os abatimentos/pagamentos de uma pessoa e restaura o saldo original das contas
+  /// Desfaz todos os abatimentos/pagamentos de uma pessoa e restaura o saldo original exato das contas
   Future<double> revertPersonPayments({
     required String personName,
     required FinanceProvider financeProvider,
@@ -594,16 +609,20 @@ class DebtProvider extends ChangeNotifier {
       if (index == -1) continue;
 
       final current = _debts[index];
+      double totalPaidInDebt = 0.0;
       for (final p in current.paymentHistory) {
+        totalPaidInDebt += p.amount;
         totalReverted += p.amount;
       }
 
-      final info = DebtModel.parseInstallmentInfo(current.description);
-      final int originalRemainingInst = info != null ? info.remainingIncludingCurrent : current.totalInstallments;
+      final double restoredBalance = (current.remainingAmount + totalPaidInDebt).clamp(0.0, current.totalAmount);
+      final int restoredInst = current.installmentValue > 0
+          ? (restoredBalance / current.installmentValue).round().clamp(1, current.totalInstallments)
+          : current.totalInstallments;
 
       _debts[index] = current.copyWith(
-        remainingInstallments: originalRemainingInst,
-        customRemainingAmount: null,
+        remainingInstallments: restoredInst,
+        customRemainingAmount: restoredBalance,
         isSettled: false,
         paymentHistory: [],
       );

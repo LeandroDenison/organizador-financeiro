@@ -272,18 +272,27 @@ class SubscriptionProvider extends ChangeNotifier {
         continue;
       }
 
-      // Normalize and unify all Google One entries
+      // Normalize and unify all Google One and Odontoart entries
       String normalizedName = s.name;
       if (lower.contains('google one') || lower.contains('google play / google one')) {
         normalizedName = 'Google One (Armazenamento)';
+      } else if (lower.contains('odontoart') || lower.contains('odonto')) {
+        normalizedName = 'Odontoart (Plano Odontológico)';
       }
 
-      final key = normalizedName.toLowerCase().trim();
-      if (seenNames.contains(key)) {
+      final normKey = normalizedName.toLowerCase()
+          .replaceAll('ã', 'a')
+          .replaceAll('á', 'a')
+          .replaceAll('ó', 'o')
+          .replaceAll('é', 'e')
+          .replaceAll('í', 'i')
+          .replaceAll(' ', '');
+
+      if (seenNames.contains(normKey)) {
         cleaned = true;
         continue;
       }
-      seenNames.add(key);
+      seenNames.add(normKey);
 
       if (normalizedName != s.name) {
         cleaned = true;

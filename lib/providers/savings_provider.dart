@@ -43,32 +43,6 @@ class SavingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _loadDefaults() {
-    _goals = [
-      SavingsGoalModel(
-        title: 'Reserva de Emergência',
-        targetAmount: 5000.0,
-        currentAmount: 1850.0,
-        iconName: 'security',
-        colorValue: 0xFF10B981, // Emerald
-      ),
-      SavingsGoalModel(
-        title: 'Troca de Celular',
-        targetAmount: 3500.0,
-        currentAmount: 1400.0,
-        iconName: 'phone',
-        colorValue: 0xFF6366F1, // Indigo
-      ),
-      SavingsGoalModel(
-        title: 'Viagem de Férias',
-        targetAmount: 2500.0,
-        currentAmount: 600.0,
-        iconName: 'flight',
-        colorValue: 0xFFF59E0B, // Amber
-      ),
-    ];
-  }
-
   Future<void> addGoal(SavingsGoalModel goal) async {
     _goals.insert(0, goal);
     await _persist();

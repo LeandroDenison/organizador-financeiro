@@ -300,27 +300,37 @@ class OpenFinanceService {
             )
             .timeout(const Duration(seconds: 15));
 
-        if (accResp.statusCode == 404) {
+        var accData = accResp.statusCode >= 200 && accResp.statusCode < 300
+            ? (jsonDecode(accResp.body) as Map<String, dynamic>)
+            : <String, dynamic>{};
+        var results = (accData['results'] as List<dynamic>?) ?? [];
+
+        if (accResp.statusCode == 404 || results.isEmpty) {
           try {
-            currentApiKey = await getApiKey(const OpenFinanceConfig(
+            final fallbackKey = await getApiKey(const OpenFinanceConfig(
               clientId: '82695ed9-67f2-416f-a24b-28c15796d7e6',
               clientSecret: 'f4ibQxwoB44m7DhpDCCoGIcJszAlKPE0sFtYQl1KB9o',
             ));
-            accResp = await http
+            final fallbackResp = await http
                 .get(
                   Uri.parse('$_baseUrl/accounts?itemId=${Uri.encodeComponent(bank.id.trim())}'),
-                  headers: {'X-API-KEY': currentApiKey},
+                  headers: {'X-API-KEY': fallbackKey},
                 )
                 .timeout(const Duration(seconds: 15));
+            if (fallbackResp.statusCode >= 200 && fallbackResp.statusCode < 300) {
+              final fallbackData = jsonDecode(fallbackResp.body) as Map<String, dynamic>;
+              final fallbackResults = (fallbackData['results'] as List<dynamic>?) ?? [];
+              if (fallbackResults.isNotEmpty) {
+                results = fallbackResults;
+                currentApiKey = fallbackKey;
+              }
+            }
           } catch (_) {}
         }
 
-        if (accResp.statusCode < 200 || accResp.statusCode >= 300) {
+        if (results.isEmpty) {
           continue;
         }
-
-        final accData = jsonDecode(accResp.body) as Map<String, dynamic>;
-        final results = (accData['results'] as List<dynamic>?) ?? [];
 
         for (final accObj in results) {
           final acc = Map<String, dynamic>.from(accObj as Map);
@@ -372,6 +382,7 @@ class OpenFinanceService {
                   : (rawAmount < 0 || typeStr == 'DEBIT');
 
               final parsedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
+              DateTime effectiveDate = parsedDate;
 
               String? installmentRef;
               if (map['creditCardMetadata'] != null) {
@@ -381,7 +392,26 @@ class OpenFinanceService {
                 if (instNum != null && totInst != null && (totInst as num) > 1) {
                   installmentRef = '$instNum/$totInst';
                 }
+
+                // Align billing cycle if billForecastDate is present
+                final billForecast = ccMeta['billForecastDate']?.toString();
+                if (billForecast != null && billForecast.contains('-')) {
+                  final parts = billForecast.split('-');
+                  if (parts.length == 2) {
+                    final yr = int.tryParse(parts[0]);
+                    final mo = int.tryParse(parts[1]);
+                    if (yr != null && mo != null) {
+                      effectiveDate = DateTime(yr, mo, 5);
+                    }
+                  }
+                }
               }
+
+              // End-of-month credit card charges (closing date 28-31) belong to the next billing cycle (due day 5)
+              if (isCreditCard && parsedDate.day >= 28 && effectiveDate == parsedDate) {
+                effectiveDate = DateTime(parsedDate.year, parsedDate.month + 1, 5);
+              }
+
               if (installmentRef == null) {
                 final instMatch = RegExp(r'(?:Parcela\s+)?(\d+/\d+)', caseSensitive: false).firstMatch(description);
                 if (instMatch != null) {
@@ -390,7 +420,16 @@ class OpenFinanceService {
               }
 
               String? personName;
-              if (lowerDesc.contains('sergio lucas') || lowerDesc.contains('sergio')) {
+              if (lowerDesc.contains('taxconfig') ||
+                  (lowerDesc.contains('amazon') && (installmentRef?.contains('/10') ?? false))) {
+                personName = 'Clécio';
+              } else if (!isExpense && (lowerDesc.contains('sergio lucas') || lowerDesc.contains('sergio'))) {
+                personName = 'Sergio Lucas';
+              } else if (isExpense && (
+                  lowerDesc.contains('steamgames') ||
+                  lowerDesc.contains('azul linhas') ||
+                  lowerDesc.contains('latam air') ||
+                  (lowerDesc.contains('mercadolivre') && (installmentRef?.contains('/18') ?? false)))) {
                 personName = 'Sergio Lucas';
               }
 
@@ -399,7 +438,7 @@ class OpenFinanceService {
                   id: map['id'] != null ? 'pluggy_${map['id']}' : null,
                   title: description,
                   amount: rawAmount.abs(),
-                  date: parsedDate,
+                  date: effectiveDate,
                   type: isExpense ? TransactionType.expense : TransactionType.income,
                   category: map['category']?.toString() ?? OfxParserService.guessCategory(description),
                   bank: bank.bankName,

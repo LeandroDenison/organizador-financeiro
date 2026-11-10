@@ -174,6 +174,25 @@ class DashboardView extends StatelessWidget {
                       ),
                       icon: Icons.handshake_rounded,
                       color: AppConstants.primaryColor,
+                      actionWidget: SegmentedButton<DebtViewMode>(
+                        segments: const [
+                          ButtonSegment(
+                            value: DebtViewMode.month,
+                            label: Text('Mês', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                          ),
+                          ButtonSegment(
+                            value: DebtViewMode.total,
+                            label: Text('Total', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                        selected: {debts.viewMode},
+                        onSelectionChanged: (val) => debts.setViewMode(val.first),
+                        style: ButtonStyle(
+                          visualDensity: VisualDensity.compact,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 6, vertical: 0)),
+                        ),
+                      ),
                       subtitle: debts.viewMode == DebtViewMode.month
                           ? '${debts.totalPendingInstallments} parcelas • Total: ${CurrencyFormatter.format(debts.totalOwedToMe)}'
                           : '${debts.totalPendingInstallments} parcelas • Mês: ${CurrencyFormatter.format(debts.totalOwedThisMonth)}',

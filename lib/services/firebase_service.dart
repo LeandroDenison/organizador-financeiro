@@ -53,18 +53,6 @@ class FirebaseService extends ChangeNotifier {
 
   final List<DriveArchivedFile> _driveFiles = [
     DriveArchivedFile(
-      name: 'Nubank_2026-11-13.pdf',
-      fileId: '1ZYgQ-yn_npR7WoBaOa-G2tFg5TY1bpDR',
-      category: 'Fatura Nubank (PDF)',
-      uploadedAt: DateTime(2026, 11, 9, 17, 29),
-    ),
-    DriveArchivedFile(
-      name: 'itau_extrato_102026_261109_153654.pdf',
-      fileId: '1yUQ4A3D6Ue9HisyESEcUVsDcC-e1fXSu',
-      category: 'Extrato Itaú (PDF)',
-      uploadedAt: DateTime(2026, 11, 9, 17, 29),
-    ),
-    DriveArchivedFile(
       name: 'backup_organizador_financeiro.json',
       fileId: '1snfr-k-xtIa_e98U3MiWMpVG7bkDlBk7',
       category: 'Snapshot Inicial (JSON)',
@@ -313,6 +301,7 @@ class FirebaseService extends ChangeNotifier {
 
   @override
   void dispose() {
-    // Singleton instance should remain alive across widget rebuilds/tests
+    _pollingTimer?.cancel();
+    super.dispose();
   }
 }
