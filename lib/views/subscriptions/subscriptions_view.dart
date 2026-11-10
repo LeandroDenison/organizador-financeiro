@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/subscription_provider.dart';
 import '../../providers/finance_provider.dart';
+import '../../providers/debt_provider.dart';
 import '../../models/subscription_model.dart';
 import '../../utils/currency_formatter.dart';
 import '../../utils/constants.dart';
@@ -60,6 +61,7 @@ class SubscriptionsView extends StatelessWidget {
                         final added = await subProvider.syncFromTransactions(
                           financeProvider.transactions,
                           ignoreDismissed: true,
+                          debtProvider: context.read<DebtProvider>(),
                         );
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -142,8 +144,9 @@ class SubscriptionsView extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Você gasta ${CurrencyFormatter.format(subProvider.totalMonthlyCost)}/mês em ${subProvider.activeSubscriptions.length} assinaturas ativas'
-                    '${subProvider.pausedSubscriptions.isNotEmpty ? ' • ${subProvider.pausedSubscriptions.length} pausada(s) (${CurrencyFormatter.format(subProvider.totalPausedMonthlyCost)}/mês economizados)' : ''}.',
+                    'Sua parte: ${CurrencyFormatter.format(subProvider.totalMonthlyCost)}/mês em ${subProvider.activeSubscriptions.length} assinaturas ativas'
+                    '${subProvider.totalSharedThirdPartyCost > 0 ? ' (Bruto: ${CurrencyFormatter.format(subProvider.totalGrossMonthlyCost)}/mês • ${CurrencyFormatter.format(subProvider.totalSharedThirdPartyCost)}/mês pagos por terceiros)' : ''}'
+                    '${subProvider.pausedSubscriptions.isNotEmpty ? ' • ${subProvider.pausedSubscriptions.length} pausada(s)' : ''}.',
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ],
@@ -243,24 +246,55 @@ class SubscriptionsView extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '${CurrencyFormatter.format(sub.amount)}/mês',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: sub.isActive ? AppConstants.accentRed : Colors.grey,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${CurrencyFormatter.format(sub.effectiveMyCost)}/mês',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: sub.isActive ? AppConstants.accentRed : Colors.grey,
+                              ),
+                            ),
+                            if (sub.isShared)
+                              Text(
+                                'de ${CurrencyFormatter.format(sub.amount)} na fatura',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                ),
+                              ),
+                          ],
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Dia ${sub.billingDay} • ${sub.category} • ${CurrencyFormatter.format(sub.annualAmount)}/ano',
+                      'Dia ${sub.billingDay} • ${sub.category} • Seu custo anual: ${CurrencyFormatter.format(sub.annualAmount)}/ano',
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                       ),
                     ),
+                    if (sub.isShared) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppConstants.primaryColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '🤝 Conta dividida: você paga ${CurrencyFormatter.format(sub.effectiveMyCost)} e ${sub.sharedWithPerson} paga ${CurrencyFormatter.format(sub.thirdPartyShare)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppConstants.primaryColor,
+                          ),
+                        ),
+                      ),
+                    ],
                     if (sub.sourceTransactionTitle != null &&
                         sub.sourceTransactionTitle!.toLowerCase() != sub.name.toLowerCase()) ...[
                       const SizedBox(height: 2),
@@ -328,10 +362,25 @@ class SubscriptionsView extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextButton.icon(
+                    onPressed: () => _showSplitSubscriptionDialog(context, sub),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppConstants.primaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    icon: const Icon(Icons.group_add_rounded, size: 15),
+                    label: Text(
+                      sub.isShared ? 'Divisão' : 'Dividir',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton.icon(
                     onPressed: () => subProvider.toggleSubscription(sub.id),
                     style: TextButton.styleFrom(
                       foregroundColor: sub.isActive ? Colors.amber.shade700 : AppConstants.accentGreen,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -344,7 +393,7 @@ class SubscriptionsView extends StatelessWidget {
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 2),
                   IconButton(
                     tooltip: 'Excluir assinatura',
                     visualDensity: VisualDensity.compact,
@@ -356,6 +405,185 @@ class SubscriptionsView extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSplitSubscriptionDialog(BuildContext context, SubscriptionModel sub) {
+    final myShareController = TextEditingController(
+      text: sub.myShareAmount != null
+          ? sub.myShareAmount!.toStringAsFixed(2).replaceAll('.', ',')
+          : (sub.amount / 2).toStringAsFixed(2).replaceAll('.', ','),
+    );
+    final personController = TextEditingController(text: sub.sharedWithPerson ?? 'Sergio Lucas');
+    bool syncToDebts = true;
+
+    final debtProvider = context.read<DebtProvider>();
+    final suggestedPeople = <String>{
+      'Sergio Lucas',
+      'Clecio',
+      ...debtProvider.uniquePersonNames,
+    }.toList();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          final parsedMyShare =
+              double.tryParse(myShareController.text.replaceAll('.', '').replaceAll(',', '.')) ?? 0.0;
+          final thirdPartyAmount = (sub.amount - parsedMyShare).clamp(0.0, sub.amount);
+
+          return AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            title: Text('Dividir Assinatura: ${sub.name}'),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppConstants.primaryColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Valor Total na Fatura:', style: TextStyle(fontSize: 13)),
+                          Text(
+                            CurrencyFormatter.format(sub.amount),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: myShareController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Quanto VOCÊ paga (R\$)',
+                        hintText: 'Ex: 4,90',
+                        prefixIcon: Icon(Icons.person_outline_rounded),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: personController,
+                      decoration: const InputDecoration(
+                        labelText: 'Quem paga o restante?',
+                        hintText: 'Ex: Sergio Lucas',
+                        prefixIcon: Icon(Icons.handshake_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: suggestedPeople.map((name) {
+                        return ActionChip(
+                          label: Text(name, style: const TextStyle(fontSize: 11)),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () {
+                            personController.text = name;
+                            setState(() {});
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppConstants.accentGreen.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calculate_outlined, size: 18, color: AppConstants.accentGreen),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Parte de ${personController.text.trim().isEmpty ? "Terceiro" : personController.text.trim()}: '
+                              '${CurrencyFormatter.format(thirdPartyAmount)}/mês',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppConstants.accentGreen,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: syncToDebts,
+                      onChanged: (v) => setState(() => syncToDebts = v ?? true),
+                      title: const Text(
+                        'Registrar cobrança em "Quem me Deve"',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Adiciona automaticamente o valor restante na conta da pessoa',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              if (sub.isShared)
+                TextButton(
+                  onPressed: () async {
+                    await ctx.read<SubscriptionProvider>().updateSubscriptionSplit(
+                          id: sub.id,
+                          myShareAmount: null,
+                          sharedWithPerson: null,
+                          debtProvider: debtProvider,
+                          syncToDebts: true,
+                        );
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: const Text('Remover Divisão', style: TextStyle(color: AppConstants.accentRed)),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppConstants.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final person = personController.text.trim();
+                  if (parsedMyShare >= 0 && parsedMyShare < sub.amount && person.isNotEmpty) {
+                    await ctx.read<SubscriptionProvider>().updateSubscriptionSplit(
+                          id: sub.id,
+                          myShareAmount: parsedMyShare,
+                          sharedWithPerson: person,
+                          debtProvider: debtProvider,
+                          syncToDebts: syncToDebts,
+                        );
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  }
+                },
+                child: const Text('Salvar Divisão'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

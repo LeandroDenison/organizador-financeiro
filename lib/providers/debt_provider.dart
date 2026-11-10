@@ -178,6 +178,60 @@ class DebtProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ensures a shared subscription's third-party portion (e.g. Crunchyroll -> Sergio Lucas R$ 20,00) is registered in Quem me Deve
+  Future<void> syncSharedSubscriptionDebt({
+    required String subscriptionName,
+    required String? personName,
+    required double thirdPartyAmount,
+    required int billingDay,
+  }) async {
+    final descPrefix = '$subscriptionName (Divisão de Assinatura)';
+    final existingIdx = _debts.indexWhere(
+      (d) => d.description.toLowerCase() == descPrefix.toLowerCase(),
+    );
+
+    if (personName == null || personName.trim().isEmpty || thirdPartyAmount <= 0.01) {
+      if (existingIdx != -1 && !_debts[existingIdx].isSettled && _debts[existingIdx].paymentHistory.isEmpty) {
+        _debts.removeAt(existingIdx);
+        await _persist();
+        notifyListeners();
+      }
+      return;
+    }
+
+    if (existingIdx != -1) {
+      final current = _debts[existingIdx];
+      if (!current.isSettled &&
+          (current.personName != personName.trim() ||
+              (current.installmentValue - thirdPartyAmount).abs() > 0.01)) {
+        _debts[existingIdx] = current.copyWith(
+          personName: personName.trim(),
+          totalAmount: thirdPartyAmount,
+          installmentValue: thirdPartyAmount,
+          customRemainingAmount: thirdPartyAmount,
+          dueDay: billingDay.clamp(1, 31),
+        );
+        await _persist();
+        notifyListeners();
+      }
+    } else {
+      _debts.insert(
+        0,
+        DebtModel(
+          personName: personName.trim(),
+          description: descPrefix,
+          totalAmount: thirdPartyAmount,
+          totalInstallments: 1,
+          remainingInstallments: 1,
+          installmentValue: thirdPartyAmount,
+          dueDay: billingDay.clamp(1, 31),
+        ),
+      );
+      await _persist();
+      notifyListeners();
+    }
+  }
+
   Future<void> payInstallment({
     required String debtId,
     required FinanceProvider financeProvider,

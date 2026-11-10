@@ -8,6 +8,8 @@ class SubscriptionModel {
   final String category;
   final String? bank;
   final String? sourceTransactionTitle;
+  double? myShareAmount;
+  String? sharedWithPerson;
   bool isActive;
 
   SubscriptionModel({
@@ -18,10 +20,25 @@ class SubscriptionModel {
     this.category = 'Assinaturas',
     this.bank,
     this.sourceTransactionTitle,
+    this.myShareAmount,
+    this.sharedWithPerson,
     this.isActive = true,
   }) : id = id ?? const Uuid().v4();
 
-  double get annualAmount => amount * 12;
+  bool get isShared =>
+      myShareAmount != null &&
+      myShareAmount! >= 0 &&
+      myShareAmount! < amount &&
+      sharedWithPerson != null &&
+      sharedWithPerson!.trim().isNotEmpty;
+
+  /// Quanto realmente sai do bolso do titular
+  double get effectiveMyCost => isShared ? myShareAmount! : amount;
+
+  /// Quanto a outra pessoa paga na divisão
+  double get thirdPartyShare => isShared ? (amount - myShareAmount!) : 0.0;
+
+  double get annualAmount => effectiveMyCost * 12;
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -31,6 +48,8 @@ class SubscriptionModel {
         'category': category,
         'bank': bank,
         'sourceTransactionTitle': sourceTransactionTitle,
+        'myShareAmount': myShareAmount,
+        'sharedWithPerson': sharedWithPerson,
         'isActive': isActive,
       };
 
@@ -43,6 +62,8 @@ class SubscriptionModel {
       category: map['category'] as String? ?? 'Assinaturas',
       bank: map['bank'] as String?,
       sourceTransactionTitle: map['sourceTransactionTitle'] as String?,
+      myShareAmount: (map['myShareAmount'] as num?)?.toDouble(),
+      sharedWithPerson: map['sharedWithPerson'] as String?,
       isActive: map['isActive'] as bool? ?? true,
     );
   }

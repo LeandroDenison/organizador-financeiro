@@ -1,10 +1,11 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/ofx_parser_service.dart';
 import '../../services/csv_parser_service.dart';
 import '../../services/pdf_parser_service.dart';
 import '../../services/sample_data_service.dart';
+import '../../services/open_finance_service.dart';
 import '../../utils/constants.dart';
 import 'widgets/import_preview_dialog.dart';
 
@@ -296,6 +297,78 @@ NEWFILEUID:NONE
             ),
             const SizedBox(height: 24),
 
+            // Open Finance Brasil Card (Pluggy API)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [const Color(0xFF1E1B4B), const Color(0xFF0F172A)]
+                      : [const Color(0xFFEEF2FF), Colors.white],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppConstants.primaryColor.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppConstants.primaryColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.sync_lock_rounded, color: AppConstants.primaryColor, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Conexão Open Finance Brasil (Pluggy API)',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            Text(
+                              'Sincronize Nubank, Itaú e Mercado Pago automaticamente via API sem precisar baixar arquivos',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppConstants.primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.cloud_sync_rounded, size: 18),
+                        label: const Text('Configurar / Sincronizar Open Finance'),
+                        onPressed: () => _showOpenFinanceDialog(context),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
             // Drop zone / Upload area
             InkWell(
               onTap: _isProcessing ? null : _pickFile,
@@ -453,6 +526,154 @@ NEWFILEUID:NONE
                   ],
                 );
               },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showOpenFinanceDialog(BuildContext context) async {
+    final currentConfig = await OpenFinanceService.loadConfig();
+    if (!context.mounted) return;
+
+    final clientIdCtrl = TextEditingController(text: currentConfig.clientId);
+    final clientSecretCtrl = TextEditingController(text: currentConfig.clientSecret);
+    final itemIdCtrl = TextEditingController(text: currentConfig.itemId);
+    bool isSyncing = false;
+    String? errorMsg;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          title: const Row(
+            children: [
+              Icon(Icons.sync_lock_rounded, color: AppConstants.primaryColor),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Open Finance Brasil (Pluggy)',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 460,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppConstants.primaryColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      'Como conectar seus bancos gratuitamente no Open Finance:\n'
+                      '1. Crie uma conta gratuita de desenvolvedor em dashboard.pluggy.ai\n'
+                      '2. Crie uma aplicação para copiar seu Client ID e Client Secret.\n'
+                      '3. Conecte seu Nubank ou Itaú via QR Code do Open Finance no Demo/MyPluggy e copie o Item ID gerado.',
+                      style: TextStyle(fontSize: 12, height: 1.4),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: clientIdCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Pluggy Client ID',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.key_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: clientSecretCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Pluggy Client Secret',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock_outline_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: itemIdCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Item ID da Conexão Bancária (Nubank / Itaú)',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.account_balance_rounded),
+                    ),
+                  ),
+                  if (errorMsg != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorMsg!,
+                      style: const TextStyle(color: AppConstants.accentRed, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSyncing ? null : () => Navigator.pop(ctx),
+              child: const Text('Fechar'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppConstants.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              icon: isSyncing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.cloud_download_rounded, size: 18),
+              label: Text(isSyncing ? 'Buscando...' : 'Salvar & Sincronizar'),
+              onPressed: isSyncing
+                  ? null
+                  : () async {
+                      final cfg = OpenFinanceConfig(
+                        clientId: clientIdCtrl.text.trim(),
+                        clientSecret: clientSecretCtrl.text.trim(),
+                        itemId: itemIdCtrl.text.trim(),
+                      );
+                      await OpenFinanceService.saveConfig(cfg);
+                      if (!cfg.isConfigured) {
+                        setModalState(() {
+                          errorMsg = 'Preencha Client ID, Client Secret e Item ID para sincronizar.';
+                        });
+                        return;
+                      }
+                      setModalState(() {
+                        isSyncing = true;
+                        errorMsg = null;
+                      });
+                      try {
+                        final txs = await OpenFinanceService.fetchTransactions(cfg);
+                        if (ctx.mounted) {
+                          Navigator.pop(ctx);
+                          if (txs.isEmpty) {
+                            _showNoTransactionsAlert();
+                          } else {
+                            _showPreviewDialog('Open Finance Brasil', txs);
+                          }
+                        }
+                      } catch (e) {
+                        setModalState(() {
+                          isSyncing = false;
+                          errorMsg = e.toString().replaceAll('Exception: ', '');
+                        });
+                      }
+                    },
             ),
           ],
         ),

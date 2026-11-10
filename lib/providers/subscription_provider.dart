@@ -4,6 +4,7 @@ import '../models/subscription_model.dart';
 import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
 import '../services/firebase_service.dart';
+import 'debt_provider.dart';
 
 class DetectedSubscriptionInfo {
   final String cleanName;
@@ -27,12 +28,23 @@ class SubscriptionProvider extends ChangeNotifier {
       _subscriptions.where((s) => s.isActive).toList();
   List<SubscriptionModel> get pausedSubscriptions =>
       _subscriptions.where((s) => !s.isActive).toList();
+  List<SubscriptionModel> get sharedSubscriptions =>
+      activeSubscriptions.where((s) => s.isShared).toList();
 
+  /// Quanto realmente sai do bolso do titular por mês (descontando divisões como Crunchyroll)
   double get totalMonthlyCost =>
+      activeSubscriptions.fold(0.0, (s, sub) => s + sub.effectiveMyCost);
+
+  /// Valor bruto total nas faturas (incluindo parte de terceiros)
+  double get totalGrossMonthlyCost =>
       activeSubscriptions.fold(0.0, (s, sub) => s + sub.amount);
 
+  /// Quanto terceiros pagam nas assinaturas divididas (ex: R$ 20,00 do Sergio Lucas no Crunchyroll)
+  double get totalSharedThirdPartyCost =>
+      activeSubscriptions.fold(0.0, (s, sub) => s + sub.thirdPartyShare);
+
   double get totalPausedMonthlyCost =>
-      pausedSubscriptions.fold(0.0, (s, sub) => s + sub.amount);
+      pausedSubscriptions.fold(0.0, (s, sub) => s + sub.effectiveMyCost);
 
   double get totalAnnualCost => totalMonthlyCost * 12;
 
@@ -234,6 +246,19 @@ class SubscriptionProvider extends ChangeNotifier {
       _subscriptions = [];
       await _persist(syncCloud: false);
     }
+
+    // Ensure Crunchyroll default split (Denison pays R$ 4,90; Sergio Lucas pays the rest R$ 20,00)
+    bool updatedSplit = false;
+    for (final sub in _subscriptions) {
+      if (sub.name.toLowerCase().contains('crunchyroll') && sub.myShareAmount == null) {
+        sub.myShareAmount = 4.90;
+        sub.sharedWithPerson = 'Sergio Lucas';
+        updatedSplit = true;
+      }
+    }
+    if (updatedSplit) {
+      await _persist();
+    }
     notifyListeners();
   }
 
@@ -241,6 +266,7 @@ class SubscriptionProvider extends ChangeNotifier {
   Future<int> syncFromTransactions(
     List<TransactionModel> transactions, {
     bool ignoreDismissed = false,
+    DebtProvider? debtProvider,
   }) async {
     int addedCount = 0;
 
@@ -260,6 +286,8 @@ class SubscriptionProvider extends ChangeNotifier {
               s.sourceTransactionTitle!.toLowerCase() == tx.title.toLowerCase() &&
               (s.amount - tx.amount).abs() < 0.05));
 
+      final isCrunchyroll = detected.cleanName.toLowerCase().contains('crunchyroll');
+
       if (existingIndex == -1) {
         _subscriptions.add(
           SubscriptionModel(
@@ -269,10 +297,27 @@ class SubscriptionProvider extends ChangeNotifier {
             category: detected.category,
             bank: tx.bank,
             sourceTransactionTitle: tx.title,
+            myShareAmount: isCrunchyroll ? 4.90 : null,
+            sharedWithPerson: isCrunchyroll ? 'Sergio Lucas' : null,
             isActive: true,
           ),
         );
         addedCount++;
+      } else if (isCrunchyroll && _subscriptions[existingIndex].myShareAmount == null) {
+        _subscriptions[existingIndex].myShareAmount = 4.90;
+        _subscriptions[existingIndex].sharedWithPerson = 'Sergio Lucas';
+        addedCount++;
+      }
+    }
+
+    if (debtProvider != null) {
+      for (final sub in activeSubscriptions.where((s) => s.isShared)) {
+        await debtProvider.syncSharedSubscriptionDebt(
+          subscriptionName: sub.name,
+          personName: sub.sharedWithPerson,
+          thirdPartyAmount: sub.thirdPartyShare,
+          billingDay: sub.billingDay,
+        );
       }
     }
 
@@ -283,6 +328,36 @@ class SubscriptionProvider extends ChangeNotifier {
       notifyListeners();
     }
     return addedCount;
+  }
+
+  /// Updates or clears the split (divisão de conta) for a subscription
+  Future<void> updateSubscriptionSplit({
+    required String id,
+    double? myShareAmount,
+    String? sharedWithPerson,
+    DebtProvider? debtProvider,
+    bool syncToDebts = true,
+  }) async {
+    final index = _subscriptions.indexWhere((s) => s.id == id);
+    if (index == -1) return;
+
+    final sub = _subscriptions[index];
+    sub.myShareAmount = myShareAmount;
+    sub.sharedWithPerson = (sharedWithPerson != null && sharedWithPerson.trim().isNotEmpty)
+        ? sharedWithPerson.trim()
+        : null;
+
+    await _persist();
+    notifyListeners();
+
+    if (debtProvider != null && syncToDebts) {
+      await debtProvider.syncSharedSubscriptionDebt(
+        subscriptionName: sub.name,
+        personName: sub.isShared ? sub.sharedWithPerson : null,
+        thirdPartyAmount: sub.thirdPartyShare,
+        billingDay: sub.billingDay,
+      );
+    }
   }
 
   Future<void> clearSubscriptions() async {
