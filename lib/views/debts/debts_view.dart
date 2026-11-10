@@ -75,23 +75,52 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppConstants.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 12 : 16,
-                      vertical: isMobile ? 8 : 12,
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    // Chave Ativa/Desativa Mês / Total
+                    SegmentedButton<DebtViewMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: DebtViewMode.month,
+                          icon: Icon(Icons.calendar_month_rounded, size: 15),
+                          label: Text('Mês', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                        ButtonSegment(
+                          value: DebtViewMode.total,
+                          icon: Icon(Icons.all_inclusive_rounded, size: 15),
+                          label: Text('Total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                      selected: {debtProvider.viewMode},
+                      onSelectionChanged: (newVal) => debtProvider.setViewMode(newVal.first),
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 10, vertical: 0)),
+                      ),
                     ),
-                  ),
-                  icon: const Icon(Icons.person_add_rounded, size: 18),
-                  label: Text(isMobile ? 'Novo' : 'Adicionar Conta'),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => const AddDebtDialog(),
-                    );
-                  },
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppConstants.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 12 : 16,
+                          vertical: isMobile ? 8 : 12,
+                        ),
+                      ),
+                      icon: const Icon(Icons.person_add_rounded, size: 18),
+                      label: Text(isMobile ? 'Novo' : 'Adicionar Conta'),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => const AddDebtDialog(),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -112,10 +141,29 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                 child: Row(
                   children: [
                     _buildMetric(
-                      'Total a Receber',
-                      CurrencyFormatter.format(debtProvider.totalOwedToMe),
-                      Icons.pending_actions_rounded,
+                      debtProvider.viewMode == DebtViewMode.month ? 'A Receber no Mês' : 'Total a Receber',
+                      CurrencyFormatter.format(
+                        debtProvider.viewMode == DebtViewMode.month
+                            ? debtProvider.totalOwedThisMonth
+                            : debtProvider.totalOwedToMe,
+                      ),
+                      debtProvider.viewMode == DebtViewMode.month
+                          ? Icons.calendar_month_rounded
+                          : Icons.pending_actions_rounded,
                       AppConstants.accentAmber,
+                    ),
+                    _buildDivider(isDark),
+                    _buildMetric(
+                      debtProvider.viewMode == DebtViewMode.month ? 'Total Acumulado' : 'A Receber no Mês',
+                      CurrencyFormatter.format(
+                        debtProvider.viewMode == DebtViewMode.month
+                            ? debtProvider.totalOwedToMe
+                            : debtProvider.totalOwedThisMonth,
+                      ),
+                      debtProvider.viewMode == DebtViewMode.month
+                          ? Icons.all_inclusive_rounded
+                          : Icons.calendar_month_rounded,
+                      Colors.indigoAccent,
                     ),
                     _buildDivider(isDark),
                     _buildMetric(
@@ -135,7 +183,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                     _buildMetric(
                       'Parcelas Pendentes',
                       '${debtProvider.totalPendingInstallments} parcelas',
-                      Icons.calendar_month_rounded,
+                      Icons.calendar_today_rounded,
                       Colors.blue,
                     ),
                   ],
@@ -380,10 +428,15 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
         final personName = entries[index].key;
         final debts = entries[index].value;
 
-        final totalRemaining = debts.fold(0.0, (s, d) => s + d.remainingAmount);
+        final isMonthMode = debtProvider.viewMode == DebtViewMode.month;
+        final personMonthVal = debtProvider.personOwedThisMonth(personName);
+        final personTotalVal = debtProvider.personTotalOwed(personName);
+        final displayVal = isMonthMode ? personMonthVal : personTotalVal;
+
+        final totalRemaining = personTotalVal;
         final totalOriginal = debts.fold(0.0, (s, d) => s + d.totalAmount);
         final totalPaid = debts.fold(0.0, (s, d) => s + d.paidAmount);
-        final totalMonthlyInstallment = debts.fold(0.0, (s, d) => s + d.installmentValue);
+        final totalMonthlyInstallment = personMonthVal;
         final overallProgress = totalOriginal > 0 ? (totalPaid / totalOriginal).clamp(0.0, 1.0) : 1.0;
 
         return Card(
@@ -439,11 +492,21 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          CurrencyFormatter.format(totalRemaining),
+                          CurrencyFormatter.format(displayVal),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
                             color: AppConstants.accentAmber,
+                          ),
+                        ),
+                        Text(
+                          isMonthMode
+                              ? 'Neste mês • Total: ${CurrencyFormatter.format(personTotalVal)}'
+                              : 'Total geral • Mês: ${CurrencyFormatter.format(personMonthVal)}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         if (totalPaid > 0)
@@ -513,7 +576,9 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
-                                          CurrencyFormatter.format(d.remainingAmount),
+                                          isMonthMode
+                                              ? '${CurrencyFormatter.format(d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue)}/mês'
+                                              : CurrencyFormatter.format(d.remainingAmount),
                                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                         ),
                                       ],
@@ -784,25 +849,35 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                         ],
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          CurrencyFormatter.format(debt.remainingAmount),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: debt.isSettled ? AppConstants.accentGreen : AppConstants.accentAmber,
-                          ),
-                        ),
-                        Text(
-                          'de ${CurrencyFormatter.format(debt.totalAmount)}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
+                    Builder(
+                      builder: (_) {
+                        final isMonth = debtProvider.viewMode == DebtViewMode.month;
+                        final debtMonthVal = debt.remainingAmount < debt.installmentValue ? debt.remainingAmount : debt.installmentValue;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              isMonth && !debt.isSettled
+                                  ? '${CurrencyFormatter.format(debtMonthVal)}/mês'
+                                  : CurrencyFormatter.format(debt.remainingAmount),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: debt.isSettled ? AppConstants.accentGreen : AppConstants.accentAmber,
+                              ),
+                            ),
+                            Text(
+                              isMonth && !debt.isSettled
+                                  ? 'de ${CurrencyFormatter.format(debt.remainingAmount)} total'
+                                  : 'de ${CurrencyFormatter.format(debt.totalAmount)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),

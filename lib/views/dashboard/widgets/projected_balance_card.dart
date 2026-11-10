@@ -39,7 +39,10 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
       final alreadyPaidThisMonth = d.paymentHistory.any((p) =>
           p.date.year == selectedMonth.year && p.date.month == selectedMonth.month);
       return !alreadyPaidThisMonth;
-    }).fold(0.0, (sum, d) => sum + d.installmentValue);
+    }).fold(0.0, (sum, d) {
+      final val = d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue;
+      return sum + val;
+    });
 
     // Assinaturas que ainda faltam cobrar neste mês
     final unbilledSubs = subscriptions.activeSubscriptions.where((sub) {

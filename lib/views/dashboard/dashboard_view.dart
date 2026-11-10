@@ -164,11 +164,19 @@ class DashboardView extends StatelessWidget {
                       onTap: () => appState.setTab(1), // Extrato de Transações
                     ),
                     SummaryCard(
-                      title: 'Quem me Deve (Ativos)',
-                      value: CurrencyFormatter.format(debts.totalOwedToMe),
+                      title: debts.viewMode == DebtViewMode.month
+                          ? 'Quem me Deve (Mês)'
+                          : 'Quem me Deve (Total)',
+                      value: CurrencyFormatter.format(
+                        debts.viewMode == DebtViewMode.month
+                            ? debts.totalOwedThisMonth
+                            : debts.totalOwedToMe,
+                      ),
                       icon: Icons.handshake_rounded,
                       color: AppConstants.primaryColor,
-                      subtitle: '${debts.totalPendingInstallments} parcelas pendentes',
+                      subtitle: debts.viewMode == DebtViewMode.month
+                          ? '${debts.totalPendingInstallments} parcelas • Total: ${CurrencyFormatter.format(debts.totalOwedToMe)}'
+                          : '${debts.totalPendingInstallments} parcelas • Mês: ${CurrencyFormatter.format(debts.totalOwedThisMonth)}',
                       onTap: () => appState.setTab(2), // Navega para aba Quem me deve
                     ),
                   ],
@@ -280,14 +288,40 @@ class DashboardView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(
-                  'Pessoas que me devem',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.grey.shade900,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Quem me deve',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.grey.shade900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SegmentedButton<DebtViewMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: DebtViewMode.month,
+                          label: Text('Mês', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                        ButtonSegment(
+                          value: DebtViewMode.total,
+                          label: Text('Total', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                      selected: {debts.viewMode},
+                      onSelectionChanged: (newVal) => debts.setViewMode(newVal.first),
+                      style: const ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               TextButton.icon(
@@ -317,6 +351,8 @@ class DashboardView extends StatelessWidget {
               separatorBuilder: (_, __) => const Divider(height: 16),
               itemBuilder: (context, index) {
                 final debt = debts.activeDebts[index];
+                final isMonth = debts.viewMode == DebtViewMode.month;
+                final monthVal = debt.remainingAmount < debt.installmentValue ? debt.remainingAmount : debt.installmentValue;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -332,7 +368,9 @@ class DashboardView extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          CurrencyFormatter.format(debt.remainingAmount),
+                          isMonth
+                              ? '${CurrencyFormatter.format(monthVal)}/mês'
+                              : CurrencyFormatter.format(debt.remainingAmount),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AppConstants.accentAmber,

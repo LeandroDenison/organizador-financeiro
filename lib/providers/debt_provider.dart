@@ -5,12 +5,29 @@ import '../services/storage_service.dart';
 import '../services/firebase_service.dart';
 import 'finance_provider.dart';
 
+enum DebtViewMode {
+  month, // Parcelas a receber no mês atual
+  total, // Total acumulado de todas as parcelas
+}
+
 class DebtProvider extends ChangeNotifier {
   List<DebtModel> _debts = [];
   bool _isLoading = true;
+  DebtViewMode _viewMode = DebtViewMode.month;
 
   List<DebtModel> get debts => _debts;
   bool get isLoading => _isLoading;
+  DebtViewMode get viewMode => _viewMode;
+
+  void setViewMode(DebtViewMode mode) {
+    _viewMode = mode;
+    notifyListeners();
+  }
+
+  void toggleViewMode() {
+    _viewMode = _viewMode == DebtViewMode.month ? DebtViewMode.total : DebtViewMode.month;
+    notifyListeners();
+  }
 
   List<DebtModel> get activeDebts => _debts.where((d) => !d.isSettled).toList();
   List<DebtModel> get settledDebts => _debts.where((d) => d.isSettled).toList();
@@ -102,6 +119,29 @@ class DebtProvider extends ChangeNotifier {
 
   double get totalOwedToMe {
     return activeDebts.fold(0.0, (sum, d) => sum + d.remainingAmount);
+  }
+
+  /// Soma das parcelas que vencem/são cobradas no mês atual
+  double get totalOwedThisMonth {
+    return activeDebts.fold(0.0, (sum, d) {
+      final monthVal = d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue;
+      return sum + monthVal;
+    });
+  }
+
+  /// Valor a receber no mês de uma pessoa específica
+  double personOwedThisMonth(String personName) {
+    final list = activeDebts.where((d) => normalizeText(d.personName) == normalizeText(personName));
+    return list.fold(0.0, (sum, d) {
+      final monthVal = d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue;
+      return sum + monthVal;
+    });
+  }
+
+  /// Valor total acumulado de uma pessoa específica (todas as parcelas restantes)
+  double personTotalOwed(String personName) {
+    final list = activeDebts.where((d) => normalizeText(d.personName) == normalizeText(personName));
+    return list.fold(0.0, (sum, d) => sum + d.remainingAmount);
   }
 
   double get totalAlreadyReceived {

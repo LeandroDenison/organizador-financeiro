@@ -110,10 +110,37 @@ class FinanceProvider extends ChangeNotifier {
 
   static bool _isSelfTransfer(TransactionModel t) {
     final lower = t.title.toLowerCase();
-    return lower.contains('pix transf d eniso') ||
-        lower.contains('pix transf denison') ||
-        (lower.contains('d enison') && (lower.contains('transf') || lower.contains('transferência') || lower.contains('transferencia'))) ||
-        (lower.contains('denison') && (lower.contains('transf') || lower.contains('transferência') || lower.contains('transferencia')));
+
+    // 1. Transferências entre contas do próprio Denison
+    final mentionsDenison = lower.contains('denison') ||
+        lower.contains('d enison') ||
+        lower.contains('d eniso') ||
+        lower.contains('enison leandro');
+    if (mentionsDenison &&
+        (lower.contains('pix') ||
+            lower.contains('transf') ||
+            lower.contains('transferência') ||
+            lower.contains('transferencia') ||
+            lower.contains('enviad') ||
+            lower.contains('recebid'))) {
+      return true;
+    }
+
+    // 2. Transferências entre contas conectadas do usuário (Nubank <-> Mercado Pago <-> Itaú)
+    final isTransferAction = lower.contains('transferência') ||
+        lower.contains('transferencia') ||
+        lower.contains('pix enviado') ||
+        lower.contains('pix transf');
+    final mentionsOwnBank = lower.contains('mercado pago') ||
+        lower.contains('nu pagamentos') ||
+        lower.contains('nubank') ||
+        lower.contains('itau') ||
+        lower.contains('itaú');
+    if (isTransferAction && mentionsOwnBank) {
+      return true;
+    }
+
+    return false;
   }
 
   static bool _isPromotionalOrOffer(TransactionModel t) {
