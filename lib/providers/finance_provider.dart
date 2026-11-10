@@ -2,19 +2,48 @@ import 'package:flutter/foundation.dart';
 import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
 import '../services/firebase_service.dart';
+import '../services/open_finance_service.dart';
 
 class FinanceProvider extends ChangeNotifier {
   List<TransactionModel> _transactions = [];
+  List<BankAccountBalance> _bankBalances = [];
   bool _isLoading = true;
+  bool _isSyncingBalances = false;
   String _selectedCategory = 'Todas';
   String _searchQuery = '';
   TransactionType? _typeFilter;
 
   List<TransactionModel> get transactions => _transactions;
+  List<BankAccountBalance> get bankBalances => _bankBalances;
   bool get isLoading => _isLoading;
+  bool get isSyncingBalances => _isSyncingBalances;
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
   TransactionType? get typeFilter => _typeFilter;
+
+  /// Soma dos saldos em conta corrente/depósito à vista dos 3 bancos (Nubank, Itaú, Mercado Pago)
+  double get openFinanceCashBalance {
+    final cashAccounts = _bankBalances.where((b) => b.accountType == 'BANK').toList();
+    if (cashAccounts.isEmpty) return balance;
+    return cashAccounts.fold(0.0, (sum, b) => sum + b.balance);
+  }
+
+  /// Saldo individual de cada banco
+  double getBankBalance(String bank) {
+    return _bankBalances
+        .where((b) => b.accountType == 'BANK' && b.bankName.toLowerCase().contains(bank.toLowerCase()))
+        .fold(0.0, (sum, b) => sum + b.balance);
+  }
+
+  Future<void> refreshBankBalances() async {
+    _isSyncingBalances = true;
+    notifyListeners();
+    try {
+      _bankBalances = await OpenFinanceService.fetchBankBalances();
+    } catch (_) {}
+    _isSyncingBalances = false;
+    notifyListeners();
+  }
 
   Future<void> init() async {
     _isLoading = true;
@@ -71,6 +100,10 @@ class FinanceProvider extends ChangeNotifier {
       await StorageService.saveTransactions(_transactions);
       FirebaseService().triggerSync();
     }
+
+    // Carrega saldos consolidados do Open Finance
+    _bankBalances = await OpenFinanceService.loadStoredBalances();
+
     _isLoading = false;
     notifyListeners();
   }

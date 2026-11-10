@@ -59,7 +59,7 @@ class SubscriptionsView extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: () => _showAuditDialog(context, subProvider, financeProvider),
                       icon: const Icon(Icons.rule_rounded, size: 17),
-                      label: const Text('Auditar Mês Retrasado'),
+                      label: const Text('Auditar Ciclo de Vida'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.orange.shade700,
                         side: BorderSide(color: Colors.orange.shade300),
@@ -743,7 +743,10 @@ class SubscriptionsView extends StatelessWidget {
           ],
         ),
         content: const Text(
-          'Se uma assinatura foi cobrada no mês retrasado (ou antes), mas no mês passado NÃO teve cobrança nem neste mês, ela é considerada cancelada/expirada.\n\nO que você deseja fazer com as assinaturas identificadas?',
+          'Lógica inteligente de verificação do ciclo de vida:\n\n'
+          '• Se cobrou no mês passado e o dia da cobrança neste mês ainda não passou (ou hoje é o dia da cobrança), a assinatura permanece ATIVA, pois ainda virá na fatura deste mês.\n\n'
+          '• Se cobrou mês passado mas o dia esperado já passou (com tolerância) e não cobrou neste mês, ou se não houve cobrança nem mês passado nem no mês atual, ela é marcada como pausada/inativa.\n\n'
+          'Deseja auditar agora?',
           style: TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [

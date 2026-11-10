@@ -381,8 +381,14 @@ class SubscriptionProvider extends ChangeNotifier {
     return addedCount;
   }
 
-  /// Se a assinatura veio no mês retrasado (ou anterior) e no mês passado não teve cobrança,
-  /// desativa a mesma (ou exclui se deleteInstead = true).
+  /// Auditoria inteligente de ciclo de vida das assinaturas:
+  /// 1. Pega a data exata da verificação (hoje = DateTime.now()).
+  /// 2. Se já cobrou no mês atual: 100% Ativa!
+  /// 3. Se cobrou no mês passado e o dia da cobrança (vencimento) deste mês ainda não passou
+  ///    (ou hoje é o dia da cobrança), permanece ATIVA, pois ainda virá este mês.
+  /// 4. Se cobrou mês passado mas o dia esperado já passou (com folga após o dia seguinte)
+  ///    e não cobrou no mês atual: marca como Pausada.
+  /// 5. Se não cobrou nem mês passado nem no mês atual: marca como Pausada.
   Future<List<String>> auditLapsedSubscriptions(
     List<TransactionModel> transactions, {
     DateTime? referenceDate,
@@ -391,13 +397,15 @@ class SubscriptionProvider extends ChangeNotifier {
   }) async {
     if (transactions.isEmpty || _subscriptions.isEmpty) return [];
 
-    DateTime ref = referenceDate ?? DateTime.now();
-    for (final tx in transactions) {
-      if (tx.date.isAfter(ref)) ref = tx.date;
-    }
+    // A data de referência é estritamente o momento atual (hoje)
+    final DateTime today = referenceDate ?? DateTime.now();
+    final int currentYear = today.year;
+    final int currentMonth = today.month;
+    final int currentDay = today.day;
 
-    final currentMonthStart = DateTime(ref.year, ref.month, 1);
-    final prevMonthStart = DateTime(ref.year, ref.month - 1, 1);
+    // Mês passado real
+    final int prevYear = currentMonth == 1 ? currentYear - 1 : currentYear;
+    final int prevMonth = currentMonth == 1 ? 12 : currentMonth - 1;
 
     final affectedNames = <String>[];
     final remaining = <SubscriptionModel>[];
@@ -426,30 +434,80 @@ class SubscriptionProvider extends ChangeNotifier {
         }
       }
 
-      final hadInMonthRetrasadoOrEarlier = matchingTxs.any((tx) => tx.date.isBefore(prevMonthStart));
-      final hadInPrevMonth = matchingTxs.any((tx) =>
-          !tx.date.isBefore(prevMonthStart) && tx.date.isBefore(currentMonthStart));
-      final hadInCurrentMonth = matchingTxs.any((tx) => !tx.date.isBefore(currentMonthStart));
+      // 1. Cobrança no mês corrente (atual)
+      final hadInCurrentMonth = matchingTxs.any((tx) =>
+          tx.date.year == currentYear && tx.date.month == currentMonth);
 
-      // Se veio no mês retrasado (ou antes) e no mês passado NÃO teve (e também não teve no mês atual)
-      if (hadInMonthRetrasadoOrEarlier && !hadInPrevMonth && !hadInCurrentMonth) {
-        changed = true;
-        affectedNames.add(sub.name);
-        if (deleteInstead) {
-          // Excluir definitivamente da lista
-          continue;
+      // 2. Cobrança no mês passado
+      final hadInPrevMonth = matchingTxs.any((tx) =>
+          tx.date.year == prevYear && tx.date.month == prevMonth);
+
+      // O dia esperado de cobrança: prioriza a data da última fatura real
+      final int expectedDay = latestDate != null ? latestDate.day : sub.billingDay;
+
+      bool shouldBeActive = true;
+      String? reason;
+
+      if (hadInCurrentMonth) {
+        // Já cobrou neste mês corrente -> 100% Ativa!
+        shouldBeActive = true;
+        reason = null;
+      } else if (hadInPrevMonth) {
+        // Veio cobrando mês passado (ex: 14/10):
+        // Se a data de cobrança neste mês ainda não passou (ou hoje é a data de cobrança),
+        // esperamos até o dia seguinte antes de desativar!
+        if (currentDay <= expectedDay) {
+          // Ainda vai ser cobrada este mês! Ex: hoje é dia 10, cobrança prevista para dia 14
+          shouldBeActive = true;
+          reason = null;
         } else {
-          // Desativar / Pausar
-          remaining.add(
-            sub.copyWith(
-              isActive: false,
-              lastChargeDate: latestDate,
-              inactiveReason: 'Sem cobrança no mês passado (última em ${latestDate != null ? "${latestDate.day.toString().padLeft(2, '0')}/${latestDate.month.toString().padLeft(2, '0')}/${latestDate.year}" : "mês retrasado"})',
-            ),
-          );
+          // O dia esperado (ex: dia 1..9) já passou com folga e não houve cobrança neste mês
+          shouldBeActive = false;
+          reason = 'Não cobrada este mês (vencimento era dia $expectedDay)';
         }
       } else {
-        remaining.add(sub.copyWith(lastChargeDate: latestDate));
+        // NÃO teve cobrança nem mês passado nem no mês atual:
+        // Veio no mês retrasado ou antes, ou nunca cobrou recentemente -> Pausada
+        shouldBeActive = false;
+        final dateStr = latestDate != null
+            ? '${latestDate.day.toString().padLeft(2, '0')}/${latestDate.month.toString().padLeft(2, '0')}/${latestDate.year}'
+            : 'anteriormente';
+        reason = 'Sem cobrança no mês passado (última em $dateStr)';
+      }
+
+      if (!shouldBeActive) {
+        if (deleteInstead) {
+          changed = true;
+          affectedNames.add(sub.name);
+          continue;
+        }
+
+        if (sub.isActive || sub.inactiveReason != reason || sub.billingDay != expectedDay) {
+          changed = true;
+          affectedNames.add(sub.name);
+        }
+
+        remaining.add(
+          sub.copyWith(
+            isActive: false,
+            billingDay: expectedDay,
+            lastChargeDate: latestDate,
+            inactiveReason: reason,
+          ),
+        );
+      } else {
+        // Assinatura deve estar Ativa!
+        if (!sub.isActive || sub.inactiveReason != null || sub.billingDay != expectedDay) {
+          changed = true;
+        }
+        remaining.add(
+          sub.copyWith(
+            isActive: true,
+            billingDay: expectedDay,
+            lastChargeDate: latestDate,
+            inactiveReason: null,
+          ),
+        );
       }
     }
 

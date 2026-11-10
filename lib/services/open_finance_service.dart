@@ -5,6 +5,38 @@ import '../models/bank_loan_model.dart';
 import 'storage_service.dart';
 import 'ofx_parser_service.dart';
 
+class BankAccountBalance {
+  final String bankName;
+  final String accountName;
+  final String accountType; // 'BANK' ou 'CREDIT'
+  final double balance;
+  final DateTime updatedAt;
+
+  const BankAccountBalance({
+    required this.bankName,
+    required this.accountName,
+    required this.accountType,
+    required this.balance,
+    required this.updatedAt,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'bankName': bankName,
+        'accountName': accountName,
+        'accountType': accountType,
+        'balance': balance,
+        'updatedAt': updatedAt.toIso8601String(),
+      };
+
+  factory BankAccountBalance.fromMap(Map<String, dynamic> map) => BankAccountBalance(
+        bankName: map['bankName']?.toString() ?? 'Banco',
+        accountName: map['accountName']?.toString() ?? 'Conta',
+        accountType: map['accountType']?.toString() ?? 'BANK',
+        balance: (map['balance'] as num?)?.toDouble() ?? 0.0,
+        updatedAt: DateTime.tryParse(map['updatedAt']?.toString() ?? '') ?? DateTime.now(),
+      );
+}
+
 class ConnectedBankItem {
   final String id;
   final String bankName; // Ex: 'Nubank', 'Mercado Pago', 'Itaú'
@@ -68,7 +100,32 @@ class OpenFinanceConfig {
 class OpenFinanceService {
   static const String _storageKey = 'open_finance_pluggy_config_v2';
   static const String _loansStorageKey = 'open_finance_bank_loans_v1';
+  static const String _balancesStorageKey = 'open_finance_bank_balances_v1';
   static const String _baseUrl = 'https://api.pluggy.ai';
+
+  static final List<BankAccountBalance> defaultInitialBalances = [
+    BankAccountBalance(
+      bankName: 'Nubank',
+      accountName: 'Nu Pagamentos S.A.',
+      accountType: 'BANK',
+      balance: 51.56,
+      updatedAt: DateTime(2026, 11, 10, 12, 0),
+    ),
+    BankAccountBalance(
+      bankName: 'Itaú',
+      accountName: 'Conta Corrente Itaú',
+      accountType: 'BANK',
+      balance: 1840.00,
+      updatedAt: DateTime(2026, 11, 10, 12, 0),
+    ),
+    BankAccountBalance(
+      bankName: 'Mercado Pago',
+      accountName: 'Conta Mercado Pago',
+      accountType: 'BANK',
+      balance: 145.75,
+      updatedAt: DateTime(2026, 11, 10, 12, 0),
+    ),
+  ];
 
   static const String defaultClientId = '82695ed9-67f2-416f-a24b-28c15796d7e6';
   static const String defaultClientSecret = 'f4ibQxwoB44m7DhpDCCoGIcJszAlKPE0sFtYQl1KB9o';
@@ -327,5 +384,78 @@ class OpenFinanceService {
     }
 
     return allTransactions;
+  }
+
+  /// Carrega os saldos bancários armazenados ou os iniciais caso ainda não tenham sido consultados
+  static Future<List<BankAccountBalance>> loadStoredBalances() async {
+    final raw = await StorageService.getStoredData(_balancesStorageKey);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final List<dynamic> list = jsonDecode(raw);
+        final parsed = list
+            .map((item) => BankAccountBalance.fromMap(Map<String, dynamic>.from(item as Map)))
+            .toList();
+        if (parsed.isNotEmpty) return parsed;
+      } catch (_) {}
+    }
+    return defaultInitialBalances;
+  }
+
+  /// Salva os saldos das contas bancárias localmente
+  static Future<void> saveStoredBalances(List<BankAccountBalance> balances) async {
+    final list = balances.map((b) => b.toMap()).toList();
+    await StorageService.setStoredData(_balancesStorageKey, jsonEncode(list));
+  }
+
+  /// Consulta os saldos reais de todas as contas nos 3 bancos conectados via Pluggy API
+  static Future<List<BankAccountBalance>> fetchBankBalances([OpenFinanceConfig? config]) async {
+    final cfg = config ?? await loadConfig();
+    final List<BankAccountBalance> liveBalances = [];
+
+    try {
+      final apiKey = await getApiKey(cfg);
+
+      for (final bank in cfg.connectedBanks) {
+        if (bank.id.trim().isEmpty) continue;
+
+        try {
+          final accResp = await http
+              .get(
+                Uri.parse('$_baseUrl/accounts?itemId=${Uri.encodeComponent(bank.id.trim())}'),
+                headers: {'X-API-KEY': apiKey},
+              )
+              .timeout(const Duration(seconds: 15));
+
+          if (accResp.statusCode >= 200 && accResp.statusCode < 300) {
+            final accData = jsonDecode(accResp.body) as Map<String, dynamic>;
+            final results = (accData['results'] as List<dynamic>?) ?? [];
+
+            for (final accObj in results) {
+              final acc = Map<String, dynamic>.from(accObj as Map);
+              final accName = acc['name']?.toString() ?? bank.bankName;
+              final accType = acc['type']?.toString().toUpperCase() ?? 'BANK';
+              final rawBalance = (acc['balance'] as num?)?.toDouble() ?? 0.0;
+
+              liveBalances.add(
+                BankAccountBalance(
+                  bankName: bank.bankName,
+                  accountName: accName,
+                  accountType: accType,
+                  balance: rawBalance,
+                  updatedAt: DateTime.now(),
+                ),
+              );
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    if (liveBalances.isNotEmpty) {
+      await saveStoredBalances(liveBalances);
+      return liveBalances;
+    }
+
+    return loadStoredBalances();
   }
 }

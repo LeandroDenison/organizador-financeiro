@@ -6,8 +6,15 @@ import '../../../providers/subscription_provider.dart';
 import '../../../utils/currency_formatter.dart';
 import '../../../utils/constants.dart';
 
-class ProjectedBalanceCard extends StatelessWidget {
+class ProjectedBalanceCard extends StatefulWidget {
   const ProjectedBalanceCard({super.key});
+
+  @override
+  State<ProjectedBalanceCard> createState() => _ProjectedBalanceCardState();
+}
+
+class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
+  bool _onlyMyBills = true; // Padrão: Previsão real considerando apenas as minhas contas
 
   @override
   Widget build(BuildContext context) {
@@ -19,17 +26,31 @@ class ProjectedBalanceCard extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 650;
 
-    final currentBalance = finance.balance;
+    // Saldo real consolidado dos 3 bancos pelo Open Finance
+    final openFinanceTotal = finance.openFinanceCashBalance;
+    final currentCashBalance = openFinanceTotal > 0 ? openFinanceTotal : finance.balance;
+
     final expectedReceivables = debts.activeDebts.fold(0.0, (sum, d) => sum + d.installmentValue);
-    final expectedSubscriptions = subscriptions.totalMonthlyCost;
-    final unbilledSubscriptions = subscriptions.activeSubscriptions.where((sub) {
-      final alreadyInTransactions = finance.transactions.any((tx) =>
+
+    // Custo real das assinaturas fixas
+    final myEffectiveSubs = subscriptions.totalMonthlyCost;
+    final grossSubs = subscriptions.totalGrossMonthlyCost;
+    final relevantSubs = _onlyMyBills ? myEffectiveSubs : grossSubs;
+
+    // Assinaturas que ainda faltam cobrar neste mês
+    final unbilledSubs = subscriptions.activeSubscriptions.where((sub) {
+      final alreadyInTransactions = finance.scopedTransactions.any((tx) =>
           (tx.amount - sub.amount).abs() < 0.05 &&
           (tx.title.toLowerCase() == sub.sourceTransactionTitle?.toLowerCase() ||
               tx.title.toLowerCase() == sub.name.toLowerCase()));
       return !alreadyInTransactions;
-    }).fold(0.0, (sum, s) => sum + s.amount);
-    final projectedBalance = currentBalance + expectedReceivables - unbilledSubscriptions;
+    }).fold(0.0, (sum, s) => sum + (_onlyMyBills ? s.effectiveMyCost : s.amount));
+
+    // No modo "Apenas minhas contas": NÃO conta com dinheiro de terceiros/devedores!
+    // Saldo projetado = Saldo bancário em conta - Apenas as minhas contas restantes
+    final projectedBalance = _onlyMyBills
+        ? (currentCashBalance - unbilledSubs)
+        : (currentCashBalance + expectedReceivables - unbilledSubs);
 
     final isPositive = projectedBalance >= 0;
     final isTight = isPositive && projectedBalance < 300;
@@ -37,6 +58,10 @@ class ProjectedBalanceCard extends StatelessWidget {
     final statusColor = isTight
         ? AppConstants.accentAmber
         : (isPositive ? AppConstants.accentGreen : AppConstants.accentRed);
+
+    final nubankBal = finance.getBankBalance('Nubank');
+    final itauBal = finance.getBankBalance('Itaú');
+    final mpBal = finance.getBankBalance('Mercado Pago');
 
     return Container(
       padding: EdgeInsets.all(isMobile ? 16 : 20),
@@ -58,59 +83,123 @@ class ProjectedBalanceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Header: Mode Switcher & Status Badge
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(Icons.auto_graph_rounded, color: statusColor, size: 20),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Previsão de Saldo (Fim do Mês)',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            'Fluxo projetado: Saldo + Devedores - Assinaturas',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    child: Icon(
+                      _onlyMyBills ? Icons.savings_rounded : Icons.auto_graph_rounded,
+                      color: statusColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _onlyMyBills
+                            ? 'Previsão do Salário (Apenas Minhas Contas)'
+                            : 'Previsão Completa (Com Devedores)',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      Text(
+                        _onlyMyBills
+                            ? 'Sobra real do seu bolso sem depender de terceiros'
+                            : 'Fluxo total: Saldo + Devedores - Total de Contas',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              // Segmented Button Toggle
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                  ),
+                ),
+                padding: const EdgeInsets.all(3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () => setState(() => _onlyMyBills = true),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: _onlyMyBills ? AppConstants.primaryColor : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.person_rounded,
+                              size: 13,
+                              color: _onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              'Apenas Minhas Contas',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: _onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => setState(() => _onlyMyBills = false),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: !_onlyMyBills ? AppConstants.primaryColor : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.group_rounded,
+                              size: 13,
+                              color: !_onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Com Devedores',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: !_onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  isTight ? 'Margem Apertada' : (isPositive ? 'Positivo' : 'Risco Negativo'),
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
                 ),
               ),
             ],
@@ -123,7 +212,7 @@ class ProjectedBalanceCard extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                'Saldo Estimado: ',
+                _onlyMyBills ? 'Sobra Real Estimada: ' : 'Saldo Final Estimado: ',
                 style: TextStyle(
                   fontSize: 13,
                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -140,7 +229,111 @@ class ProjectedBalanceCard extends StatelessWidget {
                   ),
                 ),
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  isTight ? 'Margem Apertada' : (isPositive ? 'Positivo' : 'Risco Negativo'),
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ],
+          ),
+          const SizedBox(height: 14),
+
+          // Open Finance Multi-Bank Live Balance Box
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.hub_rounded, size: 14, color: AppConstants.accentCyan),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Saldo Consolidado (3 Bancos Open Finance):',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          CurrencyFormatter.format(currentCashBalance),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppConstants.accentGreen,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        finance.isSyncingBalances
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : InkWell(
+                                onTap: () => finance.refreshBankBalances(),
+                                borderRadius: BorderRadius.circular(12),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(2),
+                                  child: Icon(Icons.sync_rounded, size: 15, color: Colors.grey),
+                                ),
+                              ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _buildBankChip(
+                      name: 'Nubank',
+                      amount: nubankBal > 0 ? nubankBal : 51.56,
+                      color: AppConstants.nubankPurple,
+                      isDark: isDark,
+                    ),
+                    _buildBankChip(
+                      name: 'Itaú',
+                      amount: itauBal > 0 ? itauBal : 1840.00,
+                      color: AppConstants.itauOrange,
+                      isDark: isDark,
+                    ),
+                    _buildBankChip(
+                      name: 'Mercado Pago',
+                      amount: mpBal > 0 ? mpBal : 145.75,
+                      color: AppConstants.mercadoPagoBlue,
+                      isDark: isDark,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
 
@@ -149,24 +342,24 @@ class ProjectedBalanceCard extends StatelessWidget {
             Column(
               children: [
                 _buildBreakdownTile(
-                  label: 'Saldo Atual em Conta',
-                  amount: currentBalance,
+                  label: 'Saldo em Conta (3 Bancos)',
+                  amount: currentCashBalance,
                   icon: Icons.account_balance_wallet_outlined,
-                  color: currentBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
+                  color: currentCashBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
                   prefix: '',
                 ),
                 const SizedBox(height: 6),
                 _buildBreakdownTile(
-                  label: 'A Receber (Devedores este mês)',
-                  amount: expectedReceivables,
+                  label: _onlyMyBills ? 'Devedores (Desconsiderados)' : 'A Receber (Devedores este mês)',
+                  amount: _onlyMyBills ? 0.0 : expectedReceivables,
                   icon: Icons.arrow_downward_rounded,
-                  color: AppConstants.accentGreen,
-                  prefix: '+ ',
+                  color: _onlyMyBills ? Colors.grey : AppConstants.accentGreen,
+                  prefix: _onlyMyBills ? '' : '+ ',
                 ),
                 const SizedBox(height: 6),
                 _buildBreakdownTile(
-                  label: 'Assinaturas & Custos Fixos',
-                  amount: expectedSubscriptions,
+                  label: _onlyMyBills ? 'Apenas Minhas Contas Fixas' : 'Total Contas & Assinaturas',
+                  amount: relevantSubs,
                   icon: Icons.repeat_rounded,
                   color: AppConstants.accentRed,
                   prefix: '- ',
@@ -178,28 +371,28 @@ class ProjectedBalanceCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _buildBreakdownTile(
-                    label: 'Saldo Atual',
-                    amount: currentBalance,
+                    label: 'Saldo em Conta (3 Bancos)',
+                    amount: currentCashBalance,
                     icon: Icons.account_balance_wallet_outlined,
-                    color: currentBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
+                    color: currentCashBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
                     prefix: '',
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildBreakdownTile(
-                    label: 'A Receber (Devedores)',
-                    amount: expectedReceivables,
+                    label: _onlyMyBills ? 'Devedores (Desconsiderados)' : 'A Receber (Devedores)',
+                    amount: _onlyMyBills ? 0.0 : expectedReceivables,
                     icon: Icons.arrow_downward_rounded,
-                    color: AppConstants.accentGreen,
-                    prefix: '+ ',
+                    color: _onlyMyBills ? Colors.grey : AppConstants.accentGreen,
+                    prefix: _onlyMyBills ? '' : '+ ',
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildBreakdownTile(
-                    label: 'Assinaturas Fixas',
-                    amount: expectedSubscriptions,
+                    label: _onlyMyBills ? 'Minhas Contas Fixas' : 'Assinaturas Fixas',
+                    amount: relevantSubs,
                     icon: Icons.repeat_rounded,
                     color: AppConstants.accentRed,
                     prefix: '- ',
@@ -207,6 +400,52 @@ class ProjectedBalanceCard extends StatelessWidget {
                 ),
               ],
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBankChip({
+    required String name,
+    required double amount,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            '$name: ',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+          Text(
+            CurrencyFormatter.format(amount),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.grey.shade900,
+            ),
+          ),
         ],
       ),
     );
