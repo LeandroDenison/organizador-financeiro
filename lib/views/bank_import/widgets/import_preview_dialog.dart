@@ -4,6 +4,7 @@ import '../../../models/transaction_model.dart';
 import '../../../models/debt_model.dart';
 import '../../../providers/finance_provider.dart';
 import '../../../providers/debt_provider.dart';
+import '../../../providers/subscription_provider.dart';
 import '../../../utils/constants.dart';
 import '../../../utils/currency_formatter.dart';
 import '../../transactions/widgets/assign_to_debt_dialog.dart';
@@ -38,6 +39,7 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
 
     final financeProvider = context.read<FinanceProvider>();
     final debtProvider = context.read<DebtProvider>();
+    final subscriptionProvider = context.read<SubscriptionProvider>();
 
     // Check if any imported income (Pix received) matches an active debtor / specific debt amount
     final List<TransactionModel> finalTransactions = [];
@@ -75,6 +77,7 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
     }
 
     await financeProvider.addMultipleTransactions(finalTransactions);
+    await subscriptionProvider.syncFromTransactions(finalTransactions);
     if (mounted) {
       Navigator.of(context).pop(finalTransactions.length);
     }
@@ -240,6 +243,9 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
                               ? DebtModel.parseInstallmentInfo('Parcela ${tx.installmentRef}')
                               : null))
                       : null;
+                  final detectedSub = !isIncome
+                      ? SubscriptionProvider.detectSubscription(tx)
+                      : null;
 
                   return InkWell(
                     onTap: () {
@@ -301,6 +307,19 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                       color: AppConstants.accentAmber,
+                                    ),
+                                  ),
+                                ],
+                                if (detectedSub != null) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '⟳ Assinatura: ${detectedSub.cleanName} (${detectedSub.category})',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppConstants.primaryColor,
                                     ),
                                   ),
                                 ],

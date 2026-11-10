@@ -22,7 +22,14 @@ class ProjectedBalanceCard extends StatelessWidget {
     final currentBalance = finance.balance;
     final expectedReceivables = debts.activeDebts.fold(0.0, (sum, d) => sum + d.installmentValue);
     final expectedSubscriptions = subscriptions.totalMonthlyCost;
-    final projectedBalance = currentBalance + expectedReceivables - expectedSubscriptions;
+    final unbilledSubscriptions = subscriptions.activeSubscriptions.where((sub) {
+      final alreadyInTransactions = finance.transactions.any((tx) =>
+          (tx.amount - sub.amount).abs() < 0.05 &&
+          (tx.title.toLowerCase() == sub.sourceTransactionTitle?.toLowerCase() ||
+              tx.title.toLowerCase() == sub.name.toLowerCase()));
+      return !alreadyInTransactions;
+    }).fold(0.0, (sum, s) => sum + s.amount);
+    final projectedBalance = currentBalance + expectedReceivables - unbilledSubscriptions;
 
     final isPositive = projectedBalance >= 0;
     final isTight = isPositive && projectedBalance < 300;

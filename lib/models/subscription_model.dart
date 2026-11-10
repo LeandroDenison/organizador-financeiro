@@ -1,4 +1,4 @@
-﻿import 'package:uuid/uuid.dart';
+import 'package:uuid/uuid.dart';
 
 class SubscriptionModel {
   final String id;
@@ -7,6 +7,7 @@ class SubscriptionModel {
   final int billingDay;
   final String category;
   final String? bank;
+  final String? sourceTransactionTitle;
   bool isActive;
 
   SubscriptionModel({
@@ -16,6 +17,7 @@ class SubscriptionModel {
     this.billingDay = 1,
     this.category = 'Assinaturas',
     this.bank,
+    this.sourceTransactionTitle,
     this.isActive = true,
   }) : id = id ?? const Uuid().v4();
 
@@ -28,6 +30,7 @@ class SubscriptionModel {
         'billingDay': billingDay,
         'category': category,
         'bank': bank,
+        'sourceTransactionTitle': sourceTransactionTitle,
         'isActive': isActive,
       };
 
@@ -39,6 +42,7 @@ class SubscriptionModel {
       billingDay: (map['billingDay'] as num?)?.toInt() ?? 1,
       category: map['category'] as String? ?? 'Assinaturas',
       bank: map['bank'] as String?,
+      sourceTransactionTitle: map['sourceTransactionTitle'] as String?,
       isActive: map['isActive'] as bool? ?? true,
     );
   }

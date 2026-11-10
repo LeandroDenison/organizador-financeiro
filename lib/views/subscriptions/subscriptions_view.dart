@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/subscription_provider.dart';
+import '../../providers/finance_provider.dart';
 import '../../models/subscription_model.dart';
 import '../../utils/currency_formatter.dart';
 import '../../utils/constants.dart';
@@ -11,6 +12,7 @@ class SubscriptionsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subProvider = context.watch<SubscriptionProvider>();
+    final financeProvider = context.watch<FinanceProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 650;
@@ -23,41 +25,76 @@ class SubscriptionsView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 10,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Assinaturas & Custos Recorrentes',
-                        style: (isMobile
-                                ? Theme.of(context).textTheme.titleLarge
-                                : Theme.of(context).textTheme.headlineSmall)
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Assinaturas & Custos Recorrentes',
+                      style: (isMobile
+                              ? Theme.of(context).textTheme.titleLarge
+                              : Theme.of(context).textTheme.headlineSmall)
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Reconhecimento automático de streamings, clubes (Uber, iFood) e planos na fatura',
+                      style: TextStyle(
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        fontSize: 12,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Monitore o impacto de streamings, academias e serviços mensais',
-                        style: TextStyle(
-                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => _showAddSubscriptionDialog(context),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Nova Assinatura'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppConstants.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final added = await subProvider.syncFromTransactions(
+                          financeProvider.transactions,
+                          ignoreDismissed: true,
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                added > 0
+                                    ? '$added novas assinaturas reconhecidas da fatura!'
+                                    : 'Todas as assinaturas da fatura já estão listadas abaixo.',
+                              ),
+                              backgroundColor: AppConstants.primaryColor,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.auto_fix_high_rounded, size: 17),
+                      label: const Text('Reconhecer da Fatura'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppConstants.primaryColor,
+                        side: const BorderSide(color: AppConstants.primaryColor),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => _showAddSubscriptionDialog(context),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Nova Assinatura'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppConstants.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -75,7 +112,7 @@ class SubscriptionsView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFDC2626).withOpacity(0.3),
+                    color: const Color(0xFFDC2626).withValues(alpha: 0.3),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
@@ -88,7 +125,7 @@ class SubscriptionsView extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Dreno Anual em Assinaturas',
+                        'Dreno Anual em Assinaturas Ativas',
                         style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
                       ),
                       Icon(Icons.remove_red_eye_rounded, color: Colors.white70, size: 22),
@@ -105,7 +142,8 @@ class SubscriptionsView extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Você gasta ${CurrencyFormatter.format(subProvider.totalMonthlyCost)} por mês em ${subProvider.activeSubscriptions.length} assinaturas ativas.',
+                    'Você gasta ${CurrencyFormatter.format(subProvider.totalMonthlyCost)}/mês em ${subProvider.activeSubscriptions.length} assinaturas ativas'
+                    '${subProvider.pausedSubscriptions.isNotEmpty ? ' • ${subProvider.pausedSubscriptions.length} pausada(s) (${CurrencyFormatter.format(subProvider.totalPausedMonthlyCost)}/mês economizados)' : ''}.',
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ],
@@ -128,7 +166,8 @@ class SubscriptionsView extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Adicione Netflix, Spotify ou academia para não perder o controle.',
+                        'Importe sua fatura ou clique em "Reconhecer da Fatura" para detectar automaticamente.',
+                        textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ],
@@ -140,7 +179,7 @@ class SubscriptionsView extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: subProvider.subscriptions.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final sub = subProvider.subscriptions[index];
                   return _buildSubscriptionCard(context, sub, isDark);
@@ -156,98 +195,160 @@ class SubscriptionsView extends StatelessWidget {
     final subProvider = context.read<SubscriptionProvider>();
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+          color: sub.isActive
+              ? (isDark ? const Color(0xFF334155) : Colors.grey.shade200)
+              : Colors.amber.withValues(alpha: 0.4),
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            backgroundColor: sub.isActive
-                ? AppConstants.primaryColor.withOpacity(0.12)
-                : Colors.grey.withOpacity(0.15),
-            child: Icon(
-              Icons.repeat_rounded,
-              color: sub.isActive ? AppConstants.primaryColor : Colors.grey,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: sub.isActive
+                    ? AppConstants.primaryColor.withValues(alpha: 0.12)
+                    : Colors.amber.withValues(alpha: 0.15),
+                child: Icon(
+                  sub.isActive ? Icons.repeat_rounded : Icons.pause_circle_outline_rounded,
+                  color: sub.isActive ? AppConstants.primaryColor : Colors.amber.shade700,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        sub.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          decoration: sub.isActive ? null : TextDecoration.lineThrough,
-                          color: sub.isActive ? null : Colors.grey,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            sub.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              decoration: sub.isActive ? null : TextDecoration.lineThrough,
+                              color: sub.isActive ? null : Colors.grey,
+                            ),
+                          ),
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        const SizedBox(width: 8),
+                        Text(
+                          '${CurrencyFormatter.format(sub.amount)}/mês',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: sub.isActive ? AppConstants.accentRed : Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Dia ${sub.billingDay} • ${sub.category} • ${CurrencyFormatter.format(sub.annualAmount)}/ano',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                       ),
                     ),
-                    if (sub.bank != null) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppConstants.getBankColor(sub.bank).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          sub.bank!,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: AppConstants.getBankColor(sub.bank),
-                          ),
+                    if (sub.sourceTransactionTitle != null &&
+                        sub.sourceTransactionTitle!.toLowerCase() != sub.name.toLowerCase()) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Reconhecida de: "${sub.sourceTransactionTitle}"',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                         ),
                       ),
                     ],
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Cobrança todo dia ${sub.billingDay} • ${CurrencyFormatter.format(sub.annualAmount)}/ano',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                CurrencyFormatter.format(sub.amount),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: sub.isActive ? AppConstants.accentRed : Colors.grey,
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: sub.isActive
+                            ? AppConstants.accentGreen.withValues(alpha: 0.14)
+                            : Colors.amber.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        sub.isActive ? '● Ativa' : '⏸ Pausada',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: sub.isActive ? AppConstants.accentGreen : Colors.amber.shade700,
+                        ),
+                      ),
+                    ),
+                    if (sub.bank != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppConstants.getBankColor(sub.bank).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          sub.bank!,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppConstants.getBankColor(sub.bank),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 2),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Switch(
-                    value: sub.isActive,
-                    activeColor: AppConstants.primaryColor,
-                    onChanged: (_) => subProvider.toggleSubscription(sub.id),
+                  TextButton.icon(
+                    onPressed: () => subProvider.toggleSubscription(sub.id),
+                    style: TextButton.styleFrom(
+                      foregroundColor: sub.isActive ? Colors.amber.shade700 : AppConstants.accentGreen,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    icon: Icon(
+                      sub.isActive ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      size: 16,
+                    ),
+                    label: Text(
+                      sub.isActive ? 'Pausar' : 'Ativar',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
                   ),
+                  const SizedBox(width: 4),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.grey),
+                    tooltip: 'Excluir assinatura',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.delete_outline_rounded, size: 19, color: Colors.grey),
                     onPressed: () => subProvider.deleteSubscription(sub.id),
                   ),
                 ],

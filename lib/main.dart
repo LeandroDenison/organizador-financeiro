@@ -39,6 +39,7 @@ void main() async {
 
   final subscriptionProvider = SubscriptionProvider();
   await subscriptionProvider.init();
+  await subscriptionProvider.syncFromTransactions(financeProvider.transactions);
 
   // Start real-time two-way cloud synchronization (Phone <-> Browser via Firestore)
   unawaited(
@@ -49,6 +50,7 @@ void main() async {
         await budgetProvider.init();
         await savingsProvider.init();
         await subscriptionProvider.init();
+        await subscriptionProvider.syncFromTransactions(financeProvider.transactions);
       },
     ),
   );
