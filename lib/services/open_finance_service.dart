@@ -122,13 +122,13 @@ class OpenFinanceService {
       bankName: 'Mercado Pago',
       accountName: 'Conta Mercado Pago',
       accountType: 'BANK',
-      balance: 145.75,
-      updatedAt: DateTime(2026, 11, 10, 12, 0),
+      balance: 0.00,
+      updatedAt: DateTime(2026, 11, 10, 15, 45),
     ),
   ];
 
-  static const String defaultClientId = '82695ed9-67f2-416f-a24b-28c15796d7e6';
-  static const String defaultClientSecret = 'f4ibQxwoB44m7DhpDCCoGIcJszAlKPE0sFtYQl1KB9o';
+  static const String defaultClientId = 'a4c94458-9f21-4e93-8afc-5680b50b3cb7';
+  static const String defaultClientSecret = 'pKKGhj265x0p-Lszoo-EYYagf9pWkMEWFkJ4X3bcHkA';
 
   static const List<ConnectedBankItem> initialBanks = [
     ConnectedBankItem(
@@ -138,7 +138,7 @@ class OpenFinanceService {
       isDefault: true,
     ),
     ConnectedBankItem(
-      id: 'c565e273-dab4-4ef5-99ce-658255069c0d',
+      id: '82b1f846-2b19-4f06-83bb-f034be48aecd',
       bankName: 'Mercado Pago',
       accountName: 'Conta & Cartão Mercado Pago',
     ),
@@ -358,9 +358,19 @@ class OpenFinanceService {
               final parsedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
 
               String? installmentRef;
-              final instMatch = RegExp(r'(?:Parcela\s+)?(\d+/\d+)', caseSensitive: false).firstMatch(description);
-              if (instMatch != null) {
-                installmentRef = instMatch.group(1);
+              if (map['creditCardMetadata'] != null) {
+                final ccMeta = Map<String, dynamic>.from(map['creditCardMetadata'] as Map);
+                final instNum = ccMeta['installmentNumber'];
+                final totInst = ccMeta['totalInstallments'];
+                if (instNum != null && totInst != null && (totInst as num) > 1) {
+                  installmentRef = '$instNum/$totInst';
+                }
+              }
+              if (installmentRef == null) {
+                final instMatch = RegExp(r'(?:Parcela\s+)?(\d+/\d+)', caseSensitive: false).firstMatch(description);
+                if (instMatch != null) {
+                  installmentRef = instMatch.group(1);
+                }
               }
 
               String? personName;

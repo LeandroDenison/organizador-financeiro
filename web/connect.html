@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conectar Banco - Pluggy Open Finance</title>
+  <script src="https://cdn.pluggy.ai/pluggy-connect/v2.7.0/pluggy-connect.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0F172A;
+      color: #F8FAFC;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .card {
+      background: #1E293B;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    }
+    h1 {
+      font-size: 20px;
+      margin-bottom: 12px;
+      color: #38BDF8;
+    }
+    p {
+      color: #94A3B8;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .btn {
+      background: #0D9488;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+      width: 100%;
+    }
+    .btn:hover {
+      background: #0F766E;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 16px;
+      background: #0F172A;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      word-break: break-all;
+      display: none;
+      text-align: left;
+    }
+    .success {
+      border-color: #10B981;
+      color: #34D399;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Pluggy Open Finance Connect</h1>
+    <p>Conecte o <strong>Itaú</strong> ou <strong>Mercado Pago</strong> diretamente para sincronizar seus saldos e faturas no Organizador Financeiro.</p>
+    <button id="btnConnect" class="btn" onclick="openWidget()">Iniciar Conexão</button>
+    
+    <div id="result" class="result"></div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    function openWidget() {
+      if (!token) {
+        alert('Token de conexão não encontrado na URL.');
+        return;
+      }
+
+      const pluggyConnect = new PluggyConnect({
+        connectToken: token,
+        onSuccess: (data) => {
+          console.log('Sucesso Pluggy:', data);
+          const resultBox = document.getElementById('result');
+          resultBox.className = 'result success';
+          resultBox.style.display = 'block';
+          const itemId = data.item ? data.item.id : '';
+          const instName = (data.item && data.item.connector) ? data.item.connector.name : 'Banco';
+          resultBox.innerHTML = '<h3>Banco Conectado com Sucesso!</h3>' +
+            '<p><strong>Instituição:</strong> ' + instName + '</p>' +
+            '<p><strong>Item ID:</strong> <input type="text" id="itemIdInput" value="' + itemId + '" style="width:100%;padding:8px;border-radius:6px;background:#1E293B;color:#38BDF8;border:1px solid #38BDF8;font-size:14px;box-sizing:border-box;" readonly></p>' +
+            '<button onclick="navigator.clipboard.writeText(\'' + itemId + '\');alert(\'Item ID copiado!\');" style="background:#38BDF8;color:#0F172A;border:none;padding:10px 16px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%;">Copiar Item ID</button>' +
+            '<p style="margin-top:12px;font-size:12px;color:#94A3B8;">Cole esse ID aqui no chat ou apenas avise que conectou para que eu busque seus saldos e faturas imediatamente!</p>';
+          
+          if (window.opener) {
+            window.opener.postMessage({ type: 'PLUGGY_CONNECTED', item: data.item }, '*');
+          }
+        },
+        onError: (error) => {
+          console.error('Erro Pluggy:', error);
+          const resultBox = document.getElementById('result');
+          resultBox.className = 'result';
+          resultBox.style.display = 'block';
+          resultBox.innerHTML = '<strong>Erro na conexão:</strong><br>' + JSON.stringify(error);
+        },
+        onClose: () => {
+          console.log('Widget fechado pelo usuário');
+        }
+      });
+
+      pluggyConnect.init();
+    }
+
+    // Abre automaticamente se tiver token
+    if (token) {
+      setTimeout(() => {
+        openWidget();
+      }, 500);
+    }
+  </script>
+</body>
+</html>

@@ -179,6 +179,8 @@ class StorageService {
         'name': prefs.getString('user_pix_name') ?? 'LEANDRO DENISON',
         'city': prefs.getString('user_pix_city') ?? 'FORTALEZA',
       },
+      'open_finance_bank_balances_v1': prefs.getString('open_finance_bank_balances_v1') ?? '[]',
+      'open_finance_pluggy_config_v2': prefs.getString('open_finance_pluggy_config_v2') ?? '',
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
@@ -203,6 +205,14 @@ class StorageService {
       }
       if (data['budgets'] is List) {
         await prefs.setString('financial_budgets_v1', jsonEncode(data['budgets']));
+      }
+      if (data['open_finance_bank_balances_v1'] != null) {
+        final val = data['open_finance_bank_balances_v1'];
+        await prefs.setString('open_finance_bank_balances_v1', val is String ? val : jsonEncode(val));
+      }
+      if (data['open_finance_pluggy_config_v2'] != null) {
+        final val = data['open_finance_pluggy_config_v2'];
+        await prefs.setString('open_finance_pluggy_config_v2', val is String ? val : jsonEncode(val));
       }
       if (data['pix'] is Map) {
         final pix = data['pix'] as Map;
