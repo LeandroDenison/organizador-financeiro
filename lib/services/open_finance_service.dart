@@ -108,8 +108,8 @@ class OpenFinanceService {
       bankName: 'Nubank',
       accountName: 'Nu Pagamentos S.A.',
       accountType: 'BANK',
-      balance: 51.56,
-      updatedAt: DateTime(2026, 11, 10, 12, 0),
+      balance: 50.56,
+      updatedAt: DateTime(2026, 11, 10, 16, 11),
     ),
     BankAccountBalance(
       bankName: 'Itaú',
