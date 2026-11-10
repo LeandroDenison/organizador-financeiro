@@ -73,7 +73,7 @@ class FinanceProvider extends ChangeNotifier {
     final seenTxKeys = <String>{};
 
     for (final t in stored) {
-      if (_isSelfTransfer(t)) {
+      if (_isSelfTransfer(t) || _isPromotionalOrOffer(t)) {
         modified = true;
         continue;
       }
@@ -114,6 +114,14 @@ class FinanceProvider extends ChangeNotifier {
         lower.contains('pix transf denison') ||
         (lower.contains('d enison') && (lower.contains('transf') || lower.contains('transferência') || lower.contains('transferencia'))) ||
         (lower.contains('denison') && (lower.contains('transf') || lower.contains('transferência') || lower.contains('transferencia')));
+  }
+
+  static bool _isPromotionalOrOffer(TransactionModel t) {
+    final lower = t.title.toLowerCase();
+    return lower.contains('oferta') ||
+        lower.contains('globoplay por') ||
+        lower.contains('aproveite') ||
+        lower.contains('cashback no inter');
   }
 
   static bool _isCardBillPayment(TransactionModel t) {

@@ -169,6 +169,37 @@ class NotificationService {
     return 'DDA_${stem}_${amountCents}_$duePart';
   }
 
+  /// Checks if notification text is a marketing campaign, promotional offer, advertising or banner
+  static bool isMarketingOrPromotional(String fullText) {
+    final lower = fullText.toLowerCase();
+    return lower.contains('oferta') ||
+        lower.contains('promoção') ||
+        lower.contains('promocao') ||
+        lower.contains('aproveite') ||
+        lower.contains('aproveita') ||
+        lower.contains('cashback') ||
+        lower.contains('desconto') ||
+        lower.contains('cupom') ||
+        lower.contains('bônus') ||
+        lower.contains('bonus') ||
+        lower.contains('ganhe') ||
+        lower.contains('economize') ||
+        lower.contains('pré-aprovado') ||
+        lower.contains('pre-aprovado') ||
+        lower.contains('pré aprovado') ||
+        lower.contains('pre aprovado') ||
+        lower.contains('aumente seu limite') ||
+        lower.contains('novo limite') ||
+        lower.contains('simule seu') ||
+        lower.contains('inter shopping') ||
+        lower.contains('nu shopping') ||
+        lower.contains('por apenas') ||
+        lower.contains('a partir de') ||
+        lower.contains('convide e ganhe') ||
+        lower.contains('assine já') ||
+        lower.contains('assine ja');
+  }
+
   /// Parses text from a push notification to extract financial transaction information
   static NotificationParseResult? parseNotificationText({
     required String appPackage,
@@ -177,6 +208,11 @@ class NotificationService {
   }) {
     final bankName = getBankNameFromPackage(appPackage);
     final fullText = '$title $text';
+
+    // 1. Drop marketing, promotional offers and ads from banking apps
+    if (isMarketingOrPromotional(fullText)) {
+      return null;
+    }
 
     // Regex to extract Brazilian currency values: R$ 45,90 or 45,90 or R$ 1.250,00
     final amountRegex = RegExp(r'R\$\s*([\d\.]+(?:,\d{2})?)');
@@ -217,14 +253,48 @@ class NotificationService {
       );
     }
 
-    // Determine transaction type
+    // Determine transaction type and check if it's an actual confirmed transaction
     final lower = fullText.toLowerCase();
     final isIncome = lower.contains('recebido') ||
         lower.contains('recebeu') ||
         lower.contains('pix recebido') ||
         lower.contains('transferência recebida') ||
+        lower.contains('transferencia recebida') ||
         lower.contains('ted recebida') ||
-        lower.contains('te enviou um pix');
+        lower.contains('doc recebido') ||
+        lower.contains('te enviou um pix') ||
+        lower.contains('salário creditado') ||
+        lower.contains('salario creditado') ||
+        lower.contains('depósito em conta') ||
+        lower.contains('deposito em conta') ||
+        lower.contains('crédito em conta') ||
+        lower.contains('credito em conta');
+
+    final isRealExpense = lower.contains('compra aprovada') ||
+        lower.contains('compra no') ||
+        lower.contains('compra de') ||
+        lower.contains('compra confirmada') ||
+        lower.contains('pagamento aprovado') ||
+        lower.contains('pagou') ||
+        lower.contains('pagamento realizado') ||
+        lower.contains('transferência enviada') ||
+        lower.contains('transferencia enviada') ||
+        lower.contains('pix enviado') ||
+        lower.contains('enviou um pix') ||
+        lower.contains('débito autorizado') ||
+        lower.contains('debito autorizado') ||
+        lower.contains('débito realizado') ||
+        lower.contains('debito realizado') ||
+        lower.contains('saque realizado') ||
+        lower.contains('transação aprovada') ||
+        lower.contains('transacao aprovada') ||
+        lower.contains('cartão final') ||
+        lower.contains('cartao final');
+
+    // If it's not a confirmed income or expense, ignore to prevent ads from creating transactions
+    if (!isIncome && !isRealExpense) {
+      return null;
+    }
 
     // Extract Merchant / Destination / Sender
     String merchant = isIncome ? 'Pix Recebido' : 'Compra Cartão';

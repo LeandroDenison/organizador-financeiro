@@ -47,6 +47,12 @@ class NotificationProvider extends ChangeNotifier {
       stored = [];
       await StorageService.saveNotifications([]);
     }
+    // Remove any promotional marketing push notifications that were captured
+    final hadPromos = stored.any((n) => NotificationService.isMarketingOrPromotional('${n.rawTitle} ${n.rawText}'));
+    if (hadPromos) {
+      stored.removeWhere((n) => NotificationService.isMarketingOrPromotional('${n.rawTitle} ${n.rawText}'));
+      await StorageService.saveNotifications(stored);
+    }
     _notifications = stored;
 
     _isLoading = false;
