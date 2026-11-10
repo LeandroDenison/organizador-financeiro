@@ -539,9 +539,8 @@ NEWFILEUID:NONE
 
     final clientIdCtrl = TextEditingController(text: currentConfig.clientId);
     final clientSecretCtrl = TextEditingController(text: currentConfig.clientSecret);
-    final itemIdCtrl = TextEditingController(text: currentConfig.itemId ?? '');
+    final itemIdCtrl = TextEditingController(text: currentConfig.itemId ?? OpenFinanceService.defaultNubankItemId);
     bool isSyncing = false;
-    bool isGeneratingUrl = false;
     String? errorMsg;
     String? successMsg;
 
@@ -556,7 +555,7 @@ NEWFILEUID:NONE
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Open Finance Brasil (Pluggy)',
+                  'Open Finance Brasil (Nubank Conectado)',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -572,25 +571,26 @@ NEWFILEUID:NONE
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppConstants.primaryColor.withValues(alpha: 0.08),
+                      color: AppConstants.accentGreen.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppConstants.accentGreen.withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.check_circle_rounded, color: AppConstants.accentGreen, size: 18),
-                            SizedBox(width: 6),
+                            Icon(Icons.check_circle_rounded, color: AppConstants.accentGreen, size: 20),
+                            SizedBox(width: 8),
                             Text(
-                              'Credenciais Pluggy Ativas & Salvas',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                              'Nubank Conectado com Sucesso!',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppConstants.accentGreen),
                             ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Para conectar um novo banco (Nubank, Itaú etc.), toque no botão "Conectar Banco (Pluggy Connect)" abaixo para abrir a tela oficial de autorização do Open Finance.',
+                          'Sua conta Nu Pagamentos e Cartão Gold já estão vinculados. Clique em "Sincronizar Transações" abaixo para puxar as movimentações em tempo real.',
                           style: TextStyle(
                             fontSize: 12,
                             color: Theme.of(context).brightness == Brightness.dark
@@ -602,70 +602,10 @@ NEWFILEUID:NONE
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-
-                  // Button to launch Pluggy Connect widget
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppConstants.primaryColor,
-                        side: const BorderSide(color: AppConstants.primaryColor, width: 1.5),
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      ),
-                      icon: isGeneratingUrl
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppConstants.primaryColor),
-                            )
-                          : const Icon(Icons.open_in_new_rounded, size: 18),
-                      label: Text(
-                        isGeneratingUrl ? 'Gerando Link Seguro...' : 'Conectar Banco (Abrir Pluggy Connect)',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      onPressed: isGeneratingUrl || isSyncing
-                          ? null
-                          : () async {
-                              setModalState(() {
-                                isGeneratingUrl = true;
-                                errorMsg = null;
-                                successMsg = null;
-                              });
-                              try {
-                                final cfg = OpenFinanceConfig(
-                                  clientId: clientIdCtrl.text.trim(),
-                                  clientSecret: clientSecretCtrl.text.trim(),
-                                  itemId: itemIdCtrl.text.trim().isEmpty ? null : itemIdCtrl.text.trim(),
-                                );
-                                await OpenFinanceService.saveConfig(cfg);
-                                final connectUrl = await OpenFinanceService.generateConnectUrl(cfg);
-
-                                if (context.mounted) {
-                                  // Open URL in default browser
-                                  await Process.run('cmd', ['/c', 'start', '', connectUrl]);
-                                  setModalState(() {
-                                    isGeneratingUrl = false;
-                                    successMsg =
-                                        'A página de conexão da Pluggy foi aberta no navegador! Escolha o Nubank ou Itaú e autorize a conexão.';
-                                  });
-                                }
-                              } catch (e) {
-                                setModalState(() {
-                                  isGeneratingUrl = false;
-                                  errorMsg = 'Erro ao abrir Pluggy Connect: $e';
-                                });
-                              }
-                            },
-                    ),
-                  ),
                   const SizedBox(height: 16),
 
-                  const Divider(),
-                  const SizedBox(height: 8),
-
                   const Text(
-                    'Credenciais da API Pluggy:',
+                    'Credenciais & Conexão:',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   const SizedBox(height: 8),
@@ -691,8 +631,7 @@ NEWFILEUID:NONE
                   TextField(
                     controller: itemIdCtrl,
                     decoration: const InputDecoration(
-                      labelText: 'Item ID (Opcional - deixe vazio para sincronizar todas)',
-                      hintText: 'Ex: e1c3... (preenche automaticamente ao conectar)',
+                      labelText: 'Item ID (Nubank Conexão)',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.account_balance_rounded),
                     ),
@@ -732,22 +671,16 @@ NEWFILEUID:NONE
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : const Icon(Icons.cloud_download_rounded, size: 18),
-              label: Text(isSyncing ? 'Buscando...' : 'Sincronizar Transações'),
+              label: Text(isSyncing ? 'Sincronizando...' : 'Sincronizar Transações'),
               onPressed: isSyncing
                   ? null
                   : () async {
                       final cfg = OpenFinanceConfig(
                         clientId: clientIdCtrl.text.trim(),
                         clientSecret: clientSecretCtrl.text.trim(),
-                        itemId: itemIdCtrl.text.trim().isEmpty ? null : itemIdCtrl.text.trim(),
+                        itemId: itemIdCtrl.text.trim(),
                       );
                       await OpenFinanceService.saveConfig(cfg);
-                      if (!cfg.hasCredentials) {
-                        setModalState(() {
-                          errorMsg = 'Preencha o Client ID e Client Secret para sincronizar.';
-                        });
-                        return;
-                      }
                       setModalState(() {
                         isSyncing = true;
                         errorMsg = null;
@@ -760,7 +693,7 @@ NEWFILEUID:NONE
                           if (txs.isEmpty) {
                             _showNoTransactionsAlert();
                           } else {
-                            _showPreviewDialog('Open Finance Brasil', txs);
+                            _showPreviewDialog('Open Finance (Nubank)', txs);
                           }
                         }
                       } catch (e) {
