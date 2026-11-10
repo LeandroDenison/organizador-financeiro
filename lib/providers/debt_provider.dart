@@ -128,7 +128,7 @@ class DebtProvider extends ChangeNotifier {
 
     // Auto-repair any existing debt created from an installment title (e.g. "Parcela 4/10") that was saved with totalInstallments == 1
     bool repairedAny = false;
-    final List<DebtModel> migrated = [];
+    var migrated = <DebtModel>[];
     for (final d in stored) {
       final info = DebtModel.parseInstallmentInfo(d.description);
       if (info != null && d.totalInstallments == 1 && info.totalInstallments > 1) {
@@ -154,6 +154,22 @@ class DebtProvider extends ChangeNotifier {
         migrated.add(d);
       }
     }
+
+    // Deduplicate any repeated subscription division debts (e.g. Crunchyroll)
+    final seenSubscriptionDebts = <String>{};
+    final deduplicated = <DebtModel>[];
+    for (final d in migrated) {
+      final normDesc = d.description.toLowerCase().replaceAll('ã', 'a').replaceAll(' ', '');
+      if (normDesc.contains('crunchyroll') && normDesc.contains('assinatura')) {
+        if (seenSubscriptionDebts.contains('crunchyroll_assinatura')) {
+          repairedAny = true;
+          continue;
+        }
+        seenSubscriptionDebts.add('crunchyroll_assinatura');
+      }
+      deduplicated.add(d);
+    }
+    migrated = deduplicated;
 
     // Ensure Crunchyroll recurring debt for Sergio Lucas is active (R$ 20,00)
     final crunchyIndex = migrated.indexWhere((d) =>
