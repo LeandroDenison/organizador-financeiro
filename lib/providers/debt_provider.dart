@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import '../models/debt_model.dart';
 import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
-import '../services/sample_data_service.dart';
 import '../services/firebase_service.dart';
 import 'finance_provider.dart';
 
@@ -154,6 +153,22 @@ class DebtProvider extends ChangeNotifier {
       } else {
         migrated.add(d);
       }
+    }
+
+    // Ensure Crunchyroll recurring debt for Sergio Lucas is active (R$ 20,00)
+    final crunchyIndex = migrated.indexWhere((d) =>
+        d.personName.toLowerCase().contains('sergio') &&
+        d.description.toLowerCase().contains('crunchyroll'));
+    if (crunchyIndex != -1 && migrated[crunchyIndex].isSettled) {
+      migrated[crunchyIndex] = migrated[crunchyIndex].copyWith(
+        totalAmount: 20.0,
+        installmentValue: 20.0,
+        totalInstallments: 1,
+        remainingInstallments: 1,
+        customRemainingAmount: 20.0,
+        isSettled: false,
+      );
+      repairedAny = true;
     }
 
     if (repairedAny) {

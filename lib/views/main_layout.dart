@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/notification_provider.dart';
 import '../providers/debt_provider.dart';
+import '../providers/bank_loan_provider.dart';
 import '../utils/constants.dart';
 import 'dashboard/dashboard_view.dart';
 import 'transactions/transactions_view.dart';
 import 'debts/debts_view.dart';
+import 'loans/bank_loans_view.dart';
 import 'savings/savings_goals_view.dart';
 import 'subscriptions/subscriptions_view.dart';
 import 'budgets/budgets_view.dart';
@@ -22,6 +24,7 @@ class MainLayout extends StatelessWidget {
     final appState = context.watch<AppStateProvider>();
     final notifProvider = context.watch<NotificationProvider>();
     final debtProvider = context.watch<DebtProvider>();
+    final loanProvider = context.watch<BankLoanProvider>();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -31,12 +34,13 @@ class MainLayout extends StatelessWidget {
       DashboardView(), // 0
       TransactionsView(), // 1
       DebtsView(), // 2
-      SavingsGoalsView(), // 3
-      SubscriptionsView(), // 4
-      BudgetsView(), // 5
-      BankImportView(), // 6
-      NotificationsView(), // 7
-      SettingsView(), // 8
+      BankLoansView(), // 3
+      SavingsGoalsView(), // 4
+      SubscriptionsView(), // 5
+      BudgetsView(), // 6
+      BankImportView(), // 7
+      NotificationsView(), // 8
+      SettingsView(), // 9
     ];
 
     if (isDesktop) {
@@ -119,20 +123,28 @@ class MainLayout extends StatelessWidget {
                         _buildNavItem(
                           context,
                           index: 3,
+                          icon: Icons.account_balance_rounded,
+                          label: 'Empréstimos Bancários',
+                          badgeCount: loanProvider.activeLoans.length,
+                          currentIndex: appState.currentTabIndex,
+                        ),
+                        _buildNavItem(
+                          context,
+                          index: 4,
                           icon: Icons.savings_rounded,
                           label: 'Caixinhas & Metas',
                           currentIndex: appState.currentTabIndex,
                         ),
                         _buildNavItem(
                           context,
-                          index: 4,
+                          index: 5,
                           icon: Icons.repeat_rounded,
                           label: 'Assinaturas Fixas',
                           currentIndex: appState.currentTabIndex,
                         ),
                         _buildNavItem(
                           context,
-                          index: 5,
+                          index: 6,
                           icon: Icons.pie_chart_rounded,
                           label: 'Tetos de Gastos',
                           currentIndex: appState.currentTabIndex,
@@ -140,14 +152,14 @@ class MainLayout extends StatelessWidget {
                         const Divider(height: 16),
                         _buildNavItem(
                           context,
-                          index: 6,
+                          index: 7,
                           icon: Icons.upload_file_rounded,
                           label: 'Importar Extrato',
                           currentIndex: appState.currentTabIndex,
                         ),
                         _buildNavItem(
                           context,
-                          index: 7,
+                          index: 8,
                           icon: Icons.notifications_active_rounded,
                           label: 'Captura Android',
                           badgeCount: notifProvider.pendingNotifications.length,
@@ -155,7 +167,7 @@ class MainLayout extends StatelessWidget {
                         ),
                         _buildNavItem(
                           context,
-                          index: 8,
+                          index: 9,
                           icon: Icons.settings_rounded,
                           label: 'Configurações',
                           currentIndex: appState.currentTabIndex,
@@ -285,8 +297,11 @@ class MainLayout extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.savings_rounded),
-              title: const Text('Caixinhas & Metas'),
+              leading: const Icon(Icons.account_balance_rounded),
+              title: const Text('Empréstimos Bancários'),
+              trailing: loanProvider.activeLoans.isNotEmpty
+                  ? Badge(label: Text('${loanProvider.activeLoans.length}'))
+                  : null,
               selected: appState.currentTabIndex == 3,
               onTap: () {
                 Navigator.pop(context);
@@ -294,8 +309,8 @@ class MainLayout extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.repeat_rounded),
-              title: const Text('Assinaturas Fixas'),
+              leading: const Icon(Icons.savings_rounded),
+              title: const Text('Caixinhas & Metas'),
               selected: appState.currentTabIndex == 4,
               onTap: () {
                 Navigator.pop(context);
@@ -303,22 +318,31 @@ class MainLayout extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.pie_chart_rounded),
-              title: const Text('Tetos de Gastos'),
+              leading: const Icon(Icons.repeat_rounded),
+              title: const Text('Assinaturas Fixas'),
               selected: appState.currentTabIndex == 5,
               onTap: () {
                 Navigator.pop(context);
                 appState.setTab(5);
               },
             ),
-            const Divider(),
             ListTile(
-              leading: const Icon(Icons.upload_file_rounded),
-              title: const Text('Importar Extrato (OFX/CSV)'),
+              leading: const Icon(Icons.pie_chart_rounded),
+              title: const Text('Tetos de Gastos'),
               selected: appState.currentTabIndex == 6,
               onTap: () {
                 Navigator.pop(context);
                 appState.setTab(6);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.upload_file_rounded),
+              title: const Text('Importar Extrato (OFX/CSV)'),
+              selected: appState.currentTabIndex == 7,
+              onTap: () {
+                Navigator.pop(context);
+                appState.setTab(7);
               },
             ),
             ListTile(
@@ -327,19 +351,19 @@ class MainLayout extends StatelessWidget {
               trailing: notifProvider.pendingNotifications.isNotEmpty
                   ? Badge(label: Text('${notifProvider.pendingNotifications.length}'))
                   : null,
-              selected: appState.currentTabIndex == 7,
+              selected: appState.currentTabIndex == 8,
               onTap: () {
                 Navigator.pop(context);
-                appState.setTab(7);
+                appState.setTab(8);
               },
             ),
             ListTile(
               leading: const Icon(Icons.settings_rounded),
               title: const Text('Configurações'),
-              selected: appState.currentTabIndex == 8,
+              selected: appState.currentTabIndex == 9,
               onTap: () {
                 Navigator.pop(context);
-                appState.setTab(8);
+                appState.setTab(9);
               },
             ),
           ],
@@ -380,7 +404,7 @@ class MainLayout extends StatelessWidget {
           if (idx < 4) {
             appState.setTab(idx);
           } else {
-            _showMobileMoreMenu(context, appState, notifProvider);
+            _showMobileMoreMenu(context, appState, notifProvider, loanProvider);
           }
         },
         destinations: [
@@ -403,10 +427,14 @@ class MainLayout extends StatelessWidget {
             selectedIcon: const Icon(Icons.handshake_rounded),
             label: 'Devedores',
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.savings_outlined),
-            selectedIcon: Icon(Icons.savings_rounded),
-            label: 'Caixinhas',
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: loanProvider.activeLoans.isNotEmpty,
+              label: Text('${loanProvider.activeLoans.length}'),
+              child: const Icon(Icons.account_balance_outlined),
+            ),
+            selectedIcon: const Icon(Icons.account_balance_rounded),
+            label: 'Empréstimos',
           ),
           NavigationDestination(
             icon: Badge(
@@ -431,16 +459,18 @@ class MainLayout extends StatelessWidget {
       case 2:
         return 'Quem me Deve';
       case 3:
-        return 'Caixinhas & Metas';
+        return 'Empréstimos Bancários';
       case 4:
-        return 'Assinaturas Fixas';
+        return 'Caixinhas & Metas';
       case 5:
-        return 'Tetos de Gastos';
+        return 'Assinaturas Fixas';
       case 6:
-        return 'Importar Extrato';
+        return 'Tetos de Gastos';
       case 7:
-        return 'Captura Android';
+        return 'Importar Extrato';
       case 8:
+        return 'Captura Android';
+      case 9:
         return 'Configurações';
       default:
         return 'Organizador';
@@ -451,6 +481,7 @@ class MainLayout extends StatelessWidget {
     BuildContext context,
     AppStateProvider appState,
     NotificationProvider notifProvider,
+    BankLoanProvider loanProvider,
   ) {
     showModalBottomSheet(
       context: context,
@@ -474,12 +505,21 @@ class MainLayout extends StatelessWidget {
                   ),
                 ),
                 ListTile(
+                  leading: const Icon(Icons.savings_rounded, color: Colors.green),
+                  title: const Text('Caixinhas & Metas de Economia'),
+                  subtitle: const Text('Objetivos financeiros e reserva'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    appState.setTab(4);
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.repeat_rounded, color: AppConstants.primaryColor),
                   title: const Text('Assinaturas & Custos Fixos'),
                   subtitle: const Text('Detector de assinaturas e dreno anual'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    appState.setTab(4);
+                    appState.setTab(5);
                   },
                 ),
                 ListTile(
@@ -488,7 +528,7 @@ class MainLayout extends StatelessWidget {
                   subtitle: const Text('Limites mensais e alertas automáticos'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    appState.setTab(5);
+                    appState.setTab(6);
                   },
                 ),
                 ListTile(
@@ -497,7 +537,7 @@ class MainLayout extends StatelessWidget {
                   subtitle: const Text('Arquivos OFX e CSV (Nubank, Itaú, Mercado Pago)'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    appState.setTab(6);
+                    appState.setTab(7);
                   },
                 ),
                 ListTile(
@@ -509,16 +549,16 @@ class MainLayout extends StatelessWidget {
                       : null,
                   onTap: () {
                     Navigator.pop(ctx);
-                    appState.setTab(7);
+                    appState.setTab(8);
                   },
                 ),
                 ListTile(
                   leading: const Icon(Icons.settings_rounded, color: Colors.grey),
-                  title: const Text('Configurações & Firebase'),
-                  subtitle: const Text('Ajustes, sincronização e tema'),
+                  title: const Text('Configurações & Open Finance'),
+                  subtitle: const Text('Ajustes, credenciais de bancos e tema'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    appState.setTab(8);
+                    appState.setTab(9);
                   },
                 ),
               ],

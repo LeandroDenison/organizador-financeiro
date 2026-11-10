@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../providers/app_state_provider.dart';
 import '../../services/ofx_parser_service.dart';
 import '../../services/csv_parser_service.dart';
 import '../../services/pdf_parser_service.dart';
@@ -358,9 +360,11 @@ NEWFILEUID:NONE
                           backgroundColor: AppConstants.primaryColor,
                           foregroundColor: Colors.white,
                         ),
-                        icon: const Icon(Icons.cloud_sync_rounded, size: 18),
-                        label: const Text('Configurar / Sincronizar Open Finance'),
-                        onPressed: () => _showOpenFinanceDialog(context),
+                        icon: const Icon(Icons.settings_suggest_rounded, size: 18),
+                        label: const Text('Gerenciar Bancos Conectados (Configurações)'),
+                        onPressed: () {
+                          context.read<AppStateProvider>().setTab(9);
+                        },
                       ),
                     ],
                   ),
@@ -526,183 +530,6 @@ NEWFILEUID:NONE
                   ],
                 );
               },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showOpenFinanceDialog(BuildContext context) async {
-    final currentConfig = await OpenFinanceService.loadConfig();
-    if (!context.mounted) return;
-
-    final clientIdCtrl = TextEditingController(text: currentConfig.clientId);
-    final clientSecretCtrl = TextEditingController(text: currentConfig.clientSecret);
-    final itemIdCtrl = TextEditingController(text: currentConfig.itemId ?? OpenFinanceService.defaultNubankItemId);
-    bool isSyncing = false;
-    String? errorMsg;
-    String? successMsg;
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-          title: const Row(
-            children: [
-              Icon(Icons.sync_lock_rounded, color: AppConstants.primaryColor),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Open Finance Brasil (Nubank Conectado)',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: SizedBox(
-              width: 480,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppConstants.accentGreen.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppConstants.accentGreen.withValues(alpha: 0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.check_circle_rounded, color: AppConstants.accentGreen, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Nubank Conectado com Sucesso!',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppConstants.accentGreen),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Sua conta Nu Pagamentos e Cartão Gold já estão vinculados. Clique em "Sincronizar Transações" abaixo para puxar as movimentações em tempo real.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.grey.shade300
-                                : Colors.grey.shade700,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  const Text(
-                    'Credenciais & Conexão:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: clientIdCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Pluggy Client ID',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.key_rounded),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: clientSecretCtrl,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Pluggy Client Secret',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock_outline_rounded),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: itemIdCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Item ID (Nubank Conexão)',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.account_balance_rounded),
-                    ),
-                  ),
-                  if (errorMsg != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      errorMsg!,
-                      style: const TextStyle(color: AppConstants.accentRed, fontSize: 12),
-                    ),
-                  ],
-                  if (successMsg != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      successMsg!,
-                      style: const TextStyle(color: AppConstants.accentGreen, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: isSyncing ? null : () => Navigator.pop(ctx),
-              child: const Text('Fechar'),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppConstants.primaryColor,
-                foregroundColor: Colors.white,
-              ),
-              icon: isSyncing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.cloud_download_rounded, size: 18),
-              label: Text(isSyncing ? 'Sincronizando...' : 'Sincronizar Transações'),
-              onPressed: isSyncing
-                  ? null
-                  : () async {
-                      final cfg = OpenFinanceConfig(
-                        clientId: clientIdCtrl.text.trim(),
-                        clientSecret: clientSecretCtrl.text.trim(),
-                        itemId: itemIdCtrl.text.trim(),
-                      );
-                      await OpenFinanceService.saveConfig(cfg);
-                      setModalState(() {
-                        isSyncing = true;
-                        errorMsg = null;
-                        successMsg = null;
-                      });
-                      try {
-                        final txs = await OpenFinanceService.fetchTransactions(cfg);
-                        if (ctx.mounted) {
-                          Navigator.pop(ctx);
-                          if (txs.isEmpty) {
-                            _showNoTransactionsAlert();
-                          } else {
-                            _showPreviewDialog('Open Finance (Nubank)', txs);
-                          }
-                        }
-                      } catch (e) {
-                        setModalState(() {
-                          isSyncing = false;
-                          errorMsg = e.toString().replaceAll('Exception: ', '');
-                        });
-                      }
-                    },
             ),
           ],
         ),

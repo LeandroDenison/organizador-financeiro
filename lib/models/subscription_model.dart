@@ -40,6 +40,32 @@ class SubscriptionModel {
 
   double get annualAmount => effectiveMyCost * 12;
 
+  SubscriptionModel copyWith({
+    String? id,
+    String? name,
+    double? amount,
+    int? billingDay,
+    String? category,
+    String? bank,
+    String? sourceTransactionTitle,
+    double? myShareAmount,
+    String? sharedWithPerson,
+    bool? isActive,
+  }) {
+    return SubscriptionModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      amount: amount ?? this.amount,
+      billingDay: billingDay ?? this.billingDay,
+      category: category ?? this.category,
+      bank: bank ?? this.bank,
+      sourceTransactionTitle: sourceTransactionTitle ?? this.sourceTransactionTitle,
+      myShareAmount: myShareAmount ?? this.myShareAmount,
+      sharedWithPerson: sharedWithPerson ?? this.sharedWithPerson,
+      isActive: isActive ?? this.isActive,
+    );
+  }
+
   Map<String, dynamic> toMap() => {
         'id': id,
         'name': name,

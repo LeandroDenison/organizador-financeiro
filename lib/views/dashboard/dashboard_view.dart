@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/finance_provider.dart';
 import '../../providers/debt_provider.dart';
 import '../../providers/app_state_provider.dart';
+import '../../providers/bank_loan_provider.dart';
 import '../../services/firebase_service.dart';
 import '../../utils/currency_formatter.dart';
 import '../../utils/constants.dart';
@@ -14,7 +15,6 @@ import 'widgets/budget_alert_banner.dart';
 import 'widgets/future_commitments_card.dart';
 import 'widgets/debtor_pix_alert_banner.dart';
 import '../transactions/widgets/add_transaction_dialog.dart';
-import '../debts/widgets/add_debt_dialog.dart';
 
 class DashboardView extends StatelessWidget {
   const DashboardView({super.key});
@@ -25,6 +25,7 @@ class DashboardView extends StatelessWidget {
     final debts = context.watch<DebtProvider>();
     final appState = context.watch<AppStateProvider>();
     final firebase = context.watch<FirebaseService>();
+    final bankLoans = context.watch<BankLoanProvider>();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -58,7 +59,7 @@ class DashboardView extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Saldo, devedores e extratos bancários',
+                      'Saldo, devedores, empréstimos e extratos bancários',
                       style: TextStyle(
                         color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                         fontSize: 12,
@@ -102,7 +103,15 @@ class DashboardView extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // Month Selector Toolbar
+            _buildMonthSelector(context, finance, isDark),
+            const SizedBox(height: 16),
+
+            // Bank Loans Alert Banner
+            _buildBankLoansBanner(context, isDark, bankLoans, appState),
+            const SizedBox(height: 16),
 
             // Debtor Pix Recognition Alert (if someone sent Pix to abate accounts)
             const DebtorPixAlertBanner(),
@@ -132,25 +141,25 @@ class DashboardView extends StatelessWidget {
                   childAspectRatio: constraints.maxWidth < 600 ? 2.4 : 1.7,
                   children: [
                     SummaryCard(
-                      title: 'Saldo Líquido',
+                      title: 'Saldo Líquido (Mês)',
                       value: CurrencyFormatter.format(finance.balance),
                       icon: Icons.account_balance_wallet_rounded,
                       color: finance.balance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
-                      subtitle: finance.balance >= 0 ? 'Saldo positivo' : 'Atenção ao orçamento',
+                      subtitle: finance.balance >= 0 ? 'Saldo positivo no mês' : 'Atenção ao orçamento',
                     ),
                     SummaryCard(
-                      title: 'Receitas Totais',
+                      title: 'Receitas (Mês)',
                       value: CurrencyFormatter.format(finance.totalIncome),
                       icon: Icons.arrow_downward_rounded,
                       color: AppConstants.accentGreen,
-                      subtitle: 'Salários e empréstimos recebidos',
+                      subtitle: 'Salários e entradas do mês',
                     ),
                     SummaryCard(
-                      title: 'Despesas Totais',
+                      title: 'Despesas (Mês)',
                       value: CurrencyFormatter.format(finance.totalExpense),
                       icon: Icons.arrow_upward_rounded,
                       color: AppConstants.accentRed,
-                      subtitle: 'Cartões, compras e contas',
+                      subtitle: 'Cartões, compras e contas do mês',
                     ),
                     SummaryCard(
                       title: 'Quem me Deve (Ativos)',
@@ -526,6 +535,153 @@ class DashboardView extends StatelessWidget {
                 );
               },
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthSelector(BuildContext context, FinanceProvider finance, bool isDark) {
+    const monthNames = [
+      '',
+      'Janeiro',
+      'Fevereiro',
+      'Março',
+      'Abril',
+      'Maio',
+      'Junho',
+      'Julho',
+      'Agosto',
+      'Setembro',
+      'Outubro',
+      'Novembro',
+      'Dezembro',
+    ];
+    final selected = finance.selectedMonth;
+    final label = '${monthNames[selected.month]} de ${selected.year}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left_rounded),
+                tooltip: 'Mês anterior',
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  final prev = DateTime(selected.year, selected.month - 1);
+                  finance.setSelectedMonth(prev);
+                },
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.calendar_month_rounded, size: 18, color: AppConstants.primaryColor),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.chevron_right_rounded),
+                tooltip: 'Próximo mês',
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  final next = DateTime(selected.year, selected.month + 1);
+                  finance.setSelectedMonth(next);
+                },
+              ),
+            ],
+          ),
+          if (selected.year != 2026 || selected.month != 11)
+            TextButton(
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                foregroundColor: AppConstants.primaryColor,
+              ),
+              onPressed: () => finance.setSelectedMonth(DateTime(2026, 11)),
+              child: const Text('Voltar para Nov/2026'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBankLoansBanner(BuildContext context, bool isDark, BankLoanProvider bankLoans, AppStateProvider appState) {
+    if (bankLoans.activeLoans.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppConstants.nubankPurple.withOpacity(0.35),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppConstants.nubankPurple.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.account_balance_rounded, color: AppConstants.nubankPurple, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'Empréstimos Bancários Ativos (Nubank)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppConstants.accentAmber.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${bankLoans.activeLoans.length} contratos',
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppConstants.accentAmber),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Saldo devedor total: ${CurrencyFormatter.format(bankLoans.totalRemainingDebt)} • Parcela mensal: ${CurrencyFormatter.format(bankLoans.totalMonthlyInstallment)}/mês',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppConstants.nubankPurple,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            ),
+            onPressed: () => appState.setTab(3), // Tab 3 is Empréstimos Bancários
+            child: const Text('Ver Detalhes'),
+          ),
         ],
       ),
     );

@@ -1,18 +1,49 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/transaction_model.dart';
+import '../models/bank_loan_model.dart';
 import 'storage_service.dart';
 import 'ofx_parser_service.dart';
+
+class ConnectedBankItem {
+  final String id;
+  final String bankName; // Ex: 'Nubank', 'Mercado Pago', 'Itaú'
+  final String? accountName;
+  final bool isDefault;
+
+  const ConnectedBankItem({
+    required this.id,
+    required this.bankName,
+    this.accountName,
+    this.isDefault = false,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'bankName': bankName,
+        'accountName': accountName,
+        'isDefault': isDefault,
+      };
+
+  factory ConnectedBankItem.fromMap(Map<String, dynamic> map) {
+    return ConnectedBankItem(
+      id: map['id']?.toString() ?? '',
+      bankName: map['bankName']?.toString() ?? 'Banco',
+      accountName: map['accountName']?.toString(),
+      isDefault: map['isDefault'] as bool? ?? false,
+    );
+  }
+}
 
 class OpenFinanceConfig {
   final String clientId;
   final String clientSecret;
-  final String? itemId;
+  final List<ConnectedBankItem> connectedBanks;
 
   const OpenFinanceConfig({
     required this.clientId,
     required this.clientSecret,
-    this.itemId,
+    this.connectedBanks = const [],
   });
 
   bool get hasCredentials =>
@@ -21,25 +52,45 @@ class OpenFinanceConfig {
   Map<String, dynamic> toMap() => {
         'clientId': clientId,
         'clientSecret': clientSecret,
-        'itemId': itemId,
+        'connectedBanks': connectedBanks.map((b) => b.toMap()).toList(),
       };
 
   factory OpenFinanceConfig.fromMap(Map<String, dynamic> map) {
+    final list = (map['connectedBanks'] as List<dynamic>?) ?? [];
     return OpenFinanceConfig(
       clientId: map['clientId']?.toString() ?? '',
       clientSecret: map['clientSecret']?.toString() ?? '',
-      itemId: map['itemId']?.toString(),
+      connectedBanks: list.map((b) => ConnectedBankItem.fromMap(Map<String, dynamic>.from(b as Map))).toList(),
     );
   }
 }
 
 class OpenFinanceService {
-  static const String _storageKey = 'open_finance_pluggy_config_v1';
+  static const String _storageKey = 'open_finance_pluggy_config_v2';
+  static const String _loansStorageKey = 'open_finance_bank_loans_v1';
   static const String _baseUrl = 'https://api.pluggy.ai';
 
   static const String defaultClientId = '82695ed9-67f2-416f-a24b-28c15796d7e6';
   static const String defaultClientSecret = 'f4ibQxwoB44m7DhpDCCoGIcJszAlKPE0sFtYQl1KB9o';
-  static const String defaultNubankItemId = '22443998-6bc4-4531-ab9e-79e2da47f496';
+
+  static const List<ConnectedBankItem> initialBanks = [
+    ConnectedBankItem(
+      id: '22443998-6bc4-4531-ab9e-79e2da47f496',
+      bankName: 'Nubank',
+      accountName: 'Conta Pré-paga & Cartão Gold',
+      isDefault: true,
+    ),
+    ConnectedBankItem(
+      id: 'c565e273-dab4-4ef5-99ce-658255069c0d',
+      bankName: 'Mercado Pago',
+      accountName: 'Conta & Cartão Mercado Pago',
+    ),
+    ConnectedBankItem(
+      id: '22201148-31c8-4290-9acd-cd0bf0c92af0',
+      bankName: 'Itaú',
+      accountName: 'Conta Universitária & Cartão Click',
+    ),
+  ];
 
   static Future<OpenFinanceConfig> loadConfig() async {
     final raw = await StorageService.getStoredData(_storageKey);
@@ -54,7 +105,7 @@ class OpenFinanceService {
     return const OpenFinanceConfig(
       clientId: defaultClientId,
       clientSecret: defaultClientSecret,
-      itemId: defaultNubankItemId,
+      connectedBanks: initialBanks,
     );
   }
 
@@ -87,113 +138,192 @@ class OpenFinanceService {
     return apiKey;
   }
 
-  /// Fetches real transactions via Pluggy API V2 endpoint
-  static Future<List<TransactionModel>> fetchTransactions(
-    OpenFinanceConfig config, {
-    String? specificItemId,
-  }) async {
-    final apiKey = await getApiKey(config);
-    final targetItemId = specificItemId ?? config.itemId ?? defaultNubankItemId;
+  /// Fetches real bank loans from connected Open Finance institutions
+  static Future<List<BankLoanModel>> fetchBankLoans([OpenFinanceConfig? config]) async {
+    final cfg = config ?? await loadConfig();
+    final apiKey = await getApiKey(cfg);
+    final List<BankLoanModel> loans = [];
 
-    final String accountsUrl = '$_baseUrl/accounts?itemId=${Uri.encodeComponent(targetItemId.trim())}';
+    for (final bank in cfg.connectedBanks) {
+      if (bank.id.trim().isEmpty) continue;
+      try {
+        final resp = await http
+            .get(
+              Uri.parse('$_baseUrl/loans?itemId=${Uri.encodeComponent(bank.id.trim())}'),
+              headers: {'X-API-KEY': apiKey},
+            )
+            .timeout(const Duration(seconds: 15));
 
-    final accResp = await http
-        .get(
-          Uri.parse(accountsUrl),
-          headers: {'X-API-KEY': apiKey},
-        )
-        .timeout(const Duration(seconds: 15));
+        if (resp.statusCode >= 200 && resp.statusCode < 300) {
+          final data = jsonDecode(resp.body) as Map<String, dynamic>;
+          final results = (data['results'] as List<dynamic>?) ?? [];
 
-    if (accResp.statusCode < 200 || accResp.statusCode >= 300) {
-      throw Exception('Erro ao buscar contas no Open Finance (${accResp.statusCode}). Verifique o Item ID.');
+          for (final raw in results) {
+            final map = Map<String, dynamic>.from(raw as Map);
+            final contractNum = map['contractNumber']?.toString() ?? '';
+            final prodName = map['productName']?.toString() ?? 'Crédito Pessoal';
+            final contractAmount = (map['contractAmount'] as num?)?.toDouble() ?? 0.0;
+            final remainingAmount = (map['totalRemainingAmount'] as num?)?.toDouble() ?? 0.0;
+            final nextInstAmount = (map['nextInstallmentAmount'] as num?)?.toDouble() ?? 0.0;
+            final cet = (map['CET'] as num?)?.toDouble();
+            final dueDate = DateTime.tryParse(map['dueDate']?.toString() ?? '');
+            final firstDate = DateTime.tryParse(map['firstInstallmentDueDate']?.toString() ?? '');
+
+            final installmentsMap = map['installments'] != null
+                ? Map<String, dynamic>.from(map['installments'] as Map)
+                : <String, dynamic>{};
+
+            final totalInst = (installmentsMap['totalNumberOfInstallments'] as num?)?.toInt() ?? 1;
+            final paidInst = (installmentsMap['paidInstallments'] as num?)?.toInt() ?? 0;
+            final remInst = (installmentsMap['dueInstallments'] as num?)?.toInt() ??
+                (totalInst - paidInst).clamp(0, totalInst);
+
+            final isSettled = remainingAmount <= 0.05 || (map['settlementDate'] != null);
+
+            loans.add(
+              BankLoanModel(
+                id: map['id']?.toString(),
+                bankName: bank.bankName,
+                productName: prodName,
+                contractNumber: contractNum,
+                contractAmount: contractAmount,
+                totalRemainingAmount: isSettled ? 0.0 : remainingAmount,
+                installmentAmount: nextInstAmount,
+                totalInstallments: totalInst,
+                paidInstallments: paidInst,
+                remainingInstallments: isSettled ? 0 : remInst,
+                firstDueDate: firstDate,
+                finalDueDate: dueDate,
+                annualCet: cet,
+                isSettled: isSettled,
+              ),
+            );
+          }
+        }
+      } catch (_) {}
     }
 
-    final accData = jsonDecode(accResp.body) as Map<String, dynamic>;
-    final results = (accData['results'] as List<dynamic>?) ?? [];
-    if (results.isEmpty) {
-      throw Exception('Nenhuma conta encontrada para a conexão $targetItemId.');
+    if (loans.isNotEmpty) {
+      await saveStoredLoans(loans);
     }
+    return loans;
+  }
 
+  static Future<List<BankLoanModel>> loadStoredLoans() async {
+    final raw = await StorageService.getStoredData(_loansStorageKey);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final List<dynamic> list = jsonDecode(raw);
+        return list.map((e) => BankLoanModel.fromMap(Map<String, dynamic>.from(e as Map))).toList();
+      } catch (_) {}
+    }
+    return [];
+  }
+
+  static Future<void> saveStoredLoans(List<BankLoanModel> loans) async {
+    final list = loans.map((l) => l.toMap()).toList();
+    await StorageService.setStoredData(_loansStorageKey, jsonEncode(list));
+  }
+
+  /// Fetches real transactions via Pluggy API V2 endpoint for all configured banks
+  static Future<List<TransactionModel>> fetchTransactions([OpenFinanceConfig? config]) async {
+    final cfg = config ?? await loadConfig();
+    final apiKey = await getApiKey(cfg);
     final List<TransactionModel> allTransactions = [];
 
-    for (final accObj in results) {
-      final acc = Map<String, dynamic>.from(accObj as Map);
-      final accountId = acc['id']?.toString();
-      final accName = acc['name']?.toString() ?? 'Nubank';
-      final accType = acc['type']?.toString() ?? 'BANK';
-      if (accountId == null) continue;
+    for (final bank in cfg.connectedBanks) {
+      if (bank.id.trim().isEmpty) continue;
 
-      // Pluggy API V2 transactions endpoint
-      final txResp = await http
-          .get(
-            Uri.parse('$_baseUrl/v2/transactions?accountId=$accountId'),
-            headers: {'X-API-KEY': apiKey},
-          )
-          .timeout(const Duration(seconds: 25));
+      try {
+        final accResp = await http
+            .get(
+              Uri.parse('$_baseUrl/accounts?itemId=${Uri.encodeComponent(bank.id.trim())}'),
+              headers: {'X-API-KEY': apiKey},
+            )
+            .timeout(const Duration(seconds: 15));
 
-      if (txResp.statusCode >= 200 && txResp.statusCode < 300) {
-        final txData = jsonDecode(txResp.body) as Map<String, dynamic>;
-        final txResults = (txData['results'] as List<dynamic>?) ?? [];
-
-        for (final rawTx in txResults) {
-          final map = Map<String, dynamic>.from(rawTx as Map);
-          String description = (map['description'] ?? map['descriptionRaw'] ?? 'Transação Open Finance').toString().trim();
-          final rawAmount = (map['amount'] as num?)?.toDouble() ?? 0.0;
-          final typeStr = map['type']?.toString().toUpperCase() ?? '';
-          final dateStr = map['date']?.toString() ?? '';
-
-          if (rawAmount == 0) continue;
-
-          // Format description from pipe if present: e.g. "Transferência Recebida|Nome" -> "Transferência Recebida - Nome"
-          if (description.contains('|')) {
-            description = description.replaceAll('|', ' - ').trim();
-          }
-
-          final lowerDesc = description.toLowerCase();
-
-          // Ignore self-transfers between Denison's own accounts
-          if ((lowerDesc.contains('d enison') || lowerDesc.contains('denison')) &&
-              (lowerDesc.contains('transferência enviada') || lowerDesc.contains('transferencia enviada'))) {
-            continue;
-          }
-
-          final isCreditCard = accType.toUpperCase().contains('CREDIT');
-          final isExpense = isCreditCard
-              ? (rawAmount > 0 && typeStr != 'CREDIT')
-              : (rawAmount < 0 || typeStr == 'DEBIT');
-
-          final parsedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
-
-          // Check if installment info exists (e.g. "10/10" or "Parcela 4/10")
-          String? installmentRef;
-          final instMatch = RegExp(r'(?:Parcela\s+)?(\d+/\d+)', caseSensitive: false).firstMatch(description);
-          if (instMatch != null) {
-            installmentRef = instMatch.group(1);
-          }
-
-          // Detect debtor reference (e.g. Sergio Lucas)
-          String? personName;
-          if (lowerDesc.contains('sergio lucas') || lowerDesc.contains('sergio')) {
-            personName = 'Sergio Lucas';
-          }
-
-          allTransactions.add(
-            TransactionModel(
-              id: map['id'] != null ? 'pluggy_${map['id']}' : null,
-              title: description,
-              amount: rawAmount.abs(),
-              date: parsedDate,
-              type: isExpense ? TransactionType.expense : TransactionType.income,
-              category: map['category']?.toString() ?? OfxParserService.guessCategory(description),
-              bank: accName.toLowerCase().contains('gold') || accName.toLowerCase().contains('nu') ? 'Nubank' : accName,
-              source: TransactionSource.ofx,
-              installmentRef: installmentRef,
-              personName: personName,
-              notes: 'Sincronizado via Open Finance (Pluggy API)',
-            ),
-          );
+        if (accResp.statusCode < 200 || accResp.statusCode >= 300) {
+          continue;
         }
-      }
+
+        final accData = jsonDecode(accResp.body) as Map<String, dynamic>;
+        final results = (accData['results'] as List<dynamic>?) ?? [];
+
+        for (final accObj in results) {
+          final acc = Map<String, dynamic>.from(accObj as Map);
+          final accountId = acc['id']?.toString();
+          final accType = acc['type']?.toString() ?? 'BANK';
+          if (accountId == null) continue;
+
+          final txResp = await http
+              .get(
+                Uri.parse('$_baseUrl/v2/transactions?accountId=$accountId'),
+                headers: {'X-API-KEY': apiKey},
+              )
+              .timeout(const Duration(seconds: 25));
+
+          if (txResp.statusCode >= 200 && txResp.statusCode < 300) {
+            final txData = jsonDecode(txResp.body) as Map<String, dynamic>;
+            final txResults = (txData['results'] as List<dynamic>?) ?? [];
+
+            for (final rawTx in txResults) {
+              final map = Map<String, dynamic>.from(rawTx as Map);
+              String description = (map['description'] ?? map['descriptionRaw'] ?? 'Transação Open Finance').toString().trim();
+              final rawAmount = (map['amount'] as num?)?.toDouble() ?? 0.0;
+              final typeStr = map['type']?.toString().toUpperCase() ?? '';
+              final dateStr = map['date']?.toString() ?? '';
+
+              if (rawAmount == 0) continue;
+
+              if (description.contains('|')) {
+                description = description.replaceAll('|', ' - ').trim();
+              }
+
+              final lowerDesc = description.toLowerCase();
+
+              // Ignore self-transfers between own accounts
+              if ((lowerDesc.contains('d enison') || lowerDesc.contains('denison')) &&
+                  (lowerDesc.contains('transferência enviada') || lowerDesc.contains('transferencia enviada'))) {
+                continue;
+              }
+
+              final isCreditCard = accType.toUpperCase().contains('CREDIT');
+              final isExpense = isCreditCard
+                  ? (rawAmount > 0 && typeStr != 'CREDIT')
+                  : (rawAmount < 0 || typeStr == 'DEBIT');
+
+              final parsedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
+
+              String? installmentRef;
+              final instMatch = RegExp(r'(?:Parcela\s+)?(\d+/\d+)', caseSensitive: false).firstMatch(description);
+              if (instMatch != null) {
+                installmentRef = instMatch.group(1);
+              }
+
+              String? personName;
+              if (lowerDesc.contains('sergio lucas') || lowerDesc.contains('sergio')) {
+                personName = 'Sergio Lucas';
+              }
+
+              allTransactions.add(
+                TransactionModel(
+                  id: map['id'] != null ? 'pluggy_${map['id']}' : null,
+                  title: description,
+                  amount: rawAmount.abs(),
+                  date: parsedDate,
+                  type: isExpense ? TransactionType.expense : TransactionType.income,
+                  category: map['category']?.toString() ?? OfxParserService.guessCategory(description),
+                  bank: bank.bankName,
+                  source: TransactionSource.ofx,
+                  installmentRef: installmentRef,
+                  personName: personName,
+                  notes: 'Sincronizado via Open Finance (${bank.bankName})',
+                ),
+              );
+            }
+          }
+        }
+      } catch (_) {}
     }
 
     return allTransactions;

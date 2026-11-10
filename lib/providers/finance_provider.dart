@@ -37,16 +37,26 @@ class FinanceProvider extends ChangeNotifier {
       await StorageService.markFakeDataCleaned();
     }
 
-    // Auto-repair: remove self-transfers to own account (e.g. PIX TRANSF D Eniso06/11)
+    // Auto-repair: remove self-transfers, de-duplicate exact matches,
     // and ensure salary/yield entries are always TransactionType.income
     bool modified = false;
     final repaired = <TransactionModel>[];
+    final seenTxKeys = <String>{};
+
     for (final t in stored) {
-      final lower = t.title.toLowerCase();
-      if (lower.contains('pix transf d eniso') || lower.contains('pix transf denison')) {
+      if (_isSelfTransfer(t)) {
         modified = true;
         continue;
       }
+
+      final key = '${t.date.year}-${t.date.month}-${t.date.day}_${t.amount.toStringAsFixed(2)}_${t.type.name}_${t.title.trim().toLowerCase()}';
+      if (seenTxKeys.contains(key)) {
+        modified = true;
+        continue;
+      }
+      seenTxKeys.add(key);
+
+      final lower = t.title.toLowerCase();
       if (t.type == TransactionType.expense &&
           (lower.contains('pagto sal') || lower.contains('salário') || lower.contains('salario') || lower.contains('rend pago'))) {
         repaired.add(t.copyWith(type: TransactionType.income));
@@ -65,21 +75,67 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  static bool _isSelfTransfer(TransactionModel t) {
+    final lower = t.title.toLowerCase();
+    return lower.contains('pix transf d eniso') ||
+        lower.contains('pix transf denison') ||
+        (lower.contains('d enison') && (lower.contains('transf') || lower.contains('transferência') || lower.contains('transferencia'))) ||
+        (lower.contains('denison') && (lower.contains('transf') || lower.contains('transferência') || lower.contains('transferencia')));
+  }
+
+  static bool _isCardBillPayment(TransactionModel t) {
+    final lower = t.title.toLowerCase();
+    return lower.contains('pagamento de fatura') ||
+        lower.contains('pagamento recebido') ||
+        lower.contains('fatura paga') ||
+        lower.contains('pagamento fatura') ||
+        lower.contains('pagamento efetuado');
+  }
+
   static bool _isCreditRefund(TransactionModel t) {
     return t.type == TransactionType.income && t.title.toLowerCase().contains('estorno');
   }
 
+  DateTime _selectedMonth = DateTime(2026, 11);
+  bool _filterBySelectedMonth = true;
+
+  DateTime get selectedMonth => _selectedMonth;
+  bool get filterBySelectedMonth => _filterBySelectedMonth;
+
+  void setSelectedMonth(DateTime month) {
+    _selectedMonth = DateTime(month.year, month.month);
+    notifyListeners();
+  }
+
+  void toggleMonthFilter(bool value) {
+    _filterBySelectedMonth = value;
+    notifyListeners();
+  }
+
+  List<TransactionModel> get scopedTransactions {
+    final base = _filterBySelectedMonth
+        ? _transactions.where((t) =>
+            t.date.year == _selectedMonth.year && t.date.month == _selectedMonth.month).toList()
+        : _transactions;
+    return base.where((t) => !_isSelfTransfer(t)).toList();
+  }
+
   double get totalIncome {
-    return _transactions
-        .where((t) => t.type == TransactionType.income && !_isCreditRefund(t))
+    return scopedTransactions
+        .where((t) =>
+            t.type == TransactionType.income &&
+            !_isCreditRefund(t) &&
+            !_isCardBillPayment(t))
         .fold(0.0, (sum, t) => sum + t.amount);
   }
 
   double get totalExpense {
-    final grossExpenses = _transactions
-        .where((t) => t.type == TransactionType.expense)
+    final grossExpenses = scopedTransactions
+        .where((t) =>
+            t.type == TransactionType.expense &&
+            !_isCardBillPayment(t))
         .fold(0.0, (sum, t) => sum + t.amount);
-    final refunds = _transactions
+    final refunds = scopedTransactions
         .where(_isCreditRefund)
         .fold(0.0, (sum, t) => sum + t.amount);
     final net = grossExpenses - refunds;
@@ -90,10 +146,10 @@ class FinanceProvider extends ChangeNotifier {
 
   Map<String, double> get expensesByCategory {
     final map = <String, double>{};
-    for (final t in _transactions.where((t) => t.type == TransactionType.expense)) {
+    for (final t in scopedTransactions.where((t) => t.type == TransactionType.expense && !_isCardBillPayment(t))) {
       map[t.category] = (map[t.category] ?? 0.0) + t.amount;
     }
-    for (final r in _transactions.where(_isCreditRefund)) {
+    for (final r in scopedTransactions.where(_isCreditRefund)) {
       if (map.containsKey(r.category)) {
         final updated = map[r.category]! - r.amount;
         if (updated <= 0.01) {

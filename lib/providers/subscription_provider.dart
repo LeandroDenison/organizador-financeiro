@@ -54,6 +54,19 @@ class SubscriptionProvider extends ChangeNotifier {
     final raw = tx.title.trim();
     final lower = raw.toLowerCase();
 
+    // Never classify Pix transfers, person-to-person transfers or credit card bill payments as subscriptions
+    if (lower.contains('transferência') ||
+        lower.contains('transferencia') ||
+        lower.contains('pix') ||
+        lower.contains('pagamento de fatura') ||
+        lower.contains('fatura paga') ||
+        lower.contains('parcela paga') ||
+        lower.contains('claudete') ||
+        lower.contains('sergio') ||
+        lower.contains('clecio')) {
+      return null;
+    }
+
     // Ignore installment purchases (e.g. "Parcela 4/10") as those are finite installments, not recurring subscriptions
     if (lower.contains('parcela ') || tx.installmentRef != null) {
       return null;
@@ -151,8 +164,8 @@ class SubscriptionProvider extends ChangeNotifier {
           category: 'Streaming',
         );
       }
-      return DetectedSubscriptionInfo(
-        cleanName: 'Google Play / Google One (${tx.date.day.toString().padLeft(2, '0')}/${tx.date.month.toString().padLeft(2, '0')})',
+      return const DetectedSubscriptionInfo(
+        cleanName: 'Google One (Armazenamento)',
         category: 'Apps & Nuvem',
       );
     }
@@ -240,23 +253,58 @@ class SubscriptionProvider extends ChangeNotifier {
       _subscriptions = [];
       await _persist(syncCloud: false);
     }
-    // Remove legacy fake subscriptions
-    final hasFakes = _subscriptions.any((s) => s.name == 'Netflix Premium' && s.amount == 55.90);
-    if (hasFakes) {
-      _subscriptions = [];
-      await _persist(syncCloud: false);
+    // Remove legacy fake subscriptions or invalid transfer detections (e.g. Pix to relatives or duplicate Google entries)
+    bool cleaned = false;
+    final validSubs = <SubscriptionModel>[];
+    final seenNames = <String>{};
+
+    for (final s in _subscriptions) {
+      final lower = s.name.toLowerCase();
+      // Remove transfers incorrectly classified as subscriptions
+      if (lower.contains('claudete') ||
+          lower.contains('transferência') ||
+          lower.contains('transferencia') ||
+          lower.contains('fatura paga') ||
+          lower.contains('pagamento')) {
+        cleaned = true;
+        continue;
+      }
+
+      // Normalize Google One entries
+      String normalizedName = s.name;
+      if (lower.contains('google play / google one') || lower.contains('google one')) {
+        normalizedName = 'Google One (Armazenamento)';
+      }
+
+      final key = normalizedName.toLowerCase().trim();
+      if (seenNames.contains(key)) {
+        cleaned = true;
+        continue;
+      }
+      seenNames.add(key);
+
+      if (normalizedName != s.name) {
+        cleaned = true;
+        validSubs.add(s.copyWith(name: normalizedName));
+      } else {
+        validSubs.add(s);
+      }
+    }
+
+    if (cleaned) {
+      _subscriptions = validSubs;
     }
 
     // Ensure Crunchyroll default split (Denison pays R$ 4,90; Sergio Lucas pays the rest R$ 20,00)
     bool updatedSplit = false;
     for (final sub in _subscriptions) {
-      if (sub.name.toLowerCase().contains('crunchyroll') && sub.myShareAmount == null) {
+      if (sub.name.toLowerCase().contains('crunchyroll') && (sub.myShareAmount == null || sub.sharedWithPerson == null)) {
         sub.myShareAmount = 4.90;
         sub.sharedWithPerson = 'Sergio Lucas';
         updatedSplit = true;
       }
     }
-    if (updatedSplit) {
+    if (cleaned || updatedSplit) {
       await _persist();
     }
     notifyListeners();

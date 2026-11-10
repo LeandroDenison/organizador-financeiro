@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/app_state_provider.dart';
 import '../../providers/finance_provider.dart';
 import '../../providers/debt_provider.dart';
@@ -8,10 +9,12 @@ import '../../providers/notification_provider.dart';
 import '../../providers/savings_provider.dart';
 import '../../providers/subscription_provider.dart';
 import '../../providers/budget_provider.dart';
+import '../../providers/bank_loan_provider.dart';
 import '../../services/firebase_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/pix_payload_service.dart';
 import '../../services/sample_data_service.dart';
+import '../../services/open_finance_service.dart';
 import '../../utils/constants.dart';
 
 class SettingsView extends StatefulWidget {
@@ -27,6 +30,13 @@ class _SettingsViewState extends State<SettingsView> {
   final _pixNameController = TextEditingController();
   final _pixCityController = TextEditingController();
 
+  final _pluggyClientIdController = TextEditingController();
+  final _pluggyClientSecretController = TextEditingController();
+  final _newItemIdController = TextEditingController();
+  String _selectedNewBank = 'Nubank';
+  bool _isSyncingOpenFinance = false;
+  List<ConnectedBankItem> _connectedBanks = [];
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +45,139 @@ class _SettingsViewState extends State<SettingsView> {
       _projectIdController.text = firebase.projectId!;
     }
     _loadPixData();
+    _loadOpenFinanceData();
+  }
+
+  Future<void> _loadOpenFinanceData() async {
+    final cfg = await OpenFinanceService.loadConfig();
+    setState(() {
+      _pluggyClientIdController.text = cfg.clientId;
+      _pluggyClientSecretController.text = cfg.clientSecret;
+      _connectedBanks = List.from(cfg.connectedBanks);
+    });
+  }
+
+  Future<void> _saveOpenFinanceConfig() async {
+    final cfg = OpenFinanceConfig(
+      clientId: _pluggyClientIdController.text.trim(),
+      clientSecret: _pluggyClientSecretController.text.trim(),
+      connectedBanks: _connectedBanks,
+    );
+    await OpenFinanceService.saveConfig(cfg);
+  }
+
+  String _cleanItemId(String input) {
+    final trimmed = input.trim();
+    final match = RegExp(
+      r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
+    ).firstMatch(trimmed);
+    return match?.group(0) ?? trimmed;
+  }
+
+  Future<void> _addBankConnection() async {
+    final raw = _newItemIdController.text.trim();
+    final cleanId = _cleanItemId(raw);
+    if (cleanId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Insira o Item ID ou o link copiado do meu.pluggy.ai'),
+          backgroundColor: AppConstants.accentAmber,
+        ),
+      );
+      return;
+    }
+
+    final existingIndex = _connectedBanks.indexWhere((b) => b.id == cleanId);
+    if (existingIndex == -1) {
+      _connectedBanks.add(
+        ConnectedBankItem(
+          id: cleanId,
+          bankName: _selectedNewBank,
+          accountName: 'Conexão $_selectedNewBank',
+        ),
+      );
+    } else {
+      _connectedBanks[existingIndex] = ConnectedBankItem(
+        id: cleanId,
+        bankName: _selectedNewBank,
+        accountName: 'Conexão $_selectedNewBank',
+      );
+    }
+
+    await _saveOpenFinanceConfig();
+    _newItemIdController.clear();
+    setState(() {});
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Banco $_selectedNewBank salvo com sucesso!'),
+          backgroundColor: AppConstants.accentGreen,
+        ),
+      );
+    }
+  }
+
+  Future<void> _removeBankConnection(String id) async {
+    setState(() {
+      _connectedBanks.removeWhere((b) => b.id == id);
+    });
+    await _saveOpenFinanceConfig();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Conexão bancária removida.')),
+      );
+    }
+  }
+
+  Future<void> _syncAllBanks() async {
+    setState(() => _isSyncingOpenFinance = true);
+    try {
+      await _saveOpenFinanceConfig();
+      final finance = context.read<FinanceProvider>();
+      final loanProvider = context.read<BankLoanProvider>();
+
+      final txs = await OpenFinanceService.fetchTransactions();
+      final fetchedLoans = await OpenFinanceService.fetchBankLoans();
+
+      int addedCount = 0;
+      for (final tx in txs) {
+        final exists = finance.transactions.any((t) =>
+            (t.id == tx.id) ||
+            (t.title == tx.title &&
+                (t.amount - tx.amount).abs() < 0.01 &&
+                t.date.day == tx.date.day &&
+                t.date.month == tx.date.month));
+        if (!exists) {
+          await finance.addTransaction(tx);
+          addedCount++;
+        }
+      }
+
+      await loanProvider.syncFromOpenFinance(fetchedLoans);
+      await FirebaseService().pushToFirestore();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Open Finance sincronizado com sucesso! ($addedCount novas transações, ${fetchedLoans.length} empréstimos)',
+            ),
+            backgroundColor: AppConstants.accentGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro na sincronização Open Finance: $e'),
+            backgroundColor: AppConstants.accentRed,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSyncingOpenFinance = false);
+    }
   }
 
   Future<void> _loadPixData() async {
@@ -54,6 +197,9 @@ class _SettingsViewState extends State<SettingsView> {
     _pixKeyController.dispose();
     _pixNameController.dispose();
     _pixCityController.dispose();
+    _pluggyClientIdController.dispose();
+    _pluggyClientSecretController.dispose();
+    _newItemIdController.dispose();
     super.dispose();
   }
 
@@ -295,6 +441,10 @@ class _SettingsViewState extends State<SettingsView> {
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+
+            // Open Finance Brasil Section Card (Pluggy API)
+            _buildOpenFinanceCard(context, isDark, isMobile),
             const SizedBox(height: 20),
 
             // Google Drive Heavy Storage & Backups Card
@@ -842,6 +992,356 @@ class _SettingsViewState extends State<SettingsView> {
               }
             },
             child: const Text('Restaurar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOpenFinanceCard(BuildContext context, bool isDark, bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppConstants.primaryColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.account_balance_rounded, color: AppConstants.primaryColor, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Open Finance Brasil (Pluggy API)',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Sincronização bancária direta e automática (Nubank, Mercado Pago, Itaú)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Connected Banks List
+          Text(
+            'Bancos Conectados (${_connectedBanks.length})',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+
+          if (_connectedBanks.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Nenhum banco conectado ainda. Adicione o Item ID gerado no meu.pluggy.ai abaixo.',
+                style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _connectedBanks.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, idx) {
+                final bank = _connectedBanks[idx];
+                final color = AppConstants.getBankColor(bank.bankName);
+                final isNubank = bank.bankName.toLowerCase().contains('nu');
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.account_balance_wallet_rounded, color: color, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  bank.bankName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: (isNubank ? AppConstants.accentGreen : Colors.blue).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    isNubank ? 'Ativo & Sincronizado' : 'Configurado',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: isNubank ? AppConstants.accentGreen : Colors.blue,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'ID: ${bank.id}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Copiar Item ID',
+                        icon: const Icon(Icons.copy_rounded, size: 16),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: bank.id));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('ID do ${bank.bankName} copiado!'),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        tooltip: 'Remover Conexão',
+                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => _removeBankConnection(bank.id),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          const SizedBox(height: 16),
+
+          // Add New Bank Section
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F172A).withOpacity(0.6) : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Adicionar Conexão Bancária',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 160,
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedNewBank,
+                        decoration: const InputDecoration(
+                          labelText: 'Banco',
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'Nubank', child: Text('Nubank')),
+                          DropdownMenuItem(value: 'Mercado Pago', child: Text('Mercado Pago')),
+                          DropdownMenuItem(value: 'Itaú', child: Text('Itaú')),
+                          DropdownMenuItem(value: 'Banco do Brasil', child: Text('Banco do Brasil')),
+                          DropdownMenuItem(value: 'Bradesco', child: Text('Bradesco')),
+                          DropdownMenuItem(value: 'Santander', child: Text('Santander')),
+                          DropdownMenuItem(value: 'Inter', child: Text('Banco Inter')),
+                          DropdownMenuItem(value: 'C6 Bank', child: Text('C6 Bank')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedNewBank = val);
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: isMobile ? double.infinity : 320,
+                      child: TextField(
+                        controller: _newItemIdController,
+                        decoration: const InputDecoration(
+                          labelText: 'Item ID ou Link do meu.pluggy.ai',
+                          hintText: 'Ex: 22443998-... ou https://meu.pluggy.ai/connections/...',
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppConstants.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Adicionar'),
+                      onPressed: _addBankConnection,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Main Action & Sync Button
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppConstants.accentGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                icon: _isSyncingOpenFinance
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.sync_rounded, size: 18),
+                label: Text(_isSyncingOpenFinance ? 'Sincronizando...' : 'Sincronizar Todos os Bancos Agora'),
+                onPressed: _isSyncingOpenFinance ? null : _syncAllBanks,
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: isDark ? Colors.white : Colors.black87,
+                  side: BorderSide(color: isDark ? Colors.grey.shade700 : Colors.grey.shade400),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+                icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                label: const Text('Abrir meu.pluggy.ai'),
+                onPressed: () async {
+                  const url = 'https://meu.pluggy.ai/connections';
+                  final uri = Uri.parse(url);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    await Clipboard.setData(const ClipboardData(text: url));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Link copiado: https://meu.pluggy.ai/connections')),
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // API Credentials Collapsible Card
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              leading: const Icon(Icons.key_rounded, size: 20, color: Colors.amber),
+              title: const Text(
+                'Credenciais da API Pluggy (Avançado)',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text(
+                'Client ID e Client Secret da aplicação Open Finance',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _pluggyClientIdController,
+                        decoration: const InputDecoration(
+                          labelText: 'Pluggy Client ID',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _pluggyClientSecretController,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Pluggy Client Secret',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            await _saveOpenFinanceConfig();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Chaves da API salvas com sucesso!'),
+                                  backgroundColor: AppConstants.accentGreen,
+                                ),
+                              );
+                            }
+                          },
+                          child: const Text('Salvar Credenciais'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

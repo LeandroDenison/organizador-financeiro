@@ -9,6 +9,7 @@ import 'providers/notification_provider.dart';
 import 'providers/budget_provider.dart';
 import 'providers/savings_provider.dart';
 import 'providers/subscription_provider.dart';
+import 'providers/bank_loan_provider.dart';
 import 'services/firebase_service.dart';
 import 'utils/constants.dart';
 import 'views/main_layout.dart';
@@ -44,6 +45,9 @@ void main() async {
     debtProvider: debtProvider,
   );
 
+  final bankLoanProvider = BankLoanProvider();
+  await bankLoanProvider.init();
+
   // Start real-time two-way cloud synchronization (Phone <-> Browser via Firestore)
   unawaited(
     firebaseService.startRealtimeSync(
@@ -57,6 +61,7 @@ void main() async {
           financeProvider.transactions,
           debtProvider: debtProvider,
         );
+        await bankLoanProvider.init();
       },
     ),
   );
@@ -72,6 +77,7 @@ void main() async {
         ChangeNotifierProvider.value(value: budgetProvider),
         ChangeNotifierProvider.value(value: savingsProvider),
         ChangeNotifierProvider.value(value: subscriptionProvider),
+        ChangeNotifierProvider.value(value: bankLoanProvider),
       ],
       child: const FinancialOrganizerApp(),
     ),
