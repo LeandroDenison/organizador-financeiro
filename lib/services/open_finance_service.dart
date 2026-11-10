@@ -33,26 +33,13 @@ class OpenFinanceConfig {
   }
 }
 
-class OpenFinanceItem {
-  final String id;
-  final String connectorName;
-  final String status;
-  final DateTime? createdAt;
-
-  const OpenFinanceItem({
-    required this.id,
-    required this.connectorName,
-    required this.status,
-    this.createdAt,
-  });
-}
-
 class OpenFinanceService {
   static const String _storageKey = 'open_finance_pluggy_config_v1';
   static const String _baseUrl = 'https://api.pluggy.ai';
 
   static const String defaultClientId = '82695ed9-67f2-416f-a24b-28c15796d7e6';
   static const String defaultClientSecret = 'f4ibQxwoB44m7DhpDCCoGIcJszAlKPE0sFtYQl1KB9o';
+  static const String defaultNubankItemId = '22443998-6bc4-4531-ab9e-79e2da47f496';
 
   static Future<OpenFinanceConfig> loadConfig() async {
     final raw = await StorageService.getStoredData(_storageKey);
@@ -67,6 +54,7 @@ class OpenFinanceService {
     return const OpenFinanceConfig(
       clientId: defaultClientId,
       clientSecret: defaultClientSecret,
+      itemId: defaultNubankItemId,
     );
   }
 
@@ -99,77 +87,15 @@ class OpenFinanceService {
     return apiKey;
   }
 
-  /// Generates a Connect Token and URL for the official Pluggy Open Finance popup widget
-  static Future<String> generateConnectUrl(OpenFinanceConfig config) async {
-    final apiKey = await getApiKey(config);
-
-    final resp = await http
-        .post(
-          Uri.parse('$_baseUrl/connect_token'),
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-KEY': apiKey,
-          },
-          body: jsonEncode({}),
-        )
-        .timeout(const Duration(seconds: 15));
-
-    if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      throw Exception('Erro ao criar Connect Token na Pluggy (${resp.statusCode}).');
-    }
-
-    final data = jsonDecode(resp.body) as Map<String, dynamic>;
-    final connectToken = data['accessToken']?.toString();
-    if (connectToken == null || connectToken.isEmpty) {
-      throw Exception('Connect Token não retornado.');
-    }
-
-    return 'https://connect.pluggy.ai/?connect_token=$connectToken';
-  }
-
-  /// Lists all connected bank accounts/institutions (items)
-  static Future<List<OpenFinanceItem>> listConnectedItems(OpenFinanceConfig config) async {
-    final apiKey = await getApiKey(config);
-
-    final resp = await http
-        .get(
-          Uri.parse('$_baseUrl/items'),
-          headers: {'X-API-KEY': apiKey},
-        )
-        .timeout(const Duration(seconds: 15));
-
-    if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      return [];
-    }
-
-    final data = jsonDecode(resp.body) as Map<String, dynamic>;
-    final results = (data['results'] as List<dynamic>?) ?? [];
-
-    return results.map((obj) {
-      final map = Map<String, dynamic>.from(obj as Map);
-      final connector = map['connector'] != null
-          ? Map<String, dynamic>.from(map['connector'] as Map)
-          : null;
-      return OpenFinanceItem(
-        id: map['id']?.toString() ?? '',
-        connectorName: connector?['name']?.toString() ?? 'Banco',
-        status: map['status']?.toString() ?? 'UPDATED',
-        createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? ''),
-      );
-    }).toList();
-  }
-
-  /// Fetches transactions for a specific Item ID or all items
+  /// Fetches real transactions via Pluggy API V2 endpoint
   static Future<List<TransactionModel>> fetchTransactions(
     OpenFinanceConfig config, {
     String? specificItemId,
   }) async {
     final apiKey = await getApiKey(config);
-    final targetItemId = specificItemId ?? config.itemId;
+    final targetItemId = specificItemId ?? config.itemId ?? defaultNubankItemId;
 
-    final String accountsUrl = (targetItemId != null && targetItemId.trim().isNotEmpty)
-        ? '$_baseUrl/accounts?itemId=${Uri.encodeComponent(targetItemId.trim())}'
-        : '$_baseUrl/accounts';
+    final String accountsUrl = '$_baseUrl/accounts?itemId=${Uri.encodeComponent(targetItemId.trim())}';
 
     final accResp = await http
         .get(
@@ -179,15 +105,13 @@ class OpenFinanceService {
         .timeout(const Duration(seconds: 15));
 
     if (accResp.statusCode < 200 || accResp.statusCode >= 300) {
-      throw Exception('Erro ao buscar contas no Open Finance (${accResp.statusCode}).');
+      throw Exception('Erro ao buscar contas no Open Finance (${accResp.statusCode}). Verifique o Item ID.');
     }
 
     final accData = jsonDecode(accResp.body) as Map<String, dynamic>;
     final results = (accData['results'] as List<dynamic>?) ?? [];
     if (results.isEmpty) {
-      throw Exception(
-        'Nenhuma conta bancária conectada encontrada. Conecte seu banco pelo botão "Conectar Banco via Open Finance".',
-      );
+      throw Exception('Nenhuma conta encontrada para a conexão $targetItemId.');
     }
 
     final List<TransactionModel> allTransactions = [];
@@ -195,16 +119,17 @@ class OpenFinanceService {
     for (final accObj in results) {
       final acc = Map<String, dynamic>.from(accObj as Map);
       final accountId = acc['id']?.toString();
-      final accName = acc['name']?.toString() ?? 'Open Finance';
+      final accName = acc['name']?.toString() ?? 'Nubank';
       final accType = acc['type']?.toString() ?? 'BANK';
       if (accountId == null) continue;
 
+      // Pluggy API V2 transactions endpoint
       final txResp = await http
           .get(
-            Uri.parse('$_baseUrl/transactions?accountId=$accountId&pageSize=100'),
+            Uri.parse('$_baseUrl/v2/transactions?accountId=$accountId'),
             headers: {'X-API-KEY': apiKey},
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 25));
 
       if (txResp.statusCode >= 200 && txResp.statusCode < 300) {
         final txData = jsonDecode(txResp.body) as Map<String, dynamic>;
@@ -212,16 +137,23 @@ class OpenFinanceService {
 
         for (final rawTx in txResults) {
           final map = Map<String, dynamic>.from(rawTx as Map);
-          final description = (map['description'] ?? map['descriptionRaw'] ?? 'Transação Open Finance').toString().trim();
+          String description = (map['description'] ?? map['descriptionRaw'] ?? 'Transação Open Finance').toString().trim();
           final rawAmount = (map['amount'] as num?)?.toDouble() ?? 0.0;
           final typeStr = map['type']?.toString().toUpperCase() ?? '';
           final dateStr = map['date']?.toString() ?? '';
 
           if (rawAmount == 0) continue;
 
-          // Ignore self-transfers
+          // Format description from pipe if present: e.g. "Transferência Recebida|Nome" -> "Transferência Recebida - Nome"
+          if (description.contains('|')) {
+            description = description.replaceAll('|', ' - ').trim();
+          }
+
           final lowerDesc = description.toLowerCase();
-          if (lowerDesc.contains('pix transf d eniso') || lowerDesc.contains('pix transf denison')) {
+
+          // Ignore self-transfers between Denison's own accounts
+          if ((lowerDesc.contains('d enison') || lowerDesc.contains('denison')) &&
+              (lowerDesc.contains('transferência enviada') || lowerDesc.contains('transferencia enviada'))) {
             continue;
           }
 
@@ -232,19 +164,32 @@ class OpenFinanceService {
 
           final parsedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
 
+          // Check if installment info exists (e.g. "10/10" or "Parcela 4/10")
+          String? installmentRef;
+          final instMatch = RegExp(r'(?:Parcela\s+)?(\d+/\d+)', caseSensitive: false).firstMatch(description);
+          if (instMatch != null) {
+            installmentRef = instMatch.group(1);
+          }
+
+          // Detect debtor reference (e.g. Sergio Lucas)
+          String? personName;
+          if (lowerDesc.contains('sergio lucas') || lowerDesc.contains('sergio')) {
+            personName = 'Sergio Lucas';
+          }
+
           allTransactions.add(
             TransactionModel(
-              id: map['id'] != null ? 'of_${map['id']}' : null,
+              id: map['id'] != null ? 'pluggy_${map['id']}' : null,
               title: description,
               amount: rawAmount.abs(),
               date: parsedDate,
               type: isExpense ? TransactionType.expense : TransactionType.income,
-              category: OfxParserService.guessCategory(description),
-              bank: accName.contains('Nu')
-                  ? 'Nubank'
-                  : (accName.contains('Ita') ? 'Itaú' : accName),
+              category: map['category']?.toString() ?? OfxParserService.guessCategory(description),
+              bank: accName.toLowerCase().contains('gold') || accName.toLowerCase().contains('nu') ? 'Nubank' : accName,
               source: TransactionSource.ofx,
-              notes: 'Sincronizado via Open Finance Brasil',
+              installmentRef: installmentRef,
+              personName: personName,
+              notes: 'Sincronizado via Open Finance (Pluggy API)',
             ),
           );
         }
