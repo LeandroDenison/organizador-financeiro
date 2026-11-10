@@ -472,26 +472,59 @@ class DebtProvider extends ChangeNotifier {
       return amount;
     }
 
-    // 4. Otherwise, distribute the partial/custom amount across the person's active debts
+    // 4. Distribuir referente às parcelas deste mês primeiro!
     double remainingToAbate = amount;
     double totalActuallyAbated = 0.0;
 
+    // Etapa 1: Paga exatamente a parcela deste mês de cada conta ativa
     for (final debt in personDebts) {
       if (remainingToAbate <= 0.001) break;
 
-      final canAbate = debt.remainingAmount;
-      final amountForThisDebt = remainingToAbate >= canAbate ? canAbate : remainingToAbate;
+      final monthDue = debt.remainingAmount < debt.installmentValue
+          ? debt.remainingAmount
+          : debt.installmentValue;
+      if (monthDue <= 0.001) continue;
+
+      final amountForThisDebt = remainingToAbate >= monthDue ? monthDue : remainingToAbate;
 
       await abateDebtAmount(
         debtId: debt.id,
         amount: amountForThisDebt,
         financeProvider: financeProvider,
-        note: note ?? 'Abatimento de $personName',
+        note: note ?? 'Abatimento referente à parcela do mês (${debt.description})',
         addToTransactions: false,
       );
 
       remainingToAbate -= amountForThisDebt;
       totalActuallyAbated += amountForThisDebt;
+    }
+
+    // Etapa 2: Se ainda sobrar valor (pagou mais do que o subtotal do mês),
+    // amortiza o saldo restante das contas de longo prazo
+    if (remainingToAbate > 0.01) {
+      final remainingActive = activeDebts
+          .where((d) => normalizeText(d.personName) == normalizeText(personName))
+          .toList();
+
+      for (final debt in remainingActive) {
+        if (remainingToAbate <= 0.001) break;
+
+        final canAbate = debt.remainingAmount;
+        if (canAbate <= 0.001) continue;
+
+        final amountForThisDebt = remainingToAbate >= canAbate ? canAbate : remainingToAbate;
+
+        await abateDebtAmount(
+          debtId: debt.id,
+          amount: amountForThisDebt,
+          financeProvider: financeProvider,
+          note: note ?? 'Amortização de saldo futuro (${debt.description})',
+          addToTransactions: false,
+        );
+
+        remainingToAbate -= amountForThisDebt;
+        totalActuallyAbated += amountForThisDebt;
+      }
     }
 
     if (addToTransactions && totalActuallyAbated > 0) {
@@ -503,7 +536,7 @@ class DebtProvider extends ChangeNotifier {
           type: TransactionType.income,
           category: 'Empréstimo Recebido',
           personName: personName,
-          notes: note ?? 'Abatimento distribuído nas contas de $personName',
+          notes: note ?? 'Abatimento referente às parcelas do mês',
         ),
       );
     }
@@ -511,6 +544,74 @@ class DebtProvider extends ChangeNotifier {
     await _persist();
     notifyListeners();
     return totalActuallyAbated;
+  }
+
+  /// Desfaz / reverte um abatimento ou pagamento específico e restaura o saldo exato
+  Future<void> revertPayment({
+    required String debtId,
+    required String paymentId,
+    required FinanceProvider financeProvider,
+  }) async {
+    final index = _debts.indexWhere((d) => d.id == debtId);
+    if (index == -1) return;
+
+    final current = _debts[index];
+    final pIndex = current.paymentHistory.indexWhere((p) => p.id == paymentId);
+    if (pIndex == -1) return;
+
+    final payment = current.paymentHistory[pIndex];
+    final updatedPayments = List<DebtPaymentRecord>.from(current.paymentHistory)..removeAt(pIndex);
+
+    // Restaura o saldo restante somando o valor que havia sido pago
+    final restoredRemaining = (current.remainingAmount + payment.amount).clamp(0.0, current.totalAmount);
+    final restoredRemainingInst = current.installmentValue > 0
+        ? (restoredRemaining / current.installmentValue).round().clamp(1, current.totalInstallments)
+        : (current.remainingInstallments + 1);
+
+    _debts[index] = current.copyWith(
+      remainingInstallments: restoredRemainingInst,
+      customRemainingAmount: updatedPayments.isEmpty ? null : restoredRemaining,
+      isSettled: false,
+      paymentHistory: updatedPayments,
+    );
+
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Desfaz todos os abatimentos/pagamentos de uma pessoa e restaura o saldo original das contas
+  Future<double> revertPersonPayments({
+    required String personName,
+    required FinanceProvider financeProvider,
+  }) async {
+    final matchingDebts = _debts
+        .where((d) => normalizeText(d.personName) == normalizeText(personName) && d.paymentHistory.isNotEmpty)
+        .toList();
+
+    double totalReverted = 0.0;
+    for (final debt in matchingDebts) {
+      final index = _debts.indexWhere((d) => d.id == debt.id);
+      if (index == -1) continue;
+
+      final current = _debts[index];
+      for (final p in current.paymentHistory) {
+        totalReverted += p.amount;
+      }
+
+      final info = DebtModel.parseInstallmentInfo(current.description);
+      final int originalRemainingInst = info != null ? info.remainingIncludingCurrent : current.totalInstallments;
+
+      _debts[index] = current.copyWith(
+        remainingInstallments: originalRemainingInst,
+        customRemainingAmount: null,
+        isSettled: false,
+        paymentHistory: [],
+      );
+    }
+
+    await _persist();
+    notifyListeners();
+    return totalReverted;
   }
 
   Future<void> updateRemainingInstallments(String debtId, int newRemaining) async {

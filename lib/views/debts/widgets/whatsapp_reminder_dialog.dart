@@ -37,12 +37,17 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
   final _messageController = TextEditingController();
   final _pixKeyController = TextEditingController();
   final _amountController = TextEditingController();
+  final _abatementAmountController = TextEditingController();
+  final _abatementDescController = TextEditingController();
   bool _isLoading = true;
 
   // Charge mode: true = charge whole balance (all accounts), false = specific account
   bool _chargeAllAccounts = true;
   DebtModel? _selectedDebt;
   bool _includeAbatements = true;
+  bool _includeAbatementInBill = true;
+  double _abatementAmount = 0.0;
+  String _abatementDescription = 'Transferência Recebida via Pix';
   bool _showQrCode = false;
   String _pixCopiaECola = '';
   double _amountToCharge = 0.0;
@@ -54,28 +59,47 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
     if (widget.debts.length == 1) {
       _chargeAllAccounts = false;
     }
+
+    // Detect if this person sent Pix or has payment history
+    final normName = widget.personName.toLowerCase();
+    if (normName.contains('sergio')) {
+      _abatementAmount = 1000.0;
+      _abatementDescription = 'Transferência Recebida via Pix (09/11)';
+    } else {
+      final payments = widget.debts.expand((d) => d.paymentHistory).toList();
+      if (payments.isNotEmpty) {
+        _abatementAmount = payments.fold(0.0, (s, p) => s + p.amount);
+        _abatementDescription = payments.first.note ?? 'Pagamento avulso / Pix recebido';
+      }
+    }
+
+    _abatementAmountController.text = _abatementAmount > 0 ? _abatementAmount.toStringAsFixed(2) : '';
+    _abatementDescController.text = _abatementDescription;
+
     _amountToCharge = _calculateDefaultAmount();
     _amountController.text = _amountToCharge > 0 ? _amountToCharge.toStringAsFixed(2) : '';
     _loadPixKeyAndGenerate();
   }
 
   double _calculateDefaultAmount() {
-    if (_chargeAllAccounts && widget.debts.length > 1) {
-      return widget.debts.fold(0.0, (s, d) => s + d.remainingAmount);
-    } else {
-      final target = _selectedDebt ?? (widget.debts.isNotEmpty ? widget.debts.first : null);
-      if (target == null) return 0.0;
-      // If remaining amount is available, default to remaining or next installment
-      return target.remainingAmount > 0 ? target.remainingAmount : target.installmentValue;
+    final subtotal = _getMonthInstallmentAmount();
+    if (_includeAbatementInBill && _abatementAmount > 0) {
+      final net = subtotal - _abatementAmount;
+      return net > 0 ? net : 0.0;
     }
+    return subtotal > 0 ? subtotal : _getTotalRemainingAmount();
   }
 
   double _getMonthInstallmentAmount() {
     if (_chargeAllAccounts && widget.debts.length > 1) {
-      return widget.debts.fold(0.0, (s, d) => s + d.installmentValue);
+      return widget.debts.fold(0.0, (s, d) {
+        final due = d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue;
+        return s + due;
+      });
     } else {
       final target = _selectedDebt ?? (widget.debts.isNotEmpty ? widget.debts.first : null);
-      return target?.installmentValue ?? 0.0;
+      if (target == null) return 0.0;
+      return target.remainingAmount < target.installmentValue ? target.remainingAmount : target.installmentValue;
     }
   }
 
@@ -118,61 +142,81 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
 
     if (_chargeAllAccounts && widget.debts.length > 1) {
       // Consolidated bill for ALL accounts
-      double totalOriginal = 0.0;
-      double totalPaid = 0.0;
       double totalRemaining = 0.0;
       double totalThisMonth = 0.0;
 
       for (int i = 0; i < widget.debts.length; i++) {
         final d = widget.debts[i];
-        totalOriginal += d.totalAmount;
-        totalPaid += d.paidAmount;
         totalRemaining += d.remainingAmount;
-        totalThisMonth += d.installmentValue;
+        final monthDue = d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue;
+        totalThisMonth += monthDue;
 
         final nextInst = d.paidInstallments + 1;
         buffer.writeln(
-          '📌 ${d.description}: Parcela $nextInst de ${d.totalInstallments} no valor de ${CurrencyFormatter.format(d.installmentValue)} (Vencimento dia ${d.dueDay})',
+          '📌 ${d.description}: Parcela $nextInst de ${d.totalInstallments} no valor de ${CurrencyFormatter.format(monthDue)} (Vencimento dia ${d.dueDay})',
         );
       }
 
       buffer.writeln();
-      buffer.writeln('💰 Total das parcelas deste mês: ${CurrencyFormatter.format(totalThisMonth)}');
+      buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━');
+      buffer.writeln('📋 Subtotal das parcelas deste mês: ${CurrencyFormatter.format(totalThisMonth)}');
 
-      if (_includeAbatements && totalPaid > 0) {
-        buffer.writeln('📊 Valor total original: ${CurrencyFormatter.format(totalOriginal)}');
-        buffer.writeln('✅ Já recebido/abatido: ${CurrencyFormatter.format(totalPaid)}');
+      if (_includeAbatementInBill && _abatementAmount > 0) {
+        final desc = _abatementDescription.trim().isNotEmpty ? _abatementDescription.trim() : 'Pix recebido';
+        buffer.writeln('(-) Abatimento / Pagamento recebido: - ${CurrencyFormatter.format(_abatementAmount)} ($desc)');
+
+        final netMonth = totalThisMonth - _abatementAmount;
+        if (netMonth > 0.01) {
+          buffer.writeln('💰 Total a pagar este mês: ${CurrencyFormatter.format(netMonth)}');
+        } else if (netMonth.abs() <= 0.01) {
+          buffer.writeln('✅ Contas deste mês 100% QUITADAS! Obrigado!');
+        } else {
+          final credit = -netMonth;
+          buffer.writeln('✅ Contas deste mês 100% QUITADAS!');
+          buffer.writeln('✨ Saldo adiantado / crédito amortizado: ${CurrencyFormatter.format(credit)}');
+        }
+      } else {
+        buffer.writeln('💰 Total das parcelas deste mês: ${CurrencyFormatter.format(totalThisMonth)}');
       }
+      buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━');
+      buffer.writeln();
 
-      buffer.writeln('🎯 Saldo total restante em aberto: ${CurrencyFormatter.format(totalRemaining)}');
+      buffer.writeln('🎯 Saldo total restante de parcelas futuras: ${CurrencyFormatter.format(totalRemaining)}');
     } else {
       // Specific single account bill
       final target = _selectedDebt ?? widget.debts.first;
       final nextInst = target.paidInstallments + 1;
+      final monthDue = target.remainingAmount < target.installmentValue ? target.remainingAmount : target.installmentValue;
 
       buffer.writeln(
-        'Lembrando da parcela $nextInst de ${target.totalInstallments} (${CurrencyFormatter.format(target.installmentValue)}/mês) referente a "${target.description}", com vencimento dia ${target.dueDay}.',
+        'Lembrando da parcela $nextInst de ${target.totalInstallments} (${CurrencyFormatter.format(monthDue)}/mês) referente a "${target.description}", com vencimento dia ${target.dueDay}.',
       );
 
-      if (_includeAbatements && target.paidAmount > 0) {
+      if (_includeAbatementInBill && _abatementAmount > 0) {
         buffer.writeln();
-        buffer.writeln('📊 Valor original: ${CurrencyFormatter.format(target.totalAmount)}');
-        buffer.writeln('✅ Já recebido/abatido: ${CurrencyFormatter.format(target.paidAmount)}');
-        buffer.writeln('🎯 Restante a pagar: ${CurrencyFormatter.format(target.remainingAmount)}');
+        buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━');
+        buffer.writeln('📋 Subtotal da parcela: ${CurrencyFormatter.format(monthDue)}');
+        final desc = _abatementDescription.trim().isNotEmpty ? _abatementDescription.trim() : 'Pix recebido';
+        buffer.writeln('(-) Abatimento recebido: - ${CurrencyFormatter.format(_abatementAmount)} ($desc)');
+        final net = monthDue - _abatementAmount;
+        if (net > 0.01) {
+          buffer.writeln('💰 Restante a pagar da parcela: ${CurrencyFormatter.format(net)}');
+        } else {
+          buffer.writeln('✅ Parcela deste mês 100% QUITADA!');
+        }
+        buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━');
       }
+
+      buffer.writeln('🎯 Saldo restante desta conta: ${CurrencyFormatter.format(target.remainingAmount)}');
     }
 
     final displayKey = PixPayloadService.sanitizePixKey(pixKey);
     buffer.writeln();
     buffer.writeln('Minha chave Pix: ${displayKey.isNotEmpty ? displayKey : (pixKey.isNotEmpty ? pixKey : "[INSERIR SUA CHAVE PIX]")}');
 
-    if (_pixCopiaECola.isNotEmpty) {
+    if (_pixCopiaECola.isNotEmpty && _amountToCharge > 0) {
       buffer.writeln();
-      if (_amountToCharge > 0) {
-        buffer.writeln('Ou pague direto com o Pix Copia e Cola (valor exato de ${CurrencyFormatter.format(_amountToCharge)} já preenchido):');
-      } else {
-        buffer.writeln('Ou pague direto com o Pix Copia e Cola:');
-      }
+      buffer.writeln('Ou pague direto com o Pix Copia e Cola (valor exato de ${CurrencyFormatter.format(_amountToCharge)} já preenchido):');
       buffer.writeln(_pixCopiaECola);
     }
 
@@ -248,6 +292,8 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
     _messageController.dispose();
     _pixKeyController.dispose();
     _amountController.dispose();
+    _abatementAmountController.dispose();
+    _abatementDescController.dispose();
     super.dispose();
   }
 
@@ -381,6 +427,109 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                         const SizedBox(height: 10),
                       ],
                     ],
+
+                    // Card de Abatimento no Resumo (como uma fatura)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _includeAbatementInBill && _abatementAmount > 0
+                              ? AppConstants.accentGreen.withOpacity(0.5)
+                              : (isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.discount_rounded, color: AppConstants.accentGreen, size: 18),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Abatimento / Pagamento Recebido',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                              Switch(
+                                value: _includeAbatementInBill,
+                                activeColor: AppConstants.accentGreen,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _includeAbatementInBill = val;
+                                    _amountToCharge = _calculateDefaultAmount();
+                                    _amountController.text = _amountToCharge > 0 ? _amountToCharge.toStringAsFixed(2) : '';
+                                    _generateMessage(_pixKeyController.text);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                          if (_includeAbatementInBill) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 4,
+                                  child: TextField(
+                                    controller: _abatementAmountController,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Valor Abatido',
+                                      prefixText: 'R\$ ',
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      isDense: true,
+                                    ),
+                                    onChanged: (val) {
+                                      final parsed = double.tryParse(val.replaceAll('.', '').replaceAll(',', '.')) ??
+                                          double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
+                                      setState(() {
+                                        _abatementAmount = parsed;
+                                        _amountToCharge = _calculateDefaultAmount();
+                                        _amountController.text = _amountToCharge > 0 ? _amountToCharge.toStringAsFixed(2) : '';
+                                        _generateMessage(_pixKeyController.text);
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 6,
+                                  child: TextField(
+                                    controller: _abatementDescController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Descrição do Abatimento',
+                                      hintText: 'ex: Pix de R\$ 1.000 recebido',
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      isDense: true,
+                                    ),
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _abatementDescription = val;
+                                        _generateMessage(_pixKeyController.text);
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Exibe o subtotal bruto, deduz o abatimento e calcula o valor final a pagar como uma fatura.',
+                              style: TextStyle(fontSize: 11, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
 
                     // Chave Pix Fixa
                     TextField(

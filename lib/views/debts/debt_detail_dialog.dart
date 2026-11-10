@@ -358,6 +358,25 @@ class DebtDetailDialog extends StatelessWidget {
                           color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                         ),
                       ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                        tooltip: 'Desfazer este abatimento / pagamento',
+                        onPressed: () async {
+                          await debtProvider.revertPayment(
+                            debtId: currentDebt.id,
+                            paymentId: p.id,
+                            financeProvider: financeProvider,
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Abatimento de ${CurrencyFormatter.format(p.amount)} desfeito e saldo restaurado!'),
+                                backgroundColor: AppConstants.accentAmber,
+                              ),
+                            );
+                          }
+                        },
+                      ),
                     );
                   },
                 ),

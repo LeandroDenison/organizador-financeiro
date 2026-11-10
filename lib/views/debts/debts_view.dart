@@ -730,6 +730,64 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                       },
                     ),
 
+                    // Desfazer Abatimentos (se houver histórico nesta pessoa)
+                    if (debts.any((d) => d.paymentHistory.isNotEmpty))
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                          side: const BorderSide(color: Colors.redAccent),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.undo_rounded, size: 16),
+                        label: const Text('Desfazer Abatimentos'),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Row(
+                                children: [
+                                  Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+                                  SizedBox(width: 8),
+                                  Text('Desfazer Abatimentos'),
+                                ],
+                              ),
+                              content: Text(
+                                'Deseja desfazer os abatimentos registrados para $personName e restaurar o saldo original de todas as contas?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancelar'),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.redAccent,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: () async {
+                                    final reverted = await debtProvider.revertPersonPayments(
+                                      personName: personName,
+                                      financeProvider: financeProvider,
+                                    );
+                                    if (ctx.mounted) Navigator.pop(ctx);
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Abatimentos de ${CurrencyFormatter.format(reverted)} desfeitos! Saldo restaurado.'),
+                                          backgroundColor: AppConstants.accentGreen,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: const Text('Sim, Restaurar Saldo'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+
                     // Cobrar Conta Toda no WhatsApp (Consolidated)
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
