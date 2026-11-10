@@ -277,6 +277,62 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Permite ao usuário ajustar ou corrigir o saldo real de qualquer banco
+  Future<void> updateBankBalance(String bankName, double newBalance) async {
+    final index = _bankBalances.indexWhere(
+      (b) => b.bankName.toLowerCase().contains(bankName.toLowerCase()) && b.accountType == 'BANK',
+    );
+    if (index != -1) {
+      _bankBalances[index] = BankAccountBalance(
+        bankName: _bankBalances[index].bankName,
+        accountName: _bankBalances[index].accountName,
+        accountType: 'BANK',
+        balance: newBalance,
+        updatedAt: DateTime.now(),
+      );
+    } else {
+      _bankBalances.add(
+        BankAccountBalance(
+          bankName: bankName,
+          accountName: 'Conta Corrente $bankName',
+          accountType: 'BANK',
+          balance: newBalance,
+          updatedAt: DateTime.now(),
+        ),
+      );
+    }
+    await OpenFinanceService.saveStoredBalances(_bankBalances);
+    notifyListeners();
+  }
+
+  /// Limpa todas as transações anteriores e faz uma nova importação limpa do zero via Open Finance
+  Future<int> resetAndImportFromOpenFinance() async {
+    _isLoading = true;
+    notifyListeners();
+
+    // 1. Limpa histórico anterior
+    _transactions = [];
+    await StorageService.saveTransactions([]);
+
+    // 2. Busca saldos reais atualizados dos bancos
+    try {
+      _bankBalances = await OpenFinanceService.fetchBankBalances();
+    } catch (_) {}
+
+    // 3. Busca transações reais do Open Finance (Pluggy API)
+    int count = 0;
+    try {
+      final freshTxs = await OpenFinanceService.fetchTransactions();
+      _transactions = freshTxs;
+      count = freshTxs.length;
+      await _persist();
+    } catch (_) {}
+
+    _isLoading = false;
+    notifyListeners();
+    return count;
+  }
+
   Future<void> _persist() async {
     await StorageService.saveTransactions(_transactions);
     FirebaseService().triggerSync();

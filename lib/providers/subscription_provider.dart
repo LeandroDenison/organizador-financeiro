@@ -260,19 +260,21 @@ class SubscriptionProvider extends ChangeNotifier {
 
     for (final s in _subscriptions) {
       final lower = s.name.toLowerCase();
-      // Remove transfers incorrectly classified as subscriptions
+      // Remove transfers incorrectly classified as subscriptions (including encoding variations)
       if (lower.contains('claudete') ||
-          lower.contains('transferência') ||
-          lower.contains('transferencia') ||
+          lower.contains('transfer') ||
+          lower.contains('pix') ||
           lower.contains('fatura paga') ||
-          lower.contains('pagamento')) {
+          lower.contains('pagamento') ||
+          lower.contains('ted') ||
+          lower.contains('doc')) {
         cleaned = true;
         continue;
       }
 
-      // Normalize Google One entries
+      // Normalize and unify all Google One entries
       String normalizedName = s.name;
-      if (lower.contains('google play / google one') || lower.contains('google one')) {
+      if (lower.contains('google one') || lower.contains('google play / google one')) {
         normalizedName = 'Google One (Armazenamento)';
       }
 
@@ -285,7 +287,7 @@ class SubscriptionProvider extends ChangeNotifier {
 
       if (normalizedName != s.name) {
         cleaned = true;
-        validSubs.add(s.copyWith(name: normalizedName));
+        validSubs.add(s.copyWith(name: normalizedName, billingDay: 14));
       } else {
         validSubs.add(s);
       }

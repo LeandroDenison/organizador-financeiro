@@ -141,18 +141,19 @@ class DashboardView extends StatelessWidget {
                   childAspectRatio: constraints.maxWidth < 600 ? 2.4 : 1.7,
                   children: [
                     SummaryCard(
-                      title: 'Saldo Líquido (Mês)',
-                      value: CurrencyFormatter.format(finance.balance),
-                      icon: Icons.account_balance_wallet_rounded,
-                      color: finance.balance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
-                      subtitle: finance.balance >= 0 ? 'Saldo positivo no mês' : 'Atenção ao orçamento',
+                      title: 'Saldo em Conta (3 Bancos)',
+                      value: CurrencyFormatter.format(finance.openFinanceCashBalance),
+                      icon: Icons.account_balance_rounded,
+                      color: finance.openFinanceCashBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
+                      subtitle: 'Dinheiro real disponível nos bancos',
+                      onTap: () => appState.setTab(8), // Aba Configurações / Bancos
                     ),
                     SummaryCard(
-                      title: 'Receitas (Mês)',
-                      value: CurrencyFormatter.format(finance.totalIncome),
-                      icon: Icons.arrow_downward_rounded,
-                      color: AppConstants.accentGreen,
-                      subtitle: 'Salários e entradas do mês',
+                      title: 'Sobra do Mês (Fluxo)',
+                      value: CurrencyFormatter.format(finance.balance),
+                      icon: Icons.trending_up_rounded,
+                      color: finance.balance >= 0 ? AppConstants.accentGreen : AppConstants.accentAmber,
+                      subtitle: 'Receitas menos despesas do mês',
                     ),
                     SummaryCard(
                       title: 'Despesas (Mês)',
@@ -160,6 +161,7 @@ class DashboardView extends StatelessWidget {
                       icon: Icons.arrow_upward_rounded,
                       color: AppConstants.accentRed,
                       subtitle: 'Cartões, compras e contas do mês',
+                      onTap: () => appState.setTab(1), // Extrato de Transações
                     ),
                     SummaryCard(
                       title: 'Quem me Deve (Ativos)',

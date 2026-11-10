@@ -1259,6 +1259,26 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
+                  foregroundColor: AppConstants.accentCyan,
+                  side: const BorderSide(color: AppConstants.accentCyan),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+                icon: const Icon(Icons.account_balance_wallet_rounded, size: 16),
+                label: const Text('Ajustar Saldos dos Bancos'),
+                onPressed: () => _showEditBankBalancesDialog(context),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                  side: const BorderSide(color: Colors.redAccent),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+                icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+                label: const Text('Limpar Tudo (Só Open Finance)'),
+                onPressed: () => _showResetCleanDialog(context),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
                   foregroundColor: isDark ? Colors.white : Colors.black87,
                   side: BorderSide(color: isDark ? Colors.grey.shade700 : Colors.grey.shade400),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1342,6 +1362,154 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditBankBalancesDialog(BuildContext context) {
+    final finance = context.read<FinanceProvider>();
+    final nubankController = TextEditingController(
+      text: finance.getBankBalance('Nubank').toStringAsFixed(2).replaceAll('.', ','),
+    );
+    final itauController = TextEditingController(
+      text: finance.getBankBalance('Itaú').toStringAsFixed(2).replaceAll('.', ','),
+    );
+    final mpController = TextEditingController(
+      text: finance.getBankBalance('Mercado Pago').toStringAsFixed(2).replaceAll('.', ','),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.account_balance_wallet_rounded, color: AppConstants.accentCyan),
+            SizedBox(width: 8),
+            Text('Ajustar Saldos em Conta', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Defina o saldo real disponível em cada conta bancária. Estes valores aparecem no Painel Principal e na Previsão de Saldo:',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: nubankController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Nubank (Conta Corrente)',
+                  prefixText: 'R\$ ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: itauController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Itaú (Conta Corrente)',
+                  prefixText: 'R\$ ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: mpController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Mercado Pago (Carteira / Conta)',
+                  prefixText: 'R\$ ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppConstants.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final nu = double.tryParse(nubankController.text.replaceAll('.', '').replaceAll(',', '.')) ?? 0.0;
+              final it = double.tryParse(itauController.text.replaceAll('.', '').replaceAll(',', '.')) ?? 0.0;
+              final mp = double.tryParse(mpController.text.replaceAll('.', '').replaceAll(',', '.')) ?? 0.0;
+
+              await finance.updateBankBalance('Nubank', nu);
+              await finance.updateBankBalance('Itaú', it);
+              await finance.updateBankBalance('Mercado Pago', mp);
+
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Saldos bancários atualizados com sucesso!'),
+                    backgroundColor: AppConstants.accentGreen,
+                  ),
+                );
+              }
+            },
+            child: const Text('Salvar Saldos'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showResetCleanDialog(BuildContext context) {
+    final finance = context.read<FinanceProvider>();
+    final subscriptions = context.read<SubscriptionProvider>();
+    final debts = context.read<DebtProvider>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+            SizedBox(width: 8),
+            Text('Limpar e Recomeçar?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Esta ação fará uma limpeza completa dos dados anteriores e importará exclusivamente os dados reais e saldos vindos do Open Finance (Pluggy API).\n\nDeseja continuar?',
+          style: TextStyle(fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              setState(() => _isSyncingOpenFinance = true);
+
+              final importedCount = await finance.resetAndImportFromOpenFinance();
+              await subscriptions.syncFromTransactions(finance.transactions, debtProvider: debts);
+
+              setState(() => _isSyncingOpenFinance = false);
+
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Base limpa com sucesso! $importedCount transações importadas via Open Finance.'),
+                    backgroundColor: AppConstants.accentGreen,
+                  ),
+                );
+              }
+            },
+            child: const Text('Sim, Limpar e Reimportar'),
           ),
         ],
       ),
