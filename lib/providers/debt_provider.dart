@@ -168,6 +168,7 @@ class DebtProvider extends ChangeNotifier {
   Future<void> clearDebts() async {
     _debts = [];
     await StorageService.saveDebts([]);
+    FirebaseService().triggerSync();
     notifyListeners();
   }
 

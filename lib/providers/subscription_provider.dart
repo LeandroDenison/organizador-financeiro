@@ -1,7 +1,8 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/subscription_model.dart';
 import '../services/storage_service.dart';
+import '../services/firebase_service.dart';
 
 class SubscriptionProvider extends ChangeNotifier {
   static const String _storageKey = 'financial_subscriptions_v1';
@@ -29,13 +30,13 @@ class SubscriptionProvider extends ChangeNotifier {
       }
     } else {
       _subscriptions = [];
-      await _persist();
+      await _persist(syncCloud: false);
     }
     // Remove legacy fake subscriptions
     final hasFakes = _subscriptions.any((s) => s.name == 'Netflix Premium' && s.amount == 55.90);
     if (hasFakes) {
       _subscriptions = [];
-      await _persist();
+      await _persist(syncCloud: false);
     }
     notifyListeners();
   }
@@ -96,8 +97,11 @@ class SubscriptionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _persist() async {
+  Future<void> _persist({bool syncCloud = true}) async {
     final list = _subscriptions.map((s) => s.toMap()).toList();
     await StorageService.setStoredData(_storageKey, jsonEncode(list));
+    if (syncCloud) {
+      FirebaseService().triggerSync();
+    }
   }
 }

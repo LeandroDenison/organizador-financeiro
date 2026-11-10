@@ -173,7 +173,7 @@ class StorageService {
       'debts': jsonDecode(prefs.getString(_debtsKey) ?? '[]'),
       'savings_goals': jsonDecode(prefs.getString('financial_savings_goals_v1') ?? '[]'),
       'subscriptions': jsonDecode(prefs.getString('financial_subscriptions_v1') ?? '[]'),
-      'budgets': jsonDecode(prefs.getString('financial_budgets_v1') ?? '{}'),
+      'budgets': jsonDecode(prefs.getString('financial_budgets_v1') ?? '[]'),
       'pix': {
         'key': prefs.getString('user_pix_key') ?? '',
         'name': prefs.getString('user_pix_name') ?? 'LEANDRO DENISON',
@@ -201,7 +201,7 @@ class StorageService {
       if (data['subscriptions'] is List) {
         await prefs.setString('financial_subscriptions_v1', jsonEncode(data['subscriptions']));
       }
-      if (data['budgets'] is Map) {
+      if (data['budgets'] is List) {
         await prefs.setString('financial_budgets_v1', jsonEncode(data['budgets']));
       }
       if (data['pix'] is Map) {

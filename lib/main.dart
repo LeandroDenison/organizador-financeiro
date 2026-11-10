@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_state_provider.dart';
@@ -38,6 +39,19 @@ void main() async {
 
   final subscriptionProvider = SubscriptionProvider();
   await subscriptionProvider.init();
+
+  // Start real-time two-way cloud synchronization (Phone <-> Browser via Firestore)
+  unawaited(
+    firebaseService.startRealtimeSync(
+      onRemoteUpdated: () async {
+        await financeProvider.init();
+        await debtProvider.init();
+        await budgetProvider.init();
+        await savingsProvider.init();
+        await subscriptionProvider.init();
+      },
+    ),
+  );
 
   runApp(
     MultiProvider(

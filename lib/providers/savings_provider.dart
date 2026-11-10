@@ -1,7 +1,8 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/savings_goal_model.dart';
 import '../services/storage_service.dart';
+import '../services/firebase_service.dart';
 
 class SavingsProvider extends ChangeNotifier {
   static const String _storageKey = 'financial_savings_goals_v1';
@@ -25,13 +26,13 @@ class SavingsProvider extends ChangeNotifier {
       }
     } else {
       _goals = [];
-      await _persist();
+      await _persist(syncCloud: false);
     }
     // Remove legacy fake goals if existing
     final hasFakes = _goals.any((g) => g.title == 'Reserva de Emergência' && g.currentAmount == 1850.0);
     if (hasFakes) {
       _goals = [];
-      await _persist();
+      await _persist(syncCloud: false);
     }
     notifyListeners();
   }
@@ -99,8 +100,11 @@ class SavingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _persist() async {
+  Future<void> _persist({bool syncCloud = true}) async {
     final list = _goals.map((g) => g.toMap()).toList();
     await StorageService.setStoredData(_storageKey, jsonEncode(list));
+    if (syncCloud) {
+      FirebaseService().triggerSync();
+    }
   }
 }

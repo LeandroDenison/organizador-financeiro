@@ -1,8 +1,9 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/budget_model.dart';
 import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
+import '../services/firebase_service.dart';
 
 class BudgetProvider extends ChangeNotifier {
   static const String _storageKey = 'financial_budgets_v1';
@@ -23,7 +24,7 @@ class BudgetProvider extends ChangeNotifier {
       }
     } else {
       _loadDefaults();
-      await _persist();
+      await _persist(syncCloud: false);
     }
     notifyListeners();
   }
@@ -82,8 +83,11 @@ class BudgetProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _persist() async {
+  Future<void> _persist({bool syncCloud = true}) async {
     final list = _budgets.map((b) => b.toMap()).toList();
     await StorageService.setStoredData(_storageKey, jsonEncode(list));
+    if (syncCloud) {
+      FirebaseService().triggerSync();
+    }
   }
 }

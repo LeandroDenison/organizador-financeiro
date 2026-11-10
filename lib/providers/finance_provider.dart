@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
 import '../services/firebase_service.dart';
@@ -137,6 +137,7 @@ class FinanceProvider extends ChangeNotifier {
   Future<void> clearTransactions() async {
     _transactions = [];
     await StorageService.saveTransactions([]);
+    FirebaseService().triggerSync();
     notifyListeners();
   }
 
