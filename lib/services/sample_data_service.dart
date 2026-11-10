@@ -1,4 +1,4 @@
-﻿import '../models/transaction_model.dart';
+import '../models/transaction_model.dart';
 import '../models/debt_model.dart';
 import '../models/notification_event_model.dart';
 
@@ -39,16 +39,6 @@ class SampleDataService {
         bank: 'Itaú',
         source: TransactionSource.pdf,
         notes: 'Rendimento automático Itaú',
-      ),
-      TransactionModel(
-        title: 'PIX TRANSF D Eniso06/11',
-        amount: 2695.31,
-        date: DateTime(2026, 11, 6),
-        type: TransactionType.expense,
-        category: 'Transferência Pix',
-        bank: 'Itaú',
-        source: TransactionSource.pdf,
-        notes: 'Transferência Pix enviada',
       ),
       TransactionModel(
         title: 'FATURA PAGA Samsung Itaú',

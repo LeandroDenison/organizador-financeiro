@@ -338,8 +338,24 @@ class PdfParserService {
 
     if (amount > 0) {
       final cleanTitle = _cleanDescription(rawTitle);
-      final category = _detectItauCategory(cleanTitle, isNegative);
-      final type = isNegative ? TransactionType.expense : TransactionType.income;
+      final lowerTitle = cleanTitle.toLowerCase();
+
+      // Ignore self-transfers to the account holder himself (e.g. "PIX TRANSF D Eniso06/11")
+      // Moving salary from Itaú salary account to own Nubank/other account is not an expense.
+      if (lowerTitle.contains('pix transf d eniso') ||
+          lowerTitle.contains('pix transf denison') ||
+          lowerTitle.contains('mesma titularidade')) {
+        return;
+      }
+
+      final isSalaryOrYield = lowerTitle.contains('salário') ||
+          lowerTitle.contains('salarios') ||
+          lowerTitle.contains('rend pago') ||
+          lowerTitle.contains('remuneracao');
+
+      final effectiveExpense = isSalaryOrYield ? false : isNegative;
+      final category = _detectItauCategory(cleanTitle, effectiveExpense);
+      final type = effectiveExpense ? TransactionType.expense : TransactionType.income;
 
       transactions.add(
         TransactionModel(

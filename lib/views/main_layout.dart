@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/notification_provider.dart';
@@ -542,45 +542,48 @@ class MainLayout extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        selected: isSelected,
-        selectedTileColor: isDark
-            ? AppConstants.primaryColor.withOpacity(0.2)
-            : AppConstants.primaryColor.withOpacity(0.1),
-        leading: Icon(
-          icon,
-          color: isSelected
-              ? AppConstants.primaryColor
-              : (isDark ? Colors.grey.shade400 : Colors.grey.shade700),
-          size: 20,
-        ),
-        title: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          selected: isSelected,
+          selectedTileColor: isDark
+              ? AppConstants.primaryColor.withOpacity(0.2)
+              : AppConstants.primaryColor.withOpacity(0.1),
+          leading: Icon(
+            icon,
             color: isSelected
                 ? AppConstants.primaryColor
-                : (isDark ? Colors.grey.shade300 : Colors.grey.shade800),
+                : (isDark ? Colors.grey.shade400 : Colors.grey.shade700),
+            size: 20,
           ),
+          title: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected
+                  ? AppConstants.primaryColor
+                  : (isDark ? Colors.grey.shade300 : Colors.grey.shade800),
+            ),
+          ),
+          trailing: badgeCount != null && badgeCount > 0
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppConstants.primaryColor : Colors.grey.shade700,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$badgeCount',
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                )
+              : null,
+          onTap: () {
+            context.read<AppStateProvider>().setTab(index);
+          },
         ),
-        trailing: badgeCount != null && badgeCount > 0
-            ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppConstants.primaryColor : Colors.grey.shade700,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '$badgeCount',
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-              )
-            : null,
-        onTap: () {
-          context.read<AppStateProvider>().setTab(index);
-        },
       ),
     );
   }

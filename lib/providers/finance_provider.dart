@@ -37,21 +37,53 @@ class FinanceProvider extends ChangeNotifier {
       await StorageService.markFakeDataCleaned();
     }
 
-    _transactions = stored;
+    // Auto-repair: remove self-transfers to own account (e.g. PIX TRANSF D Eniso06/11)
+    // and ensure salary/yield entries are always TransactionType.income
+    bool modified = false;
+    final repaired = <TransactionModel>[];
+    for (final t in stored) {
+      final lower = t.title.toLowerCase();
+      if (lower.contains('pix transf d eniso') || lower.contains('pix transf denison')) {
+        modified = true;
+        continue;
+      }
+      if (t.type == TransactionType.expense &&
+          (lower.contains('pagto sal') || lower.contains('salário') || lower.contains('salario') || lower.contains('rend pago'))) {
+        repaired.add(t.copyWith(type: TransactionType.income));
+        modified = true;
+      } else {
+        repaired.add(t);
+      }
+    }
+
+    _transactions = repaired;
+    if (modified) {
+      await StorageService.saveTransactions(_transactions);
+      FirebaseService().triggerSync();
+    }
     _isLoading = false;
     notifyListeners();
   }
 
+  static bool _isCreditRefund(TransactionModel t) {
+    return t.type == TransactionType.income && t.title.toLowerCase().contains('estorno');
+  }
+
   double get totalIncome {
     return _transactions
-        .where((t) => t.type == TransactionType.income)
+        .where((t) => t.type == TransactionType.income && !_isCreditRefund(t))
         .fold(0.0, (sum, t) => sum + t.amount);
   }
 
   double get totalExpense {
-    return _transactions
+    final grossExpenses = _transactions
         .where((t) => t.type == TransactionType.expense)
         .fold(0.0, (sum, t) => sum + t.amount);
+    final refunds = _transactions
+        .where(_isCreditRefund)
+        .fold(0.0, (sum, t) => sum + t.amount);
+    final net = grossExpenses - refunds;
+    return net < 0 ? 0.0 : net;
   }
 
   double get balance => totalIncome - totalExpense;
@@ -60,6 +92,16 @@ class FinanceProvider extends ChangeNotifier {
     final map = <String, double>{};
     for (final t in _transactions.where((t) => t.type == TransactionType.expense)) {
       map[t.category] = (map[t.category] ?? 0.0) + t.amount;
+    }
+    for (final r in _transactions.where(_isCreditRefund)) {
+      if (map.containsKey(r.category)) {
+        final updated = map[r.category]! - r.amount;
+        if (updated <= 0.01) {
+          map.remove(r.category);
+        } else {
+          map[r.category] = updated;
+        }
+      }
     }
     return map;
   }

@@ -39,7 +39,7 @@ void main() {
           print('  [${t.date.day}/${t.date.month}/${t.date.year}] ${t.title} -> ${t.type.name}: R\$ ${t.amount} (${t.category})');
         }
         expect(result.bankName, equals('Itaú'));
-        expect(result.transactions.length, equals(5));
+        expect(result.transactions.length, equals(4));
       }
     });
   });
