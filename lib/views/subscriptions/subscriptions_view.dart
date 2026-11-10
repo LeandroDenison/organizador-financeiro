@@ -57,6 +57,39 @@ class SubscriptionsView extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     OutlinedButton.icon(
+                      onPressed: () => _showAuditDialog(context, subProvider, financeProvider),
+                      icon: const Icon(Icons.rule_rounded, size: 17),
+                      label: const Text('Auditar Mês Retrasado'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orange.shade700,
+                        side: BorderSide(color: Colors.orange.shade300),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                    if (subProvider.pausedSubscriptions.isNotEmpty)
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final removed = await subProvider.purgeInactiveSubscriptions();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('$removed assinatura(s) inativa(s) excluída(s) com sucesso!'),
+                                backgroundColor: AppConstants.accentGreen,
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.delete_sweep_rounded, size: 17, color: Colors.redAccent),
+                        label: Text('Excluir (${subProvider.pausedSubscriptions.length}) Inativas'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                          side: const BorderSide(color: Colors.redAccent),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    OutlinedButton.icon(
                       onPressed: () async {
                         final added = await subProvider.syncFromTransactions(
                           financeProvider.transactions,
@@ -352,6 +385,22 @@ class SubscriptionsView extends StatelessWidget {
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: AppConstants.getBankColor(sub.bank),
+                          ),
+                        ),
+                      ),
+                    if (!sub.isActive && sub.inactiveReason != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          sub.inactiveReason!,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.redAccent,
                           ),
                         ),
                       ),
@@ -669,6 +718,88 @@ class SubscriptionsView extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showAuditDialog(
+    BuildContext context,
+    SubscriptionProvider subProvider,
+    FinanceProvider financeProvider,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.rule_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Regra do Mês Retrasado',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Se uma assinatura foi cobrada no mês retrasado (ou antes), mas no mês passado NÃO teve cobrança nem neste mês, ela é considerada cancelada/expirada.\n\nO que você deseja fazer com as assinaturas identificadas?',
+          style: TextStyle(fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          OutlinedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final affected = await subProvider.auditLapsedSubscriptions(
+                financeProvider.transactions,
+                deleteInstead: false,
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      affected.isNotEmpty
+                          ? '${affected.length} assinatura(s) desativada(s): ${affected.join(", ")}'
+                          : 'Nenhuma assinatura pendente de desativação encontrada.',
+                    ),
+                    backgroundColor: AppConstants.primaryColor,
+                  ),
+                );
+              }
+            },
+            child: const Text('Desativar (Pausar)'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppConstants.accentRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final affected = await subProvider.auditLapsedSubscriptions(
+                financeProvider.transactions,
+                deleteInstead: true,
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      affected.isNotEmpty
+                          ? '${affected.length} assinatura(s) excluída(s): ${affected.join(", ")}'
+                          : 'Nenhuma assinatura encontrada para exclusão.',
+                    ),
+                    backgroundColor: AppConstants.accentRed,
+                  ),
+                );
+              }
+            },
+            child: const Text('Excluir Definitivamente'),
+          ),
+        ],
       ),
     );
   }

@@ -369,6 +369,9 @@ class SubscriptionProvider extends ChangeNotifier {
       }
     }
 
+    // Auto-audit lapsed subscriptions: if charged in month retrasado but missing in month passado, deactivate
+    await auditLapsedSubscriptions(transactions, debtProvider: debtProvider);
+
     if (addedCount > 0) {
       // Sort by billing day ascending
       _subscriptions.sort((a, b) => a.billingDay.compareTo(b.billingDay));
@@ -376,6 +379,97 @@ class SubscriptionProvider extends ChangeNotifier {
       notifyListeners();
     }
     return addedCount;
+  }
+
+  /// Se a assinatura veio no mês retrasado (ou anterior) e no mês passado não teve cobrança,
+  /// desativa a mesma (ou exclui se deleteInstead = true).
+  Future<List<String>> auditLapsedSubscriptions(
+    List<TransactionModel> transactions, {
+    DateTime? referenceDate,
+    bool deleteInstead = false,
+    DebtProvider? debtProvider,
+  }) async {
+    if (transactions.isEmpty || _subscriptions.isEmpty) return [];
+
+    DateTime ref = referenceDate ?? DateTime.now();
+    for (final tx in transactions) {
+      if (tx.date.isAfter(ref)) ref = tx.date;
+    }
+
+    final currentMonthStart = DateTime(ref.year, ref.month, 1);
+    final prevMonthStart = DateTime(ref.year, ref.month - 1, 1);
+
+    final affectedNames = <String>[];
+    final remaining = <SubscriptionModel>[];
+    bool changed = false;
+
+    for (final sub in _subscriptions) {
+      final matchingTxs = transactions.where((tx) {
+        if (tx.type != TransactionType.expense) return false;
+        final detected = detectSubscription(tx);
+        final matchByName = detected != null && detected.cleanName.toLowerCase() == sub.name.toLowerCase();
+        final matchByTitle = sub.sourceTransactionTitle != null &&
+            tx.title.toLowerCase().contains(sub.sourceTransactionTitle!.toLowerCase());
+        final matchDirect = tx.title.toLowerCase().contains(sub.name.toLowerCase());
+        return matchByName || matchByTitle || matchDirect;
+      }).toList();
+
+      if (matchingTxs.isEmpty) {
+        remaining.add(sub);
+        continue;
+      }
+
+      DateTime? latestDate;
+      for (final tx in matchingTxs) {
+        if (latestDate == null || tx.date.isAfter(latestDate)) {
+          latestDate = tx.date;
+        }
+      }
+
+      final hadInMonthRetrasadoOrEarlier = matchingTxs.any((tx) => tx.date.isBefore(prevMonthStart));
+      final hadInPrevMonth = matchingTxs.any((tx) =>
+          !tx.date.isBefore(prevMonthStart) && tx.date.isBefore(currentMonthStart));
+      final hadInCurrentMonth = matchingTxs.any((tx) => !tx.date.isBefore(currentMonthStart));
+
+      // Se veio no mês retrasado (ou antes) e no mês passado NÃO teve (e também não teve no mês atual)
+      if (hadInMonthRetrasadoOrEarlier && !hadInPrevMonth && !hadInCurrentMonth) {
+        changed = true;
+        affectedNames.add(sub.name);
+        if (deleteInstead) {
+          // Excluir definitivamente da lista
+          continue;
+        } else {
+          // Desativar / Pausar
+          remaining.add(
+            sub.copyWith(
+              isActive: false,
+              lastChargeDate: latestDate,
+              inactiveReason: 'Sem cobrança no mês passado (última em ${latestDate != null ? "${latestDate.day.toString().padLeft(2, '0')}/${latestDate.month.toString().padLeft(2, '0')}/${latestDate.year}" : "mês retrasado"})',
+            ),
+          );
+        }
+      } else {
+        remaining.add(sub.copyWith(lastChargeDate: latestDate));
+      }
+    }
+
+    if (changed) {
+      _subscriptions = remaining;
+      await _persist();
+      notifyListeners();
+    }
+    return affectedNames;
+  }
+
+  /// Remove definitivamente todas as assinaturas que estão inativas / pausadas
+  Future<int> purgeInactiveSubscriptions() async {
+    final count = _subscriptions.where((s) => !s.isActive).length;
+    if (count > 0) {
+      _subscriptions.removeWhere((s) => !s.isActive);
+      await _persist();
+      notifyListeners();
+    }
+    return count;
   }
 
   /// Updates or clears the split (divisão de conta) for a subscription
