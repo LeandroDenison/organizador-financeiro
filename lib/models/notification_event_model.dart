@@ -1,4 +1,4 @@
-﻿import 'package:uuid/uuid.dart';
+import 'package:uuid/uuid.dart';
 
 enum NotificationStatus { pending, approved, ignored }
 
@@ -16,6 +16,14 @@ class NotificationEventModel {
   String? createdTransactionId;
   String? matchedPersonName;
   bool isDebtAbatementCandidate;
+  final bool isDdaBoleto;
+  final String? ddaBeneficiary;
+  final DateTime? ddaDueDate;
+  final String? ddaSignature;
+  bool isDuplicateDda;
+  String? duplicateOfBank;
+  String? duplicateOfId;
+  String? notes;
 
   NotificationEventModel({
     String? id,
@@ -31,6 +39,14 @@ class NotificationEventModel {
     this.createdTransactionId,
     this.matchedPersonName,
     this.isDebtAbatementCandidate = false,
+    this.isDdaBoleto = false,
+    this.ddaBeneficiary,
+    this.ddaDueDate,
+    this.ddaSignature,
+    this.isDuplicateDda = false,
+    this.duplicateOfBank,
+    this.duplicateOfId,
+    this.notes,
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
 
@@ -49,10 +65,23 @@ class NotificationEventModel {
       'createdTransactionId': createdTransactionId,
       'matchedPersonName': matchedPersonName,
       'isDebtAbatementCandidate': isDebtAbatementCandidate,
+      'isDdaBoleto': isDdaBoleto,
+      'ddaBeneficiary': ddaBeneficiary,
+      'ddaDueDate': ddaDueDate?.toIso8601String(),
+      'ddaSignature': ddaSignature,
+      'isDuplicateDda': isDuplicateDda,
+      'duplicateOfBank': duplicateOfBank,
+      'duplicateOfId': duplicateOfId,
+      'notes': notes,
     };
   }
 
   factory NotificationEventModel.fromMap(Map<String, dynamic> map) {
+    DateTime? parsedDueDate;
+    if (map['ddaDueDate'] != null) {
+      parsedDueDate = DateTime.tryParse(map['ddaDueDate'] as String);
+    }
+
     return NotificationEventModel(
       id: map['id'] as String?,
       appPackage: map['appPackage'] as String? ?? '',
@@ -72,6 +101,14 @@ class NotificationEventModel {
       createdTransactionId: map['createdTransactionId'] as String?,
       matchedPersonName: map['matchedPersonName'] as String?,
       isDebtAbatementCandidate: map['isDebtAbatementCandidate'] as bool? ?? false,
+      isDdaBoleto: map['isDdaBoleto'] as bool? ?? false,
+      ddaBeneficiary: map['ddaBeneficiary'] as String?,
+      ddaDueDate: parsedDueDate,
+      ddaSignature: map['ddaSignature'] as String?,
+      isDuplicateDda: map['isDuplicateDda'] as bool? ?? false,
+      duplicateOfBank: map['duplicateOfBank'] as String?,
+      duplicateOfId: map['duplicateOfId'] as String?,
+      notes: map['notes'] as String?,
     );
   }
 }

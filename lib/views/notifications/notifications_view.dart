@@ -65,6 +65,30 @@ class _NotificationsViewState extends State<NotificationsView> {
         financeProvider: finProvider,
         debtProvider: debtProvider,
       );
+    } else if (bank == 'dda_nubank_enel') {
+      notifProvider.onNotificationReceived(
+        appPackage: 'com.nu.production',
+        title: 'Buscador de Boletos',
+        text: 'Você tem um novo boleto de R\$ 145,20 de ENEL DISTRIBUICAO com vencimento em 20/11.',
+        financeProvider: finProvider,
+        debtProvider: debtProvider,
+      );
+    } else if (bank == 'dda_itau_enel_duplicate') {
+      notifProvider.onNotificationReceived(
+        appPackage: 'com.itau',
+        title: 'DDA Itaú',
+        text: 'Você recebeu um boleto eletrônico de R\$ 145,20 de ENEL DISTRIBUICAO com vencimento em 20/11.',
+        financeProvider: finProvider,
+        debtProvider: debtProvider,
+      );
+    } else if (bank == 'dda_itau_cagece') {
+      notifProvider.onNotificationReceived(
+        appPackage: 'com.itau',
+        title: 'DDA Itaú',
+        text: 'Novo boleto eletrônico de R\$ 92,00 recebido de CAGECE com vencimento em 25/11.',
+        financeProvider: finProvider,
+        debtProvider: debtProvider,
+      );
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -371,6 +395,80 @@ class _NotificationsViewState extends State<NotificationsView> {
             ),
             const SizedBox(height: 16),
 
+            // DDA and Anti-Duplication Presets
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.receipt_long_rounded, size: 18, color: AppConstants.accentCyan),
+                      const SizedBox(width: 8),
+                      Text(
+                        'DDA / Boletos Eletrônicos (Detecção & Filtro Anti-Duplicação):',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.grey.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Se o Nubank e o Itaú notificarem sobre o mesmo boleto sob seu CPF, o app detecta a duplicata e ignora a segunda notificação automaticamente!',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppConstants.nubankPurple,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.receipt_rounded, size: 16),
+                        label: const Text('1º DDA Nubank (ENEL R\$ 145,20)'),
+                        onPressed: () => _simulatePreset('dda_nubank_enel'),
+                      ),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppConstants.accentAmber,
+                          foregroundColor: Colors.black87,
+                        ),
+                        icon: const Icon(Icons.shield_rounded, size: 16),
+                        label: const Text('2º DDA Itaú Duplicado (Testar Bloqueio)'),
+                        onPressed: () => _simulatePreset('dda_itau_enel_duplicate'),
+                      ),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppConstants.itauOrange,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.receipt_rounded, size: 16),
+                        label: const Text('DDA Itaú (CAGECE R\$ 92,00)'),
+                        onPressed: () => _simulatePreset('dda_itau_cagece'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Custom Notification Simulator
             ExpansionTile(
               title: const Text('Simular com texto personalizado'),
@@ -504,7 +602,30 @@ class _NotificationsViewState extends State<NotificationsView> {
                                   ),
                                 ],
                               ),
-                              _buildStatusBadge(notif.status, notif.autoAdded),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (notif.isDdaBoleto && !notif.isDuplicateDda) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                      margin: const EdgeInsets.only(right: 6),
+                                      decoration: BoxDecoration(
+                                        color: AppConstants.accentCyan.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'DDA',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppConstants.accentCyan,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  _buildStatusBadge(notif),
+                                ],
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -513,6 +634,86 @@ class _NotificationsViewState extends State<NotificationsView> {
                             style: const TextStyle(fontSize: 13),
                             softWrap: true,
                           ),
+                          if (notif.isDuplicateDda) ...[
+                            Container(
+                              margin: const EdgeInsets.only(top: 8),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppConstants.accentAmber.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppConstants.accentAmber.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.shield_outlined, size: 18, color: AppConstants.accentAmber),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Duplicata Prevenida Automaticamente',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppConstants.accentAmber,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Boleto de ${CurrencyFormatter.format(notif.parsedAmount ?? 0)} (${notif.ddaBeneficiary ?? "Beneficiário"}) já capturado via ${notif.duplicateOfBank ?? "outro banco"}. Esta notificação foi ignorada para não duplicar despesas.',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else if (notif.isDdaBoleto) ...[
+                            Container(
+                              margin: const EdgeInsets.only(top: 8),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppConstants.accentCyan.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppConstants.accentCyan.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.receipt_long_rounded, size: 18, color: AppConstants.accentCyan),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Boleto DDA Eletrônico (${notif.bankName})',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppConstants.accentCyan,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Beneficiário: ${notif.ddaBeneficiary ?? "Cedente"} • Vencimento: ${notif.ddaDueDate != null ? CurrencyFormatter.formatDate(notif.ddaDueDate!) : "A definir"}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 8),
                           if (notif.matchedPersonName != null) ...[
                             const SizedBox(height: 6),
@@ -619,8 +820,29 @@ class _NotificationsViewState extends State<NotificationsView> {
     );
   }
 
-  Widget _buildStatusBadge(NotificationStatus status, bool autoAdded) {
-    if (autoAdded) {
+  Widget _buildStatusBadge(NotificationEventModel notif) {
+    if (notif.isDuplicateDda) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppConstants.accentAmber.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.shield_rounded, size: 13, color: AppConstants.accentAmber),
+            SizedBox(width: 4),
+            Text(
+              'Duplicata Bloqueada',
+              style: TextStyle(fontSize: 11, color: AppConstants.accentAmber, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (notif.autoAdded) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -645,7 +867,7 @@ class _NotificationsViewState extends State<NotificationsView> {
       );
     }
 
-    switch (status) {
+    switch (notif.status) {
       case NotificationStatus.approved:
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

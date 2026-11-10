@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class AppConstants {
   static const Color primaryColor = Color(0xFF6366F1); // Indigo
@@ -6,6 +6,7 @@ class AppConstants {
   static const Color accentGreen = Color(0xFF10B981); // Emerald
   static const Color accentRed = Color(0xFFEF4444); // Rose/Red
   static const Color accentAmber = Color(0xFFF59E0B); // Amber
+  static const Color accentCyan = Color(0xFF06B6D4); // Cyan
   static const Color nubankPurple = Color(0xFF820AD1);
   static const Color itauOrange = Color(0xFFEC7000);
   static const Color mercadoPagoBlue = Color(0xFF009EE3);
