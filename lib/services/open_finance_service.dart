@@ -113,10 +113,10 @@ class OpenFinanceService {
     ),
     BankAccountBalance(
       bankName: 'Itaú',
-      accountName: 'Conta Corrente Itaú',
+      accountName: 'itau (00060301-2)',
       accountType: 'BANK',
-      balance: 1840.00,
-      updatedAt: DateTime(2026, 11, 10, 12, 0),
+      balance: 0.01,
+      updatedAt: DateTime(2026, 11, 10, 15, 23),
     ),
     BankAccountBalance(
       bankName: 'Mercado Pago',
@@ -312,16 +312,22 @@ class OpenFinanceService {
           final accType = acc['type']?.toString() ?? 'BANK';
           if (accountId == null) continue;
 
-          final txResp = await http
-              .get(
-                Uri.parse('$_baseUrl/v2/transactions?accountId=$accountId'),
-                headers: {'X-API-KEY': apiKey},
-              )
-              .timeout(const Duration(seconds: 25));
+          String? queryUrl = '$_baseUrl/v2/transactions?accountId=$accountId';
+          int page = 0;
 
-          if (txResp.statusCode >= 200 && txResp.statusCode < 300) {
+          while (queryUrl != null && page < 10) {
+            final txResp = await http
+                .get(
+                  Uri.parse(queryUrl),
+                  headers: {'X-API-KEY': apiKey},
+                )
+                .timeout(const Duration(seconds: 25));
+
+            if (txResp.statusCode < 200 || txResp.statusCode >= 300) break;
+
             final txData = jsonDecode(txResp.body) as Map<String, dynamic>;
             final txResults = (txData['results'] as List<dynamic>?) ?? [];
+            if (txResults.isEmpty) break;
 
             for (final rawTx in txResults) {
               final map = Map<String, dynamic>.from(rawTx as Map);
@@ -377,6 +383,16 @@ class OpenFinanceService {
                   notes: 'Sincronizado via Open Finance (${bank.bankName})',
                 ),
               );
+            }
+
+            final next = txData['next']?.toString();
+            if (next != null && next.isNotEmpty && next != 'null') {
+              queryUrl = next.startsWith('http')
+                  ? next
+                  : (next.startsWith('?') ? '$_baseUrl/v2/transactions$next' : '$_baseUrl/v2/transactions?$next');
+              page++;
+            } else {
+              queryUrl = null;
             }
           }
         }
@@ -452,8 +468,16 @@ class OpenFinanceService {
     } catch (_) {}
 
     if (liveBalances.isNotEmpty) {
-      await saveStoredBalances(liveBalances);
-      return liveBalances;
+      // Mescla os saldos atualizados da API (ex: Nubank) com os saldos dos outros bancos
+      final existing = await loadStoredBalances();
+      final merged = <BankAccountBalance>[...liveBalances];
+      for (final prev in existing) {
+        if (!merged.any((b) => b.bankName.toLowerCase() == prev.bankName.toLowerCase())) {
+          merged.add(prev);
+        }
+      }
+      await saveStoredBalances(merged);
+      return merged;
     }
 
     return loadStoredBalances();
