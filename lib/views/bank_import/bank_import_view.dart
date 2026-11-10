@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../providers/app_state_provider.dart';
@@ -7,7 +8,8 @@ import '../../services/ofx_parser_service.dart';
 import '../../services/csv_parser_service.dart';
 import '../../services/pdf_parser_service.dart';
 import '../../services/sample_data_service.dart';
-import '../../services/open_finance_service.dart';
+import '../../services/boleto_service.dart';
+import '../../models/transaction_model.dart';
 import '../../utils/constants.dart';
 import 'widgets/import_preview_dialog.dart';
 
@@ -21,11 +23,37 @@ class BankImportView extends StatefulWidget {
 class _BankImportViewState extends State<BankImportView> {
   bool _isProcessing = false;
   final _rawTextController = TextEditingController();
+  final _boletoController = TextEditingController();
+  ParsedBoleto? _parsedBoleto;
 
   @override
   void dispose() {
     _rawTextController.dispose();
+    _boletoController.dispose();
     super.dispose();
+  }
+
+  void _onBoletoChanged(String text) {
+    final parsed = BoletoService.parse(text);
+    setState(() {
+      _parsedBoleto = parsed;
+    });
+  }
+
+  void _importParsedBoleto() {
+    if (_parsedBoleto == null) return;
+    final b = _parsedBoleto!;
+    final tx = TransactionModel(
+      title: 'Boleto - ${b.bankName}',
+      amount: b.amount,
+      date: b.dueDate ?? DateTime.now(),
+      type: TransactionType.expense,
+      category: 'Boletos / Contas',
+      bank: b.bankName,
+      source: TransactionSource.manual,
+      notes: 'Linha digitável: ${b.cleanCode}',
+    );
+    _showPreviewDialog('Boleto (${b.bankName})', [tx]);
   }
 
   Future<void> _pickFile() async {
@@ -434,6 +462,10 @@ NEWFILEUID:NONE
             ),
             const SizedBox(height: 24),
 
+            // Boleto Reader & Decoder Card
+            _buildBoletoReaderCard(context, isDark),
+            const SizedBox(height: 24),
+
             // Instant Test Presets
             Text(
               'Importação Rápida / Testar com Suas Faturas:',
@@ -576,6 +608,187 @@ NEWFILEUID:NONE
             Icon(Icons.arrow_forward_ios_rounded, size: 12, color: color),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBoletoReaderCard(BuildContext context, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.teal.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.teal, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Leitor e Decodificador de Boletos (Linha Digitável)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    Text(
+                      'Cole o código de 47 ou 48 dígitos de qualquer boleto bancário, água, luz, internet ou tributo',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Input field
+          TextField(
+            controller: _boletoController,
+            onChanged: _onBoletoChanged,
+            decoration: InputDecoration(
+              labelText: 'Linha Digitável / Código de Barras do Boleto',
+              hintText: 'Ex: 34191.79001 01043.510047 91020.150008 4 98760000015000',
+              prefixIcon: const Icon(Icons.barcode_reader),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Colar da área de transferência',
+                    icon: const Icon(Icons.paste_rounded),
+                    onPressed: () async {
+                      final data = await Clipboard.getData(Clipboard.kTextPlain);
+                      if (data?.text != null) {
+                        _boletoController.text = data!.text!;
+                        _onBoletoChanged(data.text!);
+                      }
+                    },
+                  ),
+                  if (_boletoController.text.isNotEmpty)
+                    IconButton(
+                      tooltip: 'Limpar',
+                      icon: const Icon(Icons.clear_rounded),
+                      onPressed: () {
+                        _boletoController.clear();
+                        _onBoletoChanged('');
+                      },
+                    ),
+                ],
+              ),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Decoded Boleto Result Card
+          if (_parsedBoleto != null) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppConstants.accentGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppConstants.accentGreen.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: AppConstants.accentGreen, size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              _parsedBoleto!.bankName,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppConstants.accentGreen.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                _parsedBoleto!.type == BoletoType.bancario ? 'Boleto Bancário' : 'Concessionária / Conta',
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppConstants.accentGreen),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Valor: R\$ ${_parsedBoleto!.amount.toStringAsFixed(2)}${_parsedBoleto!.dueDate != null ? ' • Vencimento: ${_parsedBoleto!.dueDate!.day.toString().padLeft(2, '0')}/${_parsedBoleto!.dueDate!.month.toString().padLeft(2, '0')}/${_parsedBoleto!.dueDate!.year}' : ''}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppConstants.accentGreen,
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.add_task_rounded, size: 18),
+                    label: const Text('Lançar'),
+                    onPressed: _importParsedBoleto,
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'Dica rápida:',
+                  style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.bolt_rounded, size: 14),
+                  label: const Text('Exemplo Boleto Itaú (R\$ 150,00)'),
+                  onPressed: () {
+                    const sample = '34191.79001 01043.510047 91020.150008 4 98760000015000';
+                    _boletoController.text = sample;
+                    _onBoletoChanged(sample);
+                  },
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.electric_bolt_rounded, size: 14),
+                  label: const Text('Exemplo Enel Luz (R\$ 85,90)'),
+                  onPressed: () {
+                    const sample = '83630000000 8 85900048100 2 01211102026 8 00000000000 0';
+                    _boletoController.text = sample;
+                    _onBoletoChanged(sample);
+                  },
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
