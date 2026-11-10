@@ -28,14 +28,18 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
 
     // Saldo real consolidado dos 3 bancos pelo Open Finance
     final openFinanceTotal = finance.openFinanceCashBalance;
-    final currentCashBalance = openFinanceTotal > 0 ? openFinanceTotal : finance.balance;
+    final currentCashBalance = openFinanceTotal;
 
-    final expectedReceivables = debts.activeDebts.fold(0.0, (sum, d) => sum + d.installmentValue);
+    // Fluxo mensal realizado (Receitas - Despesas do mês selecionado)
+    final monthlyFlowBalance = finance.balance;
 
-    // Custo real das assinaturas fixas
-    final myEffectiveSubs = subscriptions.totalMonthlyCost;
-    final grossSubs = subscriptions.totalGrossMonthlyCost;
-    final relevantSubs = _onlyMyBills ? myEffectiveSubs : grossSubs;
+    // Parcelas de devedores que ainda NÃO foram pagas neste mês
+    final selectedMonth = finance.selectedMonth;
+    final pendingDebtorReceivables = debts.activeDebts.where((d) {
+      final alreadyPaidThisMonth = d.paymentHistory.any((p) =>
+          p.date.year == selectedMonth.year && p.date.month == selectedMonth.month);
+      return !alreadyPaidThisMonth;
+    }).fold(0.0, (sum, d) => sum + d.installmentValue);
 
     // Assinaturas que ainda faltam cobrar neste mês
     final unbilledSubs = subscriptions.activeSubscriptions.where((sub) {
@@ -46,11 +50,11 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
       return !alreadyInTransactions;
     }).fold(0.0, (sum, s) => sum + (_onlyMyBills ? s.effectiveMyCost : s.amount));
 
-    // No modo "Apenas minhas contas": NÃO conta com dinheiro de terceiros/devedores!
-    // Saldo projetado = Saldo bancário em conta - Apenas as minhas contas restantes
+    // Saldo final estimado do MÊS (projeção do fluxo mensal real):
+    // Fluxo do mês (Receitas - Despesas) + O que os devedores ainda vão pagar - Contas que ainda faltam cobrar
     final projectedBalance = _onlyMyBills
-        ? (currentCashBalance - unbilledSubs)
-        : (currentCashBalance + expectedReceivables - unbilledSubs);
+        ? (monthlyFlowBalance - unbilledSubs)
+        : (monthlyFlowBalance + pendingDebtorReceivables - unbilledSubs);
 
     final isPositive = projectedBalance >= 0;
     final isTight = isPositive && projectedBalance < 300;
@@ -342,24 +346,24 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
             Column(
               children: [
                 _buildBreakdownTile(
-                  label: 'Saldo em Conta (3 Bancos)',
-                  amount: currentCashBalance,
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: currentCashBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
+                  label: 'Fluxo Atual do Mês',
+                  amount: monthlyFlowBalance,
+                  icon: Icons.trending_up_rounded,
+                  color: monthlyFlowBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentAmber,
                   prefix: '',
                 ),
                 const SizedBox(height: 6),
                 _buildBreakdownTile(
                   label: _onlyMyBills ? 'Devedores (Desconsiderados)' : 'A Receber (Devedores este mês)',
-                  amount: _onlyMyBills ? 0.0 : expectedReceivables,
+                  amount: _onlyMyBills ? 0.0 : pendingDebtorReceivables,
                   icon: Icons.arrow_downward_rounded,
                   color: _onlyMyBills ? Colors.grey : AppConstants.accentGreen,
                   prefix: _onlyMyBills ? '' : '+ ',
                 ),
                 const SizedBox(height: 6),
                 _buildBreakdownTile(
-                  label: _onlyMyBills ? 'Apenas Minhas Contas Fixas' : 'Total Contas & Assinaturas',
-                  amount: relevantSubs,
+                  label: _onlyMyBills ? 'Minhas Contas Restantes' : 'Contas Restantes a Vencer',
+                  amount: unbilledSubs,
                   icon: Icons.repeat_rounded,
                   color: AppConstants.accentRed,
                   prefix: '- ',
@@ -371,18 +375,18 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
               children: [
                 Expanded(
                   child: _buildBreakdownTile(
-                    label: 'Saldo em Conta (3 Bancos)',
-                    amount: currentCashBalance,
-                    icon: Icons.account_balance_wallet_outlined,
-                    color: currentCashBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
+                    label: 'Fluxo Atual do Mês',
+                    amount: monthlyFlowBalance,
+                    icon: Icons.trending_up_rounded,
+                    color: monthlyFlowBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentAmber,
                     prefix: '',
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildBreakdownTile(
-                    label: _onlyMyBills ? 'Devedores (Desconsiderados)' : 'A Receber (Devedores)',
-                    amount: _onlyMyBills ? 0.0 : expectedReceivables,
+                    label: _onlyMyBills ? 'Devedores (Desconsiderados)' : 'A Receber (Devedores este mês)',
+                    amount: _onlyMyBills ? 0.0 : pendingDebtorReceivables,
                     icon: Icons.arrow_downward_rounded,
                     color: _onlyMyBills ? Colors.grey : AppConstants.accentGreen,
                     prefix: _onlyMyBills ? '' : '+ ',
@@ -391,8 +395,8 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildBreakdownTile(
-                    label: _onlyMyBills ? 'Minhas Contas Fixas' : 'Assinaturas Fixas',
-                    amount: relevantSubs,
+                    label: _onlyMyBills ? 'Minhas Contas Restantes' : 'Contas Restantes a Vencer',
+                    amount: unbilledSubs,
                     icon: Icons.repeat_rounded,
                     color: AppConstants.accentRed,
                     prefix: '- ',
