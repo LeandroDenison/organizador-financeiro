@@ -314,19 +314,19 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                   children: [
                     _buildBankChip(
                       name: 'Nubank',
-                      amount: nubankBal > 0 ? nubankBal : 51.56,
+                      amount: nubankBal,
                       color: AppConstants.nubankPurple,
                       isDark: isDark,
                     ),
                     _buildBankChip(
                       name: 'Itaú',
-                      amount: itauBal > 0 ? itauBal : 1840.00,
+                      amount: itauBal,
                       color: AppConstants.itauOrange,
                       isDark: isDark,
                     ),
                     _buildBankChip(
                       name: 'Mercado Pago',
-                      amount: mpBal > 0 ? mpBal : 145.75,
+                      amount: mpBal,
                       color: AppConstants.mercadoPagoBlue,
                       isDark: isDark,
                     ),
