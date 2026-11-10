@@ -43,7 +43,7 @@ class TransactionsView extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${transactions.length} movimentações',
+                        '${transactions.length} movimentações ${finance.filterBySelectedMonth ? "(filtrando por mês)" : "(todas)"}',
                         style: TextStyle(
                           color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                           fontSize: 12,
@@ -72,7 +72,11 @@ class TransactionsView extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+
+            // Month Selector Toolbar
+            _buildMonthSelector(context, finance, isDark, isMobile),
+            const SizedBox(height: 14),
 
             // Search Bar & Filter Row (Stacked on Mobile)
             if (isMobile) ...[
@@ -501,5 +505,110 @@ class TransactionsView extends StatelessWidget {
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  Widget _buildMonthSelector(
+    BuildContext context,
+    FinanceProvider finance,
+    bool isDark,
+    bool isMobile,
+  ) {
+    final selected = finance.selectedMonth;
+    const monthNames = [
+      '',
+      'Janeiro',
+      'Fevereiro',
+      'Março',
+      'Abril',
+      'Maio',
+      'Junho',
+      'Julho',
+      'Agosto',
+      'Setembro',
+      'Outubro',
+      'Novembro',
+      'Dezembro'
+    ];
+    final label = '${monthNames[selected.month]} de ${selected.year}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+        ),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 8,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left_rounded),
+                tooltip: 'Mês anterior',
+                visualDensity: VisualDensity.compact,
+                onPressed: finance.filterBySelectedMonth
+                    ? () {
+                        final prev = DateTime(selected.year, selected.month - 1);
+                        finance.setSelectedMonth(prev);
+                      }
+                    : null,
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.calendar_month_rounded, size: 18, color: AppConstants.primaryColor),
+              const SizedBox(width: 8),
+              Text(
+                finance.filterBySelectedMonth ? label : 'Todos os Meses (Sem Filtro)',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.chevron_right_rounded),
+                tooltip: 'Próximo mês',
+                visualDensity: VisualDensity.compact,
+                onPressed: finance.filterBySelectedMonth
+                    ? () {
+                        final next = DateTime(selected.year, selected.month + 1);
+                        finance.setSelectedMonth(next);
+                      }
+                    : null,
+              ),
+            ],
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FilterChip(
+                label: Text(finance.filterBySelectedMonth ? 'Filtrando Mês' : 'Todos os Meses'),
+                selected: finance.filterBySelectedMonth,
+                avatar: Icon(
+                  finance.filterBySelectedMonth ? Icons.filter_alt_rounded : Icons.all_inclusive_rounded,
+                  size: 14,
+                  color: AppConstants.primaryColor,
+                ),
+                onSelected: (val) => finance.toggleMonthFilter(val),
+              ),
+              if (finance.filterBySelectedMonth && (selected.year != 2026 || selected.month != 11)) ...[
+                const SizedBox(width: 6),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: AppConstants.primaryColor,
+                  ),
+                  onPressed: () => finance.setSelectedMonth(DateTime(2026, 11)),
+                  child: const Text('Ir para Nov/2026'),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

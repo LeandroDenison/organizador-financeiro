@@ -196,7 +196,12 @@ class FinanceProvider extends ChangeNotifier {
   }
 
   List<TransactionModel> get filteredTransactions {
-    return _transactions.where((t) {
+    final base = _filterBySelectedMonth
+        ? _transactions.where((t) =>
+            t.date.year == _selectedMonth.year && t.date.month == _selectedMonth.month).toList()
+        : _transactions;
+
+    return base.where((t) {
       if (_typeFilter != null && t.type != _typeFilter) return false;
       if (_selectedCategory != 'Todas' && t.category != _selectedCategory) return false;
       if (_searchQuery.isNotEmpty) {
