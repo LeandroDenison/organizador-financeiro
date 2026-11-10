@@ -143,7 +143,7 @@ class OpenFinanceService {
       accountName: 'Conta & Cartão Mercado Pago',
     ),
     ConnectedBankItem(
-      id: '22201148-31c8-4290-9acd-cd0bf0c92af0',
+      id: 'c04871ce-d5ed-43fb-ac54-e2de577d0545',
       bankName: 'Itaú',
       accountName: 'Conta Universitária & Cartão Click',
     ),
