@@ -399,10 +399,22 @@ class MainLayout extends StatelessWidget {
         children: pages,
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: appState.currentTabIndex < 4 ? appState.currentTabIndex : 4,
+        selectedIndex: () {
+          if (appState.currentTabIndex == 0) return 0;
+          if (appState.currentTabIndex == 1) return 1;
+          if (appState.currentTabIndex == 2) return 2;
+          if (appState.currentTabIndex == 5) return 3;
+          return 4;
+        }(),
         onDestinationSelected: (idx) {
-          if (idx < 4) {
-            appState.setTab(idx);
+          if (idx == 0) {
+            appState.setTab(0);
+          } else if (idx == 1) {
+            appState.setTab(1);
+          } else if (idx == 2) {
+            appState.setTab(2);
+          } else if (idx == 3) {
+            appState.setTab(5); // Assinaturas & Fixos
           } else {
             _showMobileMoreMenu(context, appState, notifProvider, loanProvider);
           }
@@ -427,14 +439,10 @@ class MainLayout extends StatelessWidget {
             selectedIcon: const Icon(Icons.handshake_rounded),
             label: 'Devedores',
           ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: loanProvider.activeLoans.isNotEmpty,
-              label: Text('${loanProvider.activeLoans.length}'),
-              child: const Icon(Icons.account_balance_outlined),
-            ),
-            selectedIcon: const Icon(Icons.account_balance_rounded),
-            label: 'Empréstimos',
+          const NavigationDestination(
+            icon: Icon(Icons.repeat_rounded),
+            selectedIcon: Icon(Icons.repeat_on_rounded),
+            label: 'Assinaturas',
           ),
           NavigationDestination(
             icon: Badge(
@@ -520,13 +528,16 @@ class MainLayout extends StatelessWidget {
                     },
                   ),
                   ListTile(
-                    leading: const Icon(Icons.repeat_rounded, color: AppConstants.primaryColor),
-                    title: const Text('Assinaturas & Custos Fixos'),
-                    subtitle: const Text('Detector de assinaturas e dreno anual'),
+                    leading: const Icon(Icons.account_balance_rounded, color: Colors.indigo),
+                    title: const Text('Empréstimos Bancários'),
+                    subtitle: const Text('Contratos de crédito e parcelas ativas'),
                     dense: true,
+                    trailing: loanProvider.activeLoans.isNotEmpty
+                        ? Badge(label: Text('${loanProvider.activeLoans.length}'))
+                        : null,
                     onTap: () {
                       Navigator.pop(ctx);
-                      appState.setTab(5);
+                      appState.setTab(3);
                     },
                   ),
                   ListTile(

@@ -306,6 +306,39 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> approveAsIncome(
+    NotificationEventModel event,
+    FinanceProvider financeProvider, {
+    String? customCategory,
+  }) async {
+    final index = _notifications.indexWhere((n) => n.id == event.id);
+    if (index == -1) return;
+
+    final amount = event.parsedAmount ?? 0.0;
+    final merchant = event.parsedMerchant ?? event.rawTitle;
+
+    if (amount > 0) {
+      final tx = TransactionModel(
+        title: 'Pix Recebido - $merchant',
+        amount: amount,
+        date: event.timestamp,
+        type: TransactionType.income,
+        category: customCategory ?? 'Outros',
+        bank: event.bankName,
+        source: TransactionSource.notification,
+        notes: 'Pix aprovado como receita comum (não vinculado a devedor)',
+      );
+      await financeProvider.addTransaction(tx);
+      event.createdTransactionId = tx.id;
+    }
+
+    event.status = NotificationStatus.approved;
+    _notifications[index] = event;
+
+    await _persist();
+    notifyListeners();
+  }
+
   Future<void> ignoreNotification(NotificationEventModel event) async {
     final index = _notifications.indexWhere((n) => n.id == event.id);
     if (index == -1) return;

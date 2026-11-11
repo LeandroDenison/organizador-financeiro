@@ -180,7 +180,20 @@ class StorageService {
         'city': prefs.getString('user_pix_city') ?? 'FORTALEZA',
       },
       'open_finance_bank_balances_v1': prefs.getString('open_finance_bank_balances_v1') ?? '[]',
-      'open_finance_pluggy_config_v2': prefs.getString('open_finance_pluggy_config_v2') ?? '',
+      // Safe export: clientSecret is kept only on device to prevent credential leakage
+      'open_finance_pluggy_config_v2': () {
+        final raw = prefs.getString('open_finance_pluggy_config_v2');
+        if (raw == null || raw.isEmpty) return '';
+        try {
+          final decoded = jsonDecode(raw) as Map<String, dynamic>;
+          return jsonEncode({
+            'clientId': decoded['clientId'] ?? '',
+            'connectedBanks': decoded['connectedBanks'] ?? [],
+          });
+        } catch (_) {
+          return '';
+        }
+      }(),
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
@@ -212,7 +225,16 @@ class StorageService {
       }
       if (data['open_finance_pluggy_config_v2'] != null) {
         final val = data['open_finance_pluggy_config_v2'];
-        await prefs.setString('open_finance_pluggy_config_v2', val is String ? val : jsonEncode(val));
+        final existingRaw = prefs.getString('open_finance_pluggy_config_v2');
+        if (existingRaw == null || existingRaw.isEmpty) {
+          await prefs.setString('open_finance_pluggy_config_v2', val is String ? val : jsonEncode(val));
+        } else if (val is Map && val['connectedBanks'] != null) {
+          try {
+            final existingDecoded = jsonDecode(existingRaw) as Map<String, dynamic>;
+            existingDecoded['connectedBanks'] = val['connectedBanks'];
+            await prefs.setString('open_finance_pluggy_config_v2', jsonEncode(existingDecoded));
+          } catch (_) {}
+        }
       }
       if (data['pix'] is Map) {
         final pix = data['pix'] as Map;

@@ -3,6 +3,7 @@ import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
 import '../services/firebase_service.dart';
 import '../services/open_finance_service.dart';
+import '../services/ofx_parser_service.dart';
 
 class FinanceProvider extends ChangeNotifier {
   List<TransactionModel> _transactions = [];
@@ -67,17 +68,14 @@ class FinanceProvider extends ChangeNotifier {
     }
 
     // Auto-repair: remove self-transfers, de-duplicate exact matches,
-    // and ensure salary/yield entries are always TransactionType.income
+    // ensure salary/yield entries are always TransactionType.income,
+    // and normalize categories to Portuguese
     bool modified = false;
     final repaired = <TransactionModel>[];
     final seenTxKeys = <String>{};
 
     for (var t in stored) {
-      // 1. Keep strictly Open Finance transactions as requested
-      if (t.source != TransactionSource.ofx) {
-        modified = true;
-        continue;
-      }
+      // Keep all valid transactions (manual, notification, ofx, csv, pdf)
 
       if (_isSelfTransfer(t) || _isPromotionalOrOffer(t)) {
         modified = true;
@@ -92,7 +90,16 @@ class FinanceProvider extends ChangeNotifier {
         modified = true;
       }
 
-      final key = '${t.date.year}-${t.date.month}-${t.date.day}_${t.amount.toStringAsFixed(2)}_${t.type.name}_${t.title.trim().toLowerCase()}';
+      // Normalize English categories from Open Finance to Portuguese
+      final normalizedCat = OfxParserService.normalizeCategory(t.category, t.title);
+      if (normalizedCat != t.category) {
+        t = t.copyWith(category: normalizedCat);
+        modified = true;
+      }
+
+      final key = (t.id.isNotEmpty && (t.id.startsWith('pluggy_') || t.id.startsWith('notif_')))
+          ? t.id
+          : '${t.date.year}-${t.date.month}-${t.date.day}_${t.amount.toStringAsFixed(2)}_${t.type.name}_${t.title.trim().toLowerCase()}';
       if (seenTxKeys.contains(key)) {
         modified = true;
         continue;
@@ -177,7 +184,7 @@ class FinanceProvider extends ChangeNotifier {
     return t.type == TransactionType.income && t.title.toLowerCase().contains('estorno');
   }
 
-  DateTime _selectedMonth = DateTime(2026, 11);
+  DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   bool _filterBySelectedMonth = true;
 
   DateTime get selectedMonth => _selectedMonth;
@@ -185,6 +192,11 @@ class FinanceProvider extends ChangeNotifier {
 
   void setSelectedMonth(DateTime month) {
     _selectedMonth = DateTime(month.year, month.month);
+    notifyListeners();
+  }
+
+  void resetToCurrentMonth() {
+    _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
     notifyListeners();
   }
 
@@ -221,6 +233,23 @@ class FinanceProvider extends ChangeNotifier {
         .fold(0.0, (sum, t) => sum + t.amount);
     final net = grossExpenses - refunds;
     return net < 0 ? 0.0 : net;
+  }
+
+  /// Soma das despesas no mês selecionado atribuídas a terceiros (devedores)
+  double get thirdPartyExpense {
+    return scopedTransactions
+        .where((t) =>
+            t.type == TransactionType.expense &&
+            !_isCardBillPayment(t) &&
+            t.personName != null &&
+            t.personName!.trim().isNotEmpty)
+        .fold(0.0, (sum, t) => sum + t.amount);
+  }
+
+  /// Meu gasto pessoal líquido (despesas totais subtraindo o que foi gasto por terceiros/devedores)
+  double get myNetExpense {
+    final val = totalExpense - thirdPartyExpense;
+    return val < 0 ? 0.0 : val;
   }
 
   double get balance => totalIncome - totalExpense;
@@ -281,21 +310,41 @@ class FinanceProvider extends ChangeNotifier {
   }
 
   Future<void> addTransaction(TransactionModel transaction) async {
-    _transactions.insert(0, transaction);
+    final normCat = OfxParserService.normalizeCategory(transaction.category, transaction.title);
+    final toAdd = normCat != transaction.category
+        ? transaction.copyWith(category: normCat)
+        : transaction;
+    _transactions.insert(0, toAdd);
     await _persist();
     notifyListeners();
   }
 
   Future<void> addMultipleTransactions(List<TransactionModel> newItems) async {
-    // Avoid exact duplicates (same date, amount, title)
-    for (final item in newItems) {
-      final exists = _transactions.any((t) =>
-          t.title == item.title &&
-          (t.amount - item.amount).abs() < 0.01 &&
-          t.date.year == item.date.year &&
-          t.date.month == item.date.month &&
-          t.date.day == item.date.day);
-      if (!exists) {
+    for (var item in newItems) {
+      final normCat = OfxParserService.normalizeCategory(item.category, item.title);
+      if (normCat != item.category) {
+        item = item.copyWith(category: normCat);
+      }
+
+      final existingIndex = _transactions.indexWhere((t) =>
+          (item.id.isNotEmpty && t.id == item.id) ||
+          (t.title == item.title &&
+              (t.amount - item.amount).abs() < 0.01 &&
+              t.date.year == item.date.year &&
+              t.date.month == item.date.month &&
+              t.date.day == item.date.day));
+
+      if (existingIndex != -1) {
+        final existing = _transactions[existingIndex];
+        final updated = existing.copyWith(
+          bank: item.bank ?? existing.bank,
+          installmentRef: item.installmentRef ?? existing.installmentRef,
+          category: (existing.category == 'Outros' || existing.category == 'Geral')
+              ? item.category
+              : existing.category,
+        );
+        _transactions[existingIndex] = updated;
+      } else {
         _transactions.insert(0, item);
       }
     }

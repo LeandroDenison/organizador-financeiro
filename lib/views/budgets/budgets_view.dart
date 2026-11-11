@@ -94,7 +94,7 @@ class BudgetsView extends StatelessWidget {
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final budget = budgets.budgets[index];
-                  final spent = budgets.getSpentFor(budget.category, finance.transactions);
+                  final spent = budgets.getSpentFor(budget.category, finance.transactions, finance.selectedMonth);
                   final progress = (spent / budget.monthlyLimit).clamp(0.0, 1.0);
                   final percent = (spent / budget.monthlyLimit * 100).toInt();
 

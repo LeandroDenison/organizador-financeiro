@@ -440,7 +440,10 @@ class OpenFinanceService {
                   amount: rawAmount.abs(),
                   date: effectiveDate,
                   type: isExpense ? TransactionType.expense : TransactionType.income,
-                  category: map['category']?.toString() ?? OfxParserService.guessCategory(description),
+                  category: OfxParserService.normalizeCategory(
+                    map['category']?.toString(),
+                    description,
+                  ),
                   bank: bank.bankName,
                   source: TransactionSource.ofx,
                   installmentRef: installmentRef,

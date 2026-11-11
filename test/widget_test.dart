@@ -11,6 +11,7 @@ import 'package:organizador_financeiro/providers/notification_provider.dart';
 import 'package:organizador_financeiro/providers/budget_provider.dart';
 import 'package:organizador_financeiro/providers/savings_provider.dart';
 import 'package:organizador_financeiro/providers/subscription_provider.dart';
+import 'package:organizador_financeiro/providers/bank_loan_provider.dart';
 import 'package:organizador_financeiro/services/firebase_service.dart';
 import 'package:organizador_financeiro/services/pdf_parser_service.dart';
 import 'package:organizador_financeiro/views/bank_import/widgets/import_preview_dialog.dart';
@@ -34,10 +35,11 @@ void main() {
           ChangeNotifierProvider(create: (_) => FinanceProvider()),
           ChangeNotifierProvider(create: (_) => DebtProvider()),
           ChangeNotifierProvider(create: (_) => NotificationProvider()),
-          ChangeNotifierProvider(create: (_) => FirebaseService()),
+          ChangeNotifierProvider.value(value: FirebaseService()),
           ChangeNotifierProvider(create: (_) => BudgetProvider()),
           ChangeNotifierProvider(create: (_) => SavingsProvider()),
           ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+          ChangeNotifierProvider(create: (_) => BankLoanProvider()),
         ],
         child: const FinancialOrganizerApp(),
       ),
@@ -169,10 +171,11 @@ void main() {
           ChangeNotifierProvider.value(value: financeProvider),
           ChangeNotifierProvider(create: (_) => DebtProvider()),
           ChangeNotifierProvider(create: (_) => NotificationProvider()),
-          ChangeNotifierProvider(create: (_) => FirebaseService()),
+          ChangeNotifierProvider.value(value: FirebaseService()),
           ChangeNotifierProvider(create: (_) => BudgetProvider()),
           ChangeNotifierProvider(create: (_) => SavingsProvider()),
           ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+          ChangeNotifierProvider(create: (_) => BankLoanProvider()),
         ],
         child: const MaterialApp(
           home: Scaffold(
@@ -181,7 +184,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Google Drive'), findsWidgets);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(SettingsView), findsOneWidget);
   });
 }

@@ -96,6 +96,53 @@ class OfxParserService {
     }
   }
 
+  static String normalizeCategory(String? rawCategory, [String? memo]) {
+    final cat = (rawCategory ?? '').trim().toLowerCase();
+
+    // Explicit English to Portuguese mapping
+    if (cat == 'shopping' || cat == 'compras' || cat == 'retail') return 'Compras';
+    if (cat == 'telecommunications' || cat == 'telecom' || cat == 'telefonia') return 'Telefonia & Internet';
+    if (cat == 'services' || cat == 'serviços' || cat == 'servicos') return 'Serviços';
+    if (cat == 'food & beverage' ||
+        cat == 'food and beverage' ||
+        cat == 'supermarket' ||
+        cat == 'restaurants' ||
+        cat == 'alimentação' ||
+        cat == 'alimentacao' ||
+        cat == 'groceries') {
+      return 'Alimentação';
+    }
+    if (cat == 'transportation' ||
+        cat == 'transport' ||
+        cat == 'transporte' ||
+        cat == 'travel & transportation') {
+      return 'Transporte';
+    }
+    if (cat == 'entertainment' || cat == 'leisure' || cat == 'lazer' || cat == 'streaming') return 'Lazer';
+    if (cat == 'health' || cat == 'healthcare' || cat == 'saúde' || cat == 'saude' || cat == 'pharmacy') return 'Saúde';
+    if (cat == 'education' || cat == 'educação' || cat == 'educacao') return 'Educação';
+    if (cat == 'housing' || cat == 'home' || cat == 'utilities' || cat == 'moradia' || cat == 'rent') return 'Moradia';
+    if (cat == 'finances' || cat == 'financial' || cat == 'taxes' || cat == 'financeiro' || cat == 'impostos') return 'Financeiro';
+    if (cat == 'travel' || cat == 'tourism' || cat == 'viagem') return 'Viagem';
+    if (cat == 'salary' || cat == 'income' || cat == 'salário' || cat == 'salario') return 'Salário';
+
+    // If memo is provided, try to guess
+    if (memo != null && memo.isNotEmpty) {
+      final guessed = guessCategory(memo);
+      if (guessed != 'Outros') return guessed;
+    }
+
+    if (rawCategory != null &&
+        rawCategory.trim().isNotEmpty &&
+        rawCategory.toLowerCase() != 'other' &&
+        rawCategory.toLowerCase() != 'outros') {
+      final trimmed = rawCategory.trim();
+      return trimmed[0].toUpperCase() + trimmed.substring(1);
+    }
+
+    return 'Outros';
+  }
+
   static String guessCategory(String memo) {
     final lower = memo.toLowerCase();
     if (lower.contains('supermercado') ||

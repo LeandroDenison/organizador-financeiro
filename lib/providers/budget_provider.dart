@@ -40,34 +40,38 @@ class BudgetProvider extends ChangeNotifier {
   }
 
   double getLimitFor(String category) {
-    final b = _budgets.firstWhere(
-      (element) => element.category.toLowerCase() == category.toLowerCase(),
-      orElse: () => BudgetModel(category: category, monthlyLimit: 500.0),
+    final b = _budgets.cast<BudgetModel?>().firstWhere(
+      (element) => element?.category.toLowerCase() == category.toLowerCase(),
+      orElse: () => null,
     );
-    return b.monthlyLimit;
+    return b?.monthlyLimit ?? 0.0;
   }
 
-  double getSpentFor(String category, List<TransactionModel> transactions) {
-    final now = DateTime.now();
+  bool hasBudgetFor(String category) {
+    return _budgets.any((b) => b.category.toLowerCase() == category.toLowerCase());
+  }
+
+  double getSpentFor(String category, List<TransactionModel> transactions, [DateTime? targetMonth]) {
+    final month = targetMonth ?? DateTime.now();
     return transactions
         .where((t) =>
             t.type == TransactionType.expense &&
             t.category.toLowerCase() == category.toLowerCase() &&
-            t.date.year == now.year &&
-            t.date.month == now.month)
+            t.date.year == month.year &&
+            t.date.month == month.month)
         .fold(0.0, (sum, t) => sum + t.amount);
   }
 
-  double getProgressFor(String category, List<TransactionModel> transactions) {
+  double getProgressFor(String category, List<TransactionModel> transactions, [DateTime? targetMonth]) {
     final limit = getLimitFor(category);
     if (limit <= 0) return 0.0;
-    final spent = getSpentFor(category, transactions);
+    final spent = getSpentFor(category, transactions, targetMonth);
     return (spent / limit).clamp(0.0, 1.5);
   }
 
-  List<BudgetModel> getAlertBudgets(List<TransactionModel> transactions) {
+  List<BudgetModel> getAlertBudgets(List<TransactionModel> transactions, [DateTime? targetMonth]) {
     return _budgets.where((b) {
-      final spent = getSpentFor(b.category, transactions);
+      final spent = getSpentFor(b.category, transactions, targetMonth);
       return spent >= (b.monthlyLimit * 0.8);
     }).toList();
   }

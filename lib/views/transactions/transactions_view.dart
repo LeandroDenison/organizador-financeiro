@@ -582,40 +582,48 @@ class TransactionsView extends StatelessWidget {
         spacing: 12,
         runSpacing: 8,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left_rounded),
-                tooltip: 'Mês anterior',
-                visualDensity: VisualDensity.compact,
-                onPressed: finance.filterBySelectedMonth
-                    ? () {
-                        final prev = DateTime(selected.year, selected.month - 1);
-                        finance.setSelectedMonth(prev);
-                      }
-                    : null,
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.calendar_month_rounded, size: 18, color: AppConstants.primaryColor),
-              const SizedBox(width: 8),
-              Text(
-                finance.filterBySelectedMonth ? label : 'Todos os Meses (Sem Filtro)',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.chevron_right_rounded),
-                tooltip: 'Próximo mês',
-                visualDensity: VisualDensity.compact,
-                onPressed: finance.filterBySelectedMonth
-                    ? () {
-                        final next = DateTime(selected.year, selected.month + 1);
-                        finance.setSelectedMonth(next);
-                      }
-                    : null,
-              ),
-            ],
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left_rounded),
+                  tooltip: 'Mês anterior',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: finance.filterBySelectedMonth
+                      ? () {
+                          final prev = DateTime(selected.year, selected.month - 1);
+                          finance.setSelectedMonth(prev);
+                        }
+                      : null,
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.calendar_month_rounded, size: 16, color: AppConstants.primaryColor),
+                const SizedBox(width: 6),
+                Text(
+                  finance.filterBySelectedMonth ? label : 'Todos os Meses (Sem Filtro)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right_rounded),
+                  tooltip: 'Próximo mês',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: finance.filterBySelectedMonth
+                      ? () {
+                          final next = DateTime(selected.year, selected.month + 1);
+                          finance.setSelectedMonth(next);
+                        }
+                      : null,
+                ),
+              ],
+            ),
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -630,15 +638,16 @@ class TransactionsView extends StatelessWidget {
                 ),
                 onSelected: (val) => finance.toggleMonthFilter(val),
               ),
-              if (finance.filterBySelectedMonth && (selected.year != 2026 || selected.month != 11)) ...[
+              if (finance.filterBySelectedMonth && (selected.year != DateTime.now().year || selected.month != DateTime.now().month)) ...[
                 const SizedBox(width: 6),
                 TextButton(
                   style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     foregroundColor: AppConstants.primaryColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   ),
-                  onPressed: () => finance.setSelectedMonth(DateTime(2026, 11)),
-                  child: const Text('Ir para Nov/2026'),
+                  onPressed: () => finance.resetToCurrentMonth(),
+                  child: const Text('Mês Atual', style: TextStyle(fontSize: 12)),
                 ),
               ],
             ],

@@ -156,11 +156,19 @@ class DashboardView extends StatelessWidget {
                       subtitle: 'Receitas menos despesas do mês',
                     ),
                     SummaryCard(
-                      title: 'Despesas (Mês)',
-                      value: CurrencyFormatter.format(finance.totalExpense),
+                      title: finance.thirdPartyExpense > 0
+                          ? 'Meu Gasto Real (Mês)'
+                          : 'Despesas (Mês)',
+                      value: CurrencyFormatter.format(
+                        finance.thirdPartyExpense > 0
+                            ? finance.myNetExpense
+                            : finance.totalExpense,
+                      ),
                       icon: Icons.arrow_upward_rounded,
                       color: AppConstants.accentRed,
-                      subtitle: 'Cartões, compras e contas do mês',
+                      subtitle: finance.thirdPartyExpense > 0
+                          ? 'Faturas: ${CurrencyFormatter.format(finance.totalExpense)} (${CurrencyFormatter.format(finance.thirdPartyExpense)} de terceiros)'
+                          : 'Cartões, compras e contas do mês',
                       onTap: () => appState.setTab(1), // Extrato de Transações
                     ),
                     SummaryCard(
@@ -303,45 +311,45 @@ class DashboardView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
-              Expanded(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        'Quem me deve',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.grey.shade900,
-                        ),
-                      ),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    'Quem me deve',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.grey.shade900,
                     ),
-                    const SizedBox(width: 8),
-                    SegmentedButton<DebtViewMode>(
-                      segments: const [
-                        ButtonSegment(
-                          value: DebtViewMode.month,
-                          label: Text('Mês', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                        ),
-                        ButtonSegment(
-                          value: DebtViewMode.total,
-                          label: Text('Total', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                      selected: {debts.viewMode},
-                      onSelectionChanged: (newVal) => debts.setViewMode(newVal.first),
-                      style: const ButtonStyle(
-                        visualDensity: VisualDensity.compact,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  SegmentedButton<DebtViewMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: DebtViewMode.month,
+                        label: Text('Mês', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
+                      ButtonSegment(
+                        value: DebtViewMode.total,
+                        label: Text('Total', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                    selected: {debts.viewMode},
+                    onSelectionChanged: (newVal) => debts.setViewMode(newVal.first),
+                    style: ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8, vertical: 0)),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               TextButton.icon(
                 onPressed: () => appState.setTab(2),
@@ -627,47 +635,60 @@ class DashboardView extends StatelessWidget {
           color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        runSpacing: 4,
         children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left_rounded),
-                tooltip: 'Mês anterior',
-                visualDensity: VisualDensity.compact,
-                onPressed: () {
-                  final prev = DateTime(selected.year, selected.month - 1);
-                  finance.setSelectedMonth(prev);
-                },
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.calendar_month_rounded, size: 18, color: AppConstants.primaryColor),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.chevron_right_rounded),
-                tooltip: 'Próximo mês',
-                visualDensity: VisualDensity.compact,
-                onPressed: () {
-                  final next = DateTime(selected.year, selected.month + 1);
-                  finance.setSelectedMonth(next);
-                },
-              ),
-            ],
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left_rounded),
+                  tooltip: 'Mês anterior',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    final prev = DateTime(selected.year, selected.month - 1);
+                    finance.setSelectedMonth(prev);
+                  },
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.calendar_month_rounded, size: 16, color: AppConstants.primaryColor),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right_rounded),
+                  tooltip: 'Próximo mês',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    final next = DateTime(selected.year, selected.month + 1);
+                    finance.setSelectedMonth(next);
+                  },
+                ),
+              ],
+            ),
           ),
-          if (selected.year != 2026 || selected.month != 11)
+          if (selected.year != DateTime.now().year || selected.month != DateTime.now().month)
             TextButton(
               style: TextButton.styleFrom(
                 visualDensity: VisualDensity.compact,
                 foregroundColor: AppConstants.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
-              onPressed: () => finance.setSelectedMonth(DateTime(2026, 11)),
-              child: const Text('Voltar para Nov/2026'),
+              onPressed: () => finance.resetToCurrentMonth(),
+              child: const Text('Mês Atual', style: TextStyle(fontSize: 12)),
             ),
         ],
       ),

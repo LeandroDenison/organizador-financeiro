@@ -470,64 +470,67 @@ class _NotificationsViewState extends State<NotificationsView> {
             const SizedBox(height: 16),
 
             // Custom Notification Simulator
-            ExpansionTile(
-              title: const Text('Simular com texto personalizado'),
-              subtitle: const Text('Digite qualquer texto de notificação para testar a extração do valor e estabelecimento'),
-              leading: const Icon(Icons.tune_rounded, color: AppConstants.primaryColor),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      DropdownButtonFormField<String>(
-                        value: _selectedPackage,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Aplicativo / Banco Emissor',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'com.nu.production', child: Text('Nubank (com.nu.production)')),
-                          DropdownMenuItem(value: 'com.itau', child: Text('Itaú (com.itau)')),
-                          DropdownMenuItem(value: 'com.mercadopago.wallet', child: Text('Mercado Pago (com.mercadopago.wallet)')),
-                        ],
-                        onChanged: (val) => setState(() => _selectedPackage = val!),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _customTitleController,
-                        decoration: const InputDecoration(
-                          labelText: 'Título da Notificação',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _customTextController,
-                        maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'Texto da Notificação',
-                          hintText: 'Ex: Compra de R\$ 45,00 aprovada em Padaria Sol.',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppConstants.primaryColor,
-                            foregroundColor: Colors.white,
+            Material(
+              color: Colors.transparent,
+              child: ExpansionTile(
+                title: const Text('Simular com texto personalizado'),
+                subtitle: const Text('Digite qualquer texto de notificação para testar a extração do valor e estabelecimento'),
+                leading: const Icon(Icons.tune_rounded, color: AppConstants.primaryColor),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        DropdownButtonFormField<String>(
+                          value: _selectedPackage,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Aplicativo / Banco Emissor',
+                            border: OutlineInputBorder(),
                           ),
-                          icon: const Icon(Icons.send_rounded),
-                          label: const Text('Disparar Teste'),
-                          onPressed: _simulateCustom,
+                          items: const [
+                            DropdownMenuItem(value: 'com.nu.production', child: Text('Nubank (com.nu.production)')),
+                            DropdownMenuItem(value: 'com.itau', child: Text('Itaú (com.itau)')),
+                            DropdownMenuItem(value: 'com.mercadopago.wallet', child: Text('Mercado Pago (com.mercadopago.wallet)')),
+                          ],
+                          onChanged: (val) => setState(() => _selectedPackage = val!),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _customTitleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Título da Notificação',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _customTextController,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Texto da Notificação',
+                            hintText: 'Ex: Compra de R\$ 45,00 aprovada em Padaria Sol.',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppConstants.primaryColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.send_rounded),
+                            label: const Text('Disparar Teste'),
+                            onPressed: _simulateCustom,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 24),
 

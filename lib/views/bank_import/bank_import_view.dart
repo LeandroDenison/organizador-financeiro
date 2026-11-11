@@ -7,7 +7,6 @@ import '../../providers/app_state_provider.dart';
 import '../../services/ofx_parser_service.dart';
 import '../../services/csv_parser_service.dart';
 import '../../services/pdf_parser_service.dart';
-import '../../services/sample_data_service.dart';
 import '../../services/boleto_service.dart';
 import '../../models/transaction_model.dart';
 import '../../utils/constants.dart';
@@ -173,17 +172,7 @@ class _BankImportViewState extends State<BankImportView> {
 
   // Sample data generators for instant testing
   void _loadSample(String type) {
-    if (type == 'denison_nubank_pdf') {
-      final transactions = SampleDataService.getDenisonRealTransactions()
-          .where((t) => t.bank == 'Nubank')
-          .toList();
-      _showPreviewDialog('Nubank (Fatura PDF)', transactions);
-    } else if (type == 'denison_itau_pdf') {
-      final transactions = SampleDataService.getDenisonRealTransactions()
-          .where((t) => t.bank == 'Itaú')
-          .toList();
-      _showPreviewDialog('Itaú (Extrato PDF)', transactions);
-    } else if (type == 'nubank_ofx') {
+    if (type == 'nubank_ofx') {
       const sample = '''OFXHEADER:100
 DATA:OFXSGML
 VERSION:102
@@ -480,20 +469,6 @@ NEWFILEUID:NONE
               spacing: 12,
               runSpacing: 12,
               children: [
-                _buildBankSampleCard(
-                  title: 'Fatura Nubank (PDF)',
-                  subtitle: '45 compras (R\$ 3.042,66) + Sergio Lucas',
-                  color: AppConstants.nubankPurple,
-                  icon: Icons.picture_as_pdf_rounded,
-                  onTap: () => _loadSample('denison_nubank_pdf'),
-                ),
-                _buildBankSampleCard(
-                  title: 'Extrato Itaú (PDF)',
-                  subtitle: 'Salário R\$ 2.995,34, Pix e Faturas',
-                  color: AppConstants.itauOrange,
-                  icon: Icons.picture_as_pdf_rounded,
-                  onTap: () => _loadSample('denison_itau_pdf'),
-                ),
                 _buildBankSampleCard(
                   title: 'Nubank (OFX)',
                   subtitle: 'Modelo OFX bancário',

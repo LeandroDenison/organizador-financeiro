@@ -13,7 +13,6 @@ import '../../providers/bank_loan_provider.dart';
 import '../../services/firebase_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/pix_payload_service.dart';
-import '../../services/sample_data_service.dart';
 import '../../services/open_finance_service.dart';
 import '../../utils/constants.dart';
 
@@ -791,39 +790,6 @@ class _SettingsViewState extends State<SettingsView> {
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppConstants.accentGreen,
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: const Icon(Icons.download_done_rounded),
-                        label: const Text('Carregar Minhas Faturas (Nubank + Itaú)'),
-                        onPressed: () async {
-                          final fin = context.read<FinanceProvider>();
-                          final debt = context.read<DebtProvider>();
-                          
-                          // Limpa base e injeta dados reais do Denison
-                          await fin.clearTransactions();
-                          await debt.clearDebts();
-
-                          final realTxs = SampleDataService.getDenisonRealTransactions();
-                          await fin.addMultipleTransactions(realTxs);
-
-                          final realDebts = SampleDataService.getDenisonRealDebts();
-                          for (final d in realDebts) {
-                            await debt.addDebt(d);
-                          }
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Sucesso! ${realTxs.length} transações e ${realDebts.length} dívida (Sergio Lucas) carregadas.'),
-                                backgroundColor: AppConstants.accentGreen,
-                              ),
-                            );
-                          }
-                        },
-                      ),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppConstants.accentRed,
@@ -1097,13 +1063,15 @@ class _SettingsViewState extends State<SettingsView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 4,
                               children: [
                                 Text(
                                   bank.bankName,
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                 ),
-                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
@@ -1184,8 +1152,9 @@ class _SettingsViewState extends State<SettingsView> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     SizedBox(
-                      width: 160,
+                      width: isMobile ? double.infinity : 160,
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         value: _selectedNewBank,
                         decoration: const InputDecoration(
                           labelText: 'Banco',
@@ -1307,60 +1276,63 @@ class _SettingsViewState extends State<SettingsView> {
           // API Credentials Collapsible Card
           Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              leading: const Icon(Icons.key_rounded, size: 20, color: Colors.amber),
-              title: const Text(
-                'Credenciais da API Pluggy (Avançado)',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text(
-                'Client ID e Client Secret da aplicação Open Finance',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: _pluggyClientIdController,
-                        decoration: const InputDecoration(
-                          labelText: 'Pluggy Client ID',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _pluggyClientSecretController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Pluggy Client Secret',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            await _saveOpenFinanceConfig();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Chaves da API salvas com sucesso!'),
-                                  backgroundColor: AppConstants.accentGreen,
-                                ),
-                              );
-                            }
-                          },
-                          child: const Text('Salvar Credenciais'),
-                        ),
-                      ),
-                    ],
-                  ),
+            child: Material(
+              color: Colors.transparent,
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                leading: const Icon(Icons.key_rounded, size: 20, color: Colors.amber),
+                title: const Text(
+                  'Credenciais da API Pluggy (Avançado)',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                 ),
-              ],
+                subtitle: const Text(
+                  'Client ID e Client Secret da aplicação Open Finance',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _pluggyClientIdController,
+                          decoration: const InputDecoration(
+                            labelText: 'Pluggy Client ID',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _pluggyClientSecretController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Pluggy Client Secret',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              await _saveOpenFinanceConfig();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Chaves da API salvas com sucesso!'),
+                                    backgroundColor: AppConstants.accentGreen,
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text('Salvar Credenciais'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

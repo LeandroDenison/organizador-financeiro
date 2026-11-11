@@ -293,7 +293,9 @@ class FirebaseService extends ChangeNotifier {
   Future<void> triggerSync() async {
     if (_status != FirebaseSyncStatus.connected) return;
     _lastSyncTime = DateTime.now();
-    notifyListeners();
+    if (hasListeners) {
+      notifyListeners();
+    }
     if (_realtimeEnabled) {
       await pushToFirestore();
     }

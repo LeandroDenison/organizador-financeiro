@@ -54,13 +54,22 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
     }).fold(0.0, (sum, s) => sum + (_onlyMyBills ? s.effectiveMyCost : s.amount));
 
     // Saldo final estimado do MÊS (projeção do fluxo mensal real):
-    // Fluxo do mês (Receitas - Despesas) + O que os devedores ainda vão pagar - Contas que ainda faltam cobrar
+    // Modo Apenas Minhas Contas: Suas Receitas - Seus Gastos Pessoais Líquidos - Assinaturas restantes
+    // Modo Com Devedores: Suas Receitas - Gastos Totais + O que os devedores ainda vão pagar - Assinaturas
     final projectedBalance = _onlyMyBills
-        ? (monthlyFlowBalance - unbilledSubs)
+        ? (finance.totalIncome - finance.myNetExpense - unbilledSubs)
         : (monthlyFlowBalance + pendingDebtorReceivables - unbilledSubs);
 
     final isPositive = projectedBalance >= 0;
     final isTight = isPositive && projectedBalance < 300;
+
+    // Cálculo do teto diário disponível até o fim do mês
+    final now = DateTime.now();
+    final daysInMonth = DateTime(selectedMonth.year, selectedMonth.month + 1, 0).day;
+    final remainingDays = (selectedMonth.year == now.year && selectedMonth.month == now.month)
+        ? (daysInMonth - now.day + 1).clamp(1, 31)
+        : daysInMonth;
+    final dailyBudget = projectedBalance > 0 ? (projectedBalance / remainingDays) : 0.0;
 
     final statusColor = isTight
         ? AppConstants.accentAmber
@@ -350,27 +359,31 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
             spacing: 8,
             runSpacing: 6,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    _onlyMyBills ? 'Sobra Real: ' : 'Saldo Final: ',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      _onlyMyBills ? 'Sobra Real: ' : 'Saldo Final: ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      ),
                     ),
-                  ),
-                  Text(
-                    CurrencyFormatter.format(projectedBalance),
-                    style: TextStyle(
-                      fontSize: isMobile ? 22 : 26,
-                      fontWeight: FontWeight.bold,
-                      color: statusColor,
+                    Text(
+                      CurrencyFormatter.format(projectedBalance),
+                      style: TextStyle(
+                        fontSize: isMobile ? 22 : 26,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -548,6 +561,72 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                 ),
               ],
             ),
+          // Daily Allowance Box
+          if (projectedBalance > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0F172A) : Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppConstants.accentGreen.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppConstants.accentGreen.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.calendar_today_rounded,
+                      size: 16,
+                      color: AppConstants.accentGreen,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Quanto posso gastar por dia:',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                          ),
+                        ),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          children: [
+                            Text(
+                              '${CurrencyFormatter.format(dailyBudget)} / dia',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: AppConstants.accentGreen,
+                              ),
+                            ),
+                            Text(
+                              '($remainingDays dias restantes)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
