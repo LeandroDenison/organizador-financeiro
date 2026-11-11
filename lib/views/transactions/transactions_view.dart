@@ -283,16 +283,18 @@ class TransactionsView extends StatelessWidget {
                                         ),
                                       ),
                                       const SizedBox(height: 8),
-                                      // Row 3: Badges on left + Action buttons on right
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      // Row 3: Badges on left + Action buttons (responsive wrap to prevent mobile overflow)
+                                      Wrap(
+                                        alignment: WrapAlignment.spaceBetween,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        spacing: 6,
+                                        runSpacing: 6,
                                         children: [
-                                          Expanded(
-                                            child: Wrap(
-                                              spacing: 6,
-                                              runSpacing: 4,
-                                              crossAxisAlignment: WrapCrossAlignment.center,
-                                              children: [
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 4,
+                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                            children: [
                                                 if (tx.bank != null)
                                                   Container(
                                                     padding: const EdgeInsets.symmetric(
@@ -381,7 +383,6 @@ class TransactionsView extends StatelessWidget {
                                                     ),
                                                   ),
                                               ],
-                                            ),
                                           ),
                                           Row(
                                             mainAxisSize: MainAxisSize.min,

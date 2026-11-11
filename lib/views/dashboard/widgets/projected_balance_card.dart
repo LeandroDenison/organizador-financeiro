@@ -91,73 +91,74 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header: Mode Switcher & Status Badge
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      _onlyMyBills ? Icons.savings_rounded : Icons.auto_graph_rounded,
-                      color: statusColor,
-                      size: 20,
-                    ),
+          if (isMobile) ...[
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(width: 10),
-                  Column(
+                  child: Icon(
+                    _onlyMyBills ? Icons.savings_rounded : Icons.auto_graph_rounded,
+                    color: statusColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         _onlyMyBills
-                            ? 'Previsão do Salário (Apenas Minhas Contas)'
+                            ? 'Previsão do Salário'
                             : 'Previsão Completa (Com Devedores)',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         _onlyMyBills
-                            ? 'Sobra real do seu bolso sem depender de terceiros'
-                            : 'Fluxo mensal: Receitas - Despesas + Devedores deste mês - Assinaturas',
+                            ? 'Apenas suas contas do mês'
+                            : 'Fluxo mensal com recebimento de devedores',
                         style: TextStyle(
                           fontSize: 11,
                           color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
-                ],
-              ),
-              // Segmented Button Toggle
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
-                  ),
                 ),
-                padding: const EdgeInsets.all(3),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    InkWell(
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                ),
+              ),
+              padding: const EdgeInsets.all(3),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
                       onTap: () => setState(() => _onlyMyBills = true),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
                           color: _onlyMyBills ? AppConstants.primaryColor : Colors.transparent,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.person_rounded,
@@ -165,28 +166,34 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                               color: _onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              'Apenas Minhas Contas',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: _onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                            Flexible(
+                              child: Text(
+                                'Apenas Minhas Contas',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: _onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    InkWell(
+                  ),
+                  Expanded(
+                    child: InkWell(
                       onTap: () => setState(() => _onlyMyBills = false),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
                           color: !_onlyMyBills ? AppConstants.primaryColor : Colors.transparent,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.group_rounded,
@@ -194,52 +201,181 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                               color: !_onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              'Com Devedores',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: !_onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                            Flexible(
+                              child: Text(
+                                'Com Devedores',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: !_onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ] else
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        _onlyMyBills ? Icons.savings_rounded : Icons.auto_graph_rounded,
+                        color: statusColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _onlyMyBills
+                              ? 'Previsão do Salário (Apenas Minhas Contas)'
+                              : 'Previsão Completa (Com Devedores)',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        Text(
+                          _onlyMyBills
+                              ? 'Sobra real do seu bolso sem depender de terceiros'
+                              : 'Fluxo mensal: Receitas - Despesas + Devedores deste mês - Assinaturas',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
+                // Segmented Button Toggle
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () => setState(() => _onlyMyBills = true),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _onlyMyBills ? AppConstants.primaryColor : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.person_rounded,
+                                size: 13,
+                                color: _onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Apenas Minhas Contas',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: _onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => setState(() => _onlyMyBills = false),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: !_onlyMyBills ? AppConstants.primaryColor : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.group_rounded,
+                                size: 13,
+                                color: !_onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Com Devedores',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: !_onlyMyBills ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 16),
 
           // Main Projected Value
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
-              Text(
-                _onlyMyBills ? 'Sobra Real Estimada: ' : 'Saldo Final Estimado: ',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  CurrencyFormatter.format(projectedBalance),
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: isMobile ? 22 : 26,
-                    fontWeight: FontWeight.bold,
-                    color: statusColor,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    _onlyMyBills ? 'Sobra Real: ' : 'Saldo Final: ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ),
                   ),
-                ),
+                  Text(
+                    CurrencyFormatter.format(projectedBalance),
+                    style: TextStyle(
+                      fontSize: isMobile ? 22 : 26,
+                      fontWeight: FontWeight.bold,
+                      color: statusColor,
+                    ),
+                  ),
+                ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
+                  color: statusColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -268,15 +404,19 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.hub_rounded, size: 14, color: AppConstants.accentCyan),
                         const SizedBox(width: 6),
                         Text(
-                          'Saldo Consolidado (3 Bancos Open Finance):',
+                          isMobile ? 'Saldo Open Finance:' : 'Saldo Consolidado (3 Bancos Open Finance):',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -286,6 +426,7 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                       ],
                     ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           CurrencyFormatter.format(currentCashBalance),

@@ -49,147 +49,283 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            // Header (responsive for mobile)
+            if (isMobile) ...[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Quem me Deve',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Controle de contas por pessoa, cobrança no WhatsApp e abatimentos',
+                    style: TextStyle(
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
                     children: [
-                      Text(
-                        isMobile ? 'Quem me Deve' : 'Quem me Deve (Empréstimos)',
-                        style: (isMobile
-                                ? Theme.of(context).textTheme.titleLarge
-                                : Theme.of(context).textTheme.headlineSmall)
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Controle de contas por pessoa, cobrança no WhatsApp e abatimentos',
-                        style: TextStyle(
-                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                          fontSize: 12,
+                      Expanded(
+                        child: SegmentedButton<DebtViewMode>(
+                          segments: const [
+                            ButtonSegment(
+                              value: DebtViewMode.month,
+                              icon: Icon(Icons.calendar_month_rounded, size: 14),
+                              label: Text('Mês', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+                            ButtonSegment(
+                              value: DebtViewMode.total,
+                              icon: Icon(Icons.all_inclusive_rounded, size: 14),
+                              label: Text('Total', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                          selected: {debtProvider.viewMode},
+                          onSelectionChanged: (newVal) => debtProvider.setViewMode(newVal.first),
+                          style: ButtonStyle(
+                            visualDensity: VisualDensity.compact,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 4, vertical: 0)),
+                          ),
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppConstants.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        icon: const Icon(Icons.person_add_rounded, size: 16),
+                        label: const Text('Novo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => const AddDebtDialog(),
+                          );
+                        },
                       ),
                     ],
                   ),
-                ),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    // Chave Ativa/Desativa Mês / Total
-                    SegmentedButton<DebtViewMode>(
-                      segments: const [
-                        ButtonSegment(
-                          value: DebtViewMode.month,
-                          icon: Icon(Icons.calendar_month_rounded, size: 15),
-                          label: Text('Mês', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ] else ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Quem me Deve (Empréstimos)',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                        ButtonSegment(
-                          value: DebtViewMode.total,
-                          icon: Icon(Icons.all_inclusive_rounded, size: 15),
-                          label: Text('Total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Controle de contas por pessoa, cobrança no WhatsApp e abatimentos',
+                          style: TextStyle(
+                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
-                      selected: {debtProvider.viewMode},
-                      onSelectionChanged: (newVal) => debtProvider.setViewMode(newVal.first),
-                      style: ButtonStyle(
-                        visualDensity: VisualDensity.compact,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 10, vertical: 0)),
-                      ),
                     ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppConstants.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isMobile ? 12 : 16,
-                          vertical: isMobile ? 8 : 12,
+                  ),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SegmentedButton<DebtViewMode>(
+                        segments: const [
+                          ButtonSegment(
+                            value: DebtViewMode.month,
+                            icon: Icon(Icons.calendar_month_rounded, size: 15),
+                            label: Text('Mês', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                          ButtonSegment(
+                            value: DebtViewMode.total,
+                            icon: Icon(Icons.all_inclusive_rounded, size: 15),
+                            label: Text('Total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                        selected: {debtProvider.viewMode},
+                        onSelectionChanged: (newVal) => debtProvider.setViewMode(newVal.first),
+                        style: ButtonStyle(
+                          visualDensity: VisualDensity.compact,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 10, vertical: 0)),
                         ),
                       ),
-                      icon: const Icon(Icons.person_add_rounded, size: 18),
-                      label: Text(isMobile ? 'Novo' : 'Adicionar Conta'),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (_) => const AddDebtDialog(),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppConstants.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        icon: const Icon(Icons.person_add_rounded, size: 18),
+                        label: const Text('Adicionar Conta'),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => const AddDebtDialog(),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
 
-            // Top Metric Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+            // Top Metric Bar (responsive 2x2 grid on mobile, horizontal row on desktop)
+            if (isMobile)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                  ),
                 ),
-              ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMetric(
+                            debtProvider.viewMode == DebtViewMode.month ? 'A Receber no Mês' : 'Total a Receber',
+                            CurrencyFormatter.format(
+                              debtProvider.viewMode == DebtViewMode.month
+                                  ? debtProvider.totalOwedThisMonth
+                                  : debtProvider.totalOwedToMe,
+                            ),
+                            debtProvider.viewMode == DebtViewMode.month
+                                ? Icons.calendar_month_rounded
+                                : Icons.pending_actions_rounded,
+                            AppConstants.accentAmber,
+                          ),
+                        ),
+                        _buildDivider(isDark),
+                        Expanded(
+                          child: _buildMetric(
+                            debtProvider.viewMode == DebtViewMode.month ? 'Total Acumulado' : 'A Receber no Mês',
+                            CurrencyFormatter.format(
+                              debtProvider.viewMode == DebtViewMode.month
+                                  ? debtProvider.totalOwedToMe
+                                  : debtProvider.totalOwedThisMonth,
+                            ),
+                            debtProvider.viewMode == DebtViewMode.month
+                                ? Icons.all_inclusive_rounded
+                                : Icons.calendar_month_rounded,
+                            Colors.indigoAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Divider(height: 16, color: isDark ? const Color(0xFF334155) : Colors.grey.shade200),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMetric(
+                            'Já Recebido',
+                            CurrencyFormatter.format(debtProvider.totalAlreadyReceived),
+                            Icons.check_circle_rounded,
+                            AppConstants.accentGreen,
+                          ),
+                        ),
+                        _buildDivider(isDark),
+                        Expanded(
+                          child: _buildMetric(
+                            'Parcelas Pendentes',
+                            '${debtProvider.totalPendingInstallments} parcelas',
+                            Icons.calendar_today_rounded,
+                            Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                  ),
+                ),
                 child: Row(
                   children: [
-                    _buildMetric(
-                      debtProvider.viewMode == DebtViewMode.month ? 'A Receber no Mês' : 'Total a Receber',
-                      CurrencyFormatter.format(
+                    Expanded(
+                      child: _buildMetric(
+                        debtProvider.viewMode == DebtViewMode.month ? 'A Receber no Mês' : 'Total a Receber',
+                        CurrencyFormatter.format(
+                          debtProvider.viewMode == DebtViewMode.month
+                              ? debtProvider.totalOwedThisMonth
+                              : debtProvider.totalOwedToMe,
+                        ),
                         debtProvider.viewMode == DebtViewMode.month
-                            ? debtProvider.totalOwedThisMonth
-                            : debtProvider.totalOwedToMe,
+                            ? Icons.calendar_month_rounded
+                            : Icons.pending_actions_rounded,
+                        AppConstants.accentAmber,
                       ),
-                      debtProvider.viewMode == DebtViewMode.month
-                          ? Icons.calendar_month_rounded
-                          : Icons.pending_actions_rounded,
-                      AppConstants.accentAmber,
                     ),
                     _buildDivider(isDark),
-                    _buildMetric(
-                      debtProvider.viewMode == DebtViewMode.month ? 'Total Acumulado' : 'A Receber no Mês',
-                      CurrencyFormatter.format(
+                    Expanded(
+                      child: _buildMetric(
+                        debtProvider.viewMode == DebtViewMode.month ? 'Total Acumulado' : 'A Receber no Mês',
+                        CurrencyFormatter.format(
+                          debtProvider.viewMode == DebtViewMode.month
+                              ? debtProvider.totalOwedToMe
+                              : debtProvider.totalOwedThisMonth,
+                        ),
                         debtProvider.viewMode == DebtViewMode.month
-                            ? debtProvider.totalOwedToMe
-                            : debtProvider.totalOwedThisMonth,
+                            ? Icons.all_inclusive_rounded
+                            : Icons.calendar_month_rounded,
+                        Colors.indigoAccent,
                       ),
-                      debtProvider.viewMode == DebtViewMode.month
-                          ? Icons.all_inclusive_rounded
-                          : Icons.calendar_month_rounded,
-                      Colors.indigoAccent,
                     ),
                     _buildDivider(isDark),
-                    _buildMetric(
-                      'Já Recebido',
-                      CurrencyFormatter.format(debtProvider.totalAlreadyReceived),
-                      Icons.check_circle_rounded,
-                      AppConstants.accentGreen,
+                    Expanded(
+                      child: _buildMetric(
+                        'Já Recebido',
+                        CurrencyFormatter.format(debtProvider.totalAlreadyReceived),
+                        Icons.check_circle_rounded,
+                        AppConstants.accentGreen,
+                      ),
                     ),
                     _buildDivider(isDark),
-                    _buildMetric(
-                      'Pessoas Devedoras',
-                      '${debtProvider.activeDebtsByPerson.keys.length} pessoas',
-                      Icons.people_rounded,
-                      AppConstants.primaryColor,
+                    Expanded(
+                      child: _buildMetric(
+                        'Pessoas Devedoras',
+                        '${debtProvider.activeDebtsByPerson.keys.length} pessoas',
+                        Icons.people_rounded,
+                        AppConstants.primaryColor,
+                      ),
                     ),
                     _buildDivider(isDark),
-                    _buildMetric(
-                      'Parcelas Pendentes',
-                      '${debtProvider.totalPendingInstallments} parcelas',
-                      Icons.calendar_today_rounded,
-                      Colors.blue,
+                    Expanded(
+                      child: _buildMetric(
+                        'Parcelas Pendentes',
+                        '${debtProvider.totalPendingInstallments} parcelas',
+                        Icons.calendar_today_rounded,
+                        Colors.blue,
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
             const SizedBox(height: 14),
 
             // Mode Toggle (Por Pessoa vs Todas as Contas) & Tabs (Ativos / Quitados)
@@ -425,6 +561,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
       itemCount: entries.length,
       separatorBuilder: (_, __) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
+        final isMobile = MediaQuery.of(context).size.width < 600;
         final personName = entries[index].key;
         final debts = entries[index].value;
 
@@ -668,79 +805,87 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                 ),
                 const SizedBox(height: 12),
 
-                // Consolidated Actions for the Person
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    // Receber Parcela(s) do Mês manualmente na aba Por Pessoa
-                    FilledButton.tonalIcon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppConstants.accentGreen.withValues(alpha: 0.15),
-                        foregroundColor: AppConstants.accentGreen,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                      icon: const Icon(Icons.check_rounded, size: 16),
-                      label: Text(
-                        debts.length > 1
-                            ? 'Receber Mês (${CurrencyFormatter.format(totalMonthlyInstallment)})'
-                            : 'Receber (${CurrencyFormatter.format(totalMonthlyInstallment)})',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      onPressed: () async {
-                        await debtProvider.abatePersonDebts(
-                          personName: personName,
-                          amount: totalMonthlyInstallment,
-                          financeProvider: financeProvider,
-                          note: 'Recebimento manual das parcelas de $personName',
-                        );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Recebido ${CurrencyFormatter.format(totalMonthlyInstallment)} de $personName! Adicionado às receitas.',
-                              ),
-                              backgroundColor: AppConstants.accentGreen,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-
-                    // Abater Valor Avulso (e.g. Sergio paid R$ 1.000)
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppConstants.accentAmber,
-                        side: const BorderSide(color: AppConstants.accentAmber),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                      icon: const Icon(Icons.price_check_rounded, size: 16),
-                      label: const Text('Abater Valor Avulso'),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (_) => AbatementDialog(
-                            personName: personName,
-                            totalOwed: totalRemaining,
+                // Consolidated Actions for the Person (Responsive for Mobile)
+                if (isMobile) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.tonalIcon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppConstants.accentGreen.withValues(alpha: 0.15),
+                            foregroundColor: AppConstants.accentGreen,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
                           ),
-                        );
-                      },
-                    ),
-
-                    // Desfazer Abatimentos (se houver histórico nesta pessoa)
-                    if (debts.any((d) => d.paymentHistory.isNotEmpty))
-                      OutlinedButton.icon(
+                          icon: const Icon(Icons.check_rounded, size: 15),
+                          label: Text(
+                            debts.length > 1
+                                ? 'Receber (${CurrencyFormatter.format(totalMonthlyInstallment)})'
+                                : 'Receber (${CurrencyFormatter.format(totalMonthlyInstallment)})',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onPressed: () async {
+                            await debtProvider.abatePersonDebts(
+                              personName: personName,
+                              amount: totalMonthlyInstallment,
+                              financeProvider: financeProvider,
+                              note: 'Recebimento manual das parcelas de $personName',
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Recebido ${CurrencyFormatter.format(totalMonthlyInstallment)} de $personName! Adicionado às receitas.',
+                                  ),
+                                  backgroundColor: AppConstants.accentGreen,
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppConstants.accentAmber,
+                            side: const BorderSide(color: AppConstants.accentAmber),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.price_check_rounded, size: 15),
+                          label: const Text(
+                            'Abater Valor',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (_) => AbatementDialog(
+                                personName: personName,
+                                totalOwed: totalRemaining,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (debts.any((d) => d.paymentHistory.isNotEmpty)) ...[
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.redAccent,
                           side: const BorderSide(color: Colors.redAccent),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                         ),
-                        icon: const Icon(Icons.undo_rounded, size: 16),
-                        label: const Text('Desfazer Abatimentos'),
+                        icon: const Icon(Icons.undo_rounded, size: 15),
+                        label: const Text('Desfazer Abatimentos', style: TextStyle(fontSize: 11)),
                         onPressed: () {
                           showDialog(
                             context: context,
@@ -787,19 +932,22 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                           );
                         },
                       ),
-
-                    // Cobrar Conta Toda no WhatsApp (Consolidated)
-                    ElevatedButton.icon(
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF25D366),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                       icon: const Icon(Icons.chat_bubble_rounded, size: 16),
                       label: Text(
                         debts.length > 1 ? 'Cobrar Conta Toda (WhatsApp)' : 'Cobrar no WhatsApp',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       onPressed: () {
                         showDialog(
@@ -811,8 +959,146 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                         );
                       },
                     ),
-                  ],
-                ),
+                  ),
+                ] else ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.end,
+                    children: [
+                      FilledButton.tonalIcon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppConstants.accentGreen.withValues(alpha: 0.15),
+                          foregroundColor: AppConstants.accentGreen,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.check_rounded, size: 16),
+                        label: Text(
+                          debts.length > 1
+                              ? 'Receber Mês (${CurrencyFormatter.format(totalMonthlyInstallment)})'
+                              : 'Receber (${CurrencyFormatter.format(totalMonthlyInstallment)})',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: () async {
+                          await debtProvider.abatePersonDebts(
+                            personName: personName,
+                            amount: totalMonthlyInstallment,
+                            financeProvider: financeProvider,
+                            note: 'Recebimento manual das parcelas de $personName',
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Recebido ${CurrencyFormatter.format(totalMonthlyInstallment)} de $personName! Adicionado às receitas.',
+                                ),
+                                backgroundColor: AppConstants.accentGreen,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppConstants.accentAmber,
+                          side: const BorderSide(color: AppConstants.accentAmber),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.price_check_rounded, size: 16),
+                        label: const Text('Abater Valor Avulso'),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => AbatementDialog(
+                              personName: personName,
+                              totalOwed: totalRemaining,
+                            ),
+                          );
+                        },
+                      ),
+                      if (debts.any((d) => d.paymentHistory.isNotEmpty))
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.redAccent,
+                            side: const BorderSide(color: Colors.redAccent),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          ),
+                          icon: const Icon(Icons.undo_rounded, size: 16),
+                          label: const Text('Desfazer Abatimentos'),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Row(
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+                                    SizedBox(width: 8),
+                                    Text('Desfazer Abatimentos'),
+                                  ],
+                                ),
+                                content: Text(
+                                  'Deseja desfazer os abatimentos registrados para $personName e restaurar o saldo original de todas as contas?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('Cancelar'),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.redAccent,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () async {
+                                      final reverted = await debtProvider.revertPersonPayments(
+                                        personName: personName,
+                                        financeProvider: financeProvider,
+                                      );
+                                      if (ctx.mounted) Navigator.pop(ctx);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Abatimentos de ${CurrencyFormatter.format(reverted)} desfeitos! Saldo restaurado.'),
+                                            backgroundColor: AppConstants.accentGreen,
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: const Text('Sim, Restaurar Saldo'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF25D366),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.chat_bubble_rounded, size: 16),
+                        label: Text(
+                          debts.length > 1 ? 'Cobrar Conta Toda (WhatsApp)' : 'Cobrar no WhatsApp',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => WhatsAppReminderDialog(
+                              personName: personName,
+                              debts: debts,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

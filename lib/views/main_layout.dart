@@ -485,83 +485,95 @@ class MainLayout extends StatelessWidget {
   ) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade400,
-                    borderRadius: BorderRadius.circular(2),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.savings_rounded, color: Colors.green),
-                  title: const Text('Caixinhas & Metas de Economia'),
-                  subtitle: const Text('Objetivos financeiros e reserva'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    appState.setTab(4);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.repeat_rounded, color: AppConstants.primaryColor),
-                  title: const Text('Assinaturas & Custos Fixos'),
-                  subtitle: const Text('Detector de assinaturas e dreno anual'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    appState.setTab(5);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.pie_chart_rounded, color: AppConstants.accentAmber),
-                  title: const Text('Tetos de Gastos por Categoria'),
-                  subtitle: const Text('Limites mensais e alertas automáticos'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    appState.setTab(6);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.upload_file_rounded, color: AppConstants.accentGreen),
-                  title: const Text('Importar Extrato Bancário'),
-                  subtitle: const Text('Arquivos OFX e CSV (Nubank, Itaú, Mercado Pago)'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    appState.setTab(7);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.notifications_active_rounded, color: Colors.blue),
-                  title: const Text('Captura Android de Pix & Compras'),
-                  subtitle: const Text('Leitura de notificações em tempo real'),
-                  trailing: notifProvider.pendingNotifications.isNotEmpty
-                      ? Badge(label: Text('${notifProvider.pendingNotifications.length}'))
-                      : null,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    appState.setTab(8);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.settings_rounded, color: Colors.grey),
-                  title: const Text('Configurações & Open Finance'),
-                  subtitle: const Text('Ajustes, credenciais de bancos e tema'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    appState.setTab(9);
-                  },
-                ),
-              ],
+                  ListTile(
+                    leading: const Icon(Icons.savings_rounded, color: Colors.green),
+                    title: const Text('Caixinhas & Metas de Economia'),
+                    subtitle: const Text('Objetivos financeiros e reserva'),
+                    dense: true,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      appState.setTab(4);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.repeat_rounded, color: AppConstants.primaryColor),
+                    title: const Text('Assinaturas & Custos Fixos'),
+                    subtitle: const Text('Detector de assinaturas e dreno anual'),
+                    dense: true,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      appState.setTab(5);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.pie_chart_rounded, color: AppConstants.accentAmber),
+                    title: const Text('Tetos de Gastos por Categoria'),
+                    subtitle: const Text('Limites mensais e alertas automáticos'),
+                    dense: true,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      appState.setTab(6);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.upload_file_rounded, color: AppConstants.accentGreen),
+                    title: const Text('Importar Extrato Bancário'),
+                    subtitle: const Text('Arquivos OFX e CSV (Nubank, Itaú, Mercado Pago)'),
+                    dense: true,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      appState.setTab(7);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.notifications_active_rounded, color: Colors.blue),
+                    title: const Text('Captura Android de Pix & Compras'),
+                    subtitle: const Text('Leitura de notificações em tempo real'),
+                    dense: true,
+                    trailing: notifProvider.pendingNotifications.isNotEmpty
+                        ? Badge(label: Text('${notifProvider.pendingNotifications.length}'))
+                        : null,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      appState.setTab(8);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.settings_rounded, color: Colors.grey),
+                    title: const Text('Configurações & Open Finance'),
+                    subtitle: const Text('Ajustes, credenciais de bancos e tema'),
+                    dense: true,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      appState.setTab(9);
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         );
