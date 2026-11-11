@@ -1,4 +1,7 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -263,6 +266,20 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
 
   Future<void> _openWhatsApp() async {
     final text = _messageController.text.trim();
+
+    // No celular: abre a janela de compartilhar do sistema para escolher o app
+    // (WhatsApp, WhatsApp Business, Telegram, SMS etc.)
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      try {
+        await SharePlus.instance.share(
+          ShareParams(text: text, subject: 'Cobrança - ${widget.personName}'),
+        );
+        return;
+      } catch (_) {
+        // Se falhar, cai no fallback abaixo
+      }
+    }
+
     String? phone = _selectedDebt?.contact ?? widget.debts.firstOrNull?.contact;
 
     String cleanPhone = '';
@@ -781,7 +798,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
       icon: const Icon(Icons.send_rounded, size: 18),
-      label: const Text('Abrir no WhatsApp'),
+      label: Text(isMobile ? 'Enviar cobrança' : 'Abrir no WhatsApp'),
       onPressed: _openWhatsApp,
     );
 
