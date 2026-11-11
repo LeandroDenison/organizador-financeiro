@@ -567,6 +567,8 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
 
         final isMonthMode = debtProvider.viewMode == DebtViewMode.month;
         final personMonthVal = debtProvider.personOwedThisMonth(personName);
+        final personGrossMonth = debtProvider.personGrossMonthInstallments(personName);
+        final personPaidMonth = debtProvider.personPaidThisMonth(personName);
         final personTotalVal = debtProvider.personTotalOwed(personName);
         final displayVal = isMonthMode ? personMonthVal : personTotalVal;
 
@@ -638,7 +640,9 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                         ),
                         Text(
                           isMonthMode
-                              ? 'Neste mês • Total: ${CurrencyFormatter.format(personTotalVal)}'
+                              ? (personPaidMonth > 0
+                                  ? 'Subtotal: ${CurrencyFormatter.format(personGrossMonth)} • Abatido: -${CurrencyFormatter.format(personPaidMonth)}'
+                                  : 'Neste mês • Total: ${CurrencyFormatter.format(personTotalVal)}')
                               : 'Total geral • Mês: ${CurrencyFormatter.format(personMonthVal)}',
                           style: TextStyle(
                             fontSize: 11,
@@ -646,7 +650,12 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        if (totalPaid > 0)
+                        if (isMonthMode && personPaidMonth > 0)
+                          Text(
+                            'Total geral acumulado: ${CurrencyFormatter.format(personTotalVal)}',
+                            style: TextStyle(fontSize: 10, color: isDark ? Colors.grey.shade500 : Colors.grey.shade600),
+                          )
+                        else if (totalPaid > 0)
                           Text(
                             'Já pago: ${CurrencyFormatter.format(totalPaid)}',
                             style: const TextStyle(fontSize: 11, color: AppConstants.accentGreen, fontWeight: FontWeight.w600),

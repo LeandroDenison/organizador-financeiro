@@ -121,21 +121,52 @@ class DebtProvider extends ChangeNotifier {
     return activeDebts.fold(0.0, (sum, d) => sum + d.remainingAmount);
   }
 
-  /// Soma das parcelas que vencem/são cobradas no mês atual
-  double get totalOwedThisMonth {
-    return activeDebts.fold(0.0, (sum, d) {
-      final monthVal = d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue;
-      return sum + monthVal;
+  /// Subtotal bruto das parcelas que vencem no mês atual para uma pessoa (sem deduzir pagamentos deste mês)
+  double personGrossMonthInstallments(String personName) {
+    final list = _debts.where((d) => normalizeText(d.personName) == normalizeText(personName));
+    return list.fold(0.0, (sum, d) {
+      if (d.isSettled && d.paymentHistory.isEmpty) return sum;
+      final instVal = d.installmentValue > 0 ? d.installmentValue : d.totalAmount;
+      return sum + instVal;
     });
   }
 
-  /// Valor a receber no mês de uma pessoa específica
+  /// Total pago ou abatido pela pessoa no mês atual
+  double personPaidThisMonth(String personName) {
+    final now = DateTime.now();
+    final list = _debts.where((d) => normalizeText(d.personName) == normalizeText(personName));
+    double paid = 0.0;
+    for (final d in list) {
+      for (final p in d.paymentHistory) {
+        if (p.date.year == now.year && p.date.month == now.month) {
+          paid += p.amount;
+        }
+      }
+    }
+    return paid;
+  }
+
+  /// Valor líquido que a pessoa REALMENTE deve pagar no mês atual (Subtotal do Mês - Abatimentos deste Mês)
   double personOwedThisMonth(String personName) {
-    final list = activeDebts.where((d) => normalizeText(d.personName) == normalizeText(personName));
-    return list.fold(0.0, (sum, d) {
-      final monthVal = d.remainingAmount < d.installmentValue ? d.remainingAmount : d.installmentValue;
-      return sum + monthVal;
-    });
+    final gross = personGrossMonthInstallments(personName);
+    final paid = personPaidThisMonth(personName);
+    final net = gross - paid;
+    return net > 0.01 ? net : 0.0;
+  }
+
+  /// Soma das parcelas que vencem/são cobradas no mês atual de TODOS os devedores (líquido de abatimentos deste mês)
+  double get totalOwedThisMonth {
+    return uniquePersonNames.fold(0.0, (sum, name) => sum + personOwedThisMonth(name));
+  }
+
+  /// Subtotal bruto das parcelas do mês atual de todos os devedores
+  double get totalGrossOwedThisMonth {
+    return uniquePersonNames.fold(0.0, (sum, name) => sum + personGrossMonthInstallments(name));
+  }
+
+  /// Total já recebido/abatido este mês de todos os devedores
+  double get totalPaidThisMonth {
+    return uniquePersonNames.fold(0.0, (sum, name) => sum + personPaidThisMonth(name));
   }
 
   /// Valor total acumulado de uma pessoa específica (todas as parcelas restantes)
