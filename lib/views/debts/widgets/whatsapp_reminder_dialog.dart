@@ -313,8 +313,9 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
     final hasMultiple = widget.debts.length > 1;
     final amountToCharge = _amountToCharge;
 
-    return AlertDialog(
-      title: Row(
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    final titleWidget = Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
@@ -347,15 +348,16 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
             ),
           ),
         ],
-      ),
-      content: _isLoading
+      );
+
+    final bodyWidget = _isLoading
           ? const SizedBox(
               height: 200,
               child: Center(child: CircularProgressIndicator()),
             )
           : SingleChildScrollView(
               child: SizedBox(
-                width: 500,
+                width: isMobile ? double.infinity : 500,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,7 +373,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                         children: [
                           Expanded(
                             child: ChoiceChip(
-                              label: const Text('Conta Toda (Consolidada)', style: TextStyle(fontSize: 12)),
+                              label: Text(isMobile ? 'Conta Toda' : 'Conta Toda (Consolidada)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                               selected: _chargeAllAccounts,
                               onSelected: (val) {
                                 setState(() {
@@ -456,15 +458,19 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Row(
-                                children: [
-                                  Icon(Icons.discount_rounded, color: AppConstants.accentGreen, size: 18),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Abatimento / Pagamento Recebido',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
-                                ],
+                              const Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.discount_rounded, color: AppConstants.accentGreen, size: 18),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Abatimento / Pagamento Recebido',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                               Switch(
                                 value: _includeAbatementInBill,
@@ -482,9 +488,11 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                           ),
                           if (_includeAbatementInBill) ...[
                             const SizedBox(height: 8),
-                            Row(
+                            Flex(
+                              direction: isMobile ? Axis.vertical : Axis.horizontal,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Expanded(
+                                Flexible(
                                   flex: 4,
                                   child: TextField(
                                     controller: _abatementAmountController,
@@ -508,8 +516,8 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                                     },
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
+                                SizedBox(width: isMobile ? 0 : 8, height: isMobile ? 8 : 0),
+                                Flexible(
                                   flex: 6,
                                   child: TextField(
                                     controller: _abatementDescController,
@@ -561,7 +569,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                       controller: _amountController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: 'Valor Pré-fixado no Pix Copia e Cola (R\$)',
+                        labelText: 'Valor no Pix Copia e Cola (R\$)',
                         hintText: '0.00',
                         helperText: _amountToCharge > 0
                             ? 'O pagador verá este valor automaticamente preenchido no banco'
@@ -621,28 +629,33 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.qr_code_2_rounded, color: AppConstants.accentGreen, size: 22),
-                                  const SizedBox(width: 8),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Pix Copia e Cola / QR Code',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.qr_code_2_rounded, color: AppConstants.accentGreen, size: 22),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Pix Copia e Cola / QR Code',
+                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Text(
+                                            'Valor: ${CurrencyFormatter.format(amountToCharge)}',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppConstants.accentGreen,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      Text(
-                                        'Valor já predefinido: ${CurrencyFormatter.format(amountToCharge)}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppConstants.accentGreen,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                    ),
+                                  ],
+                                ),
                               ),
                               TextButton(
                                 onPressed: () {
@@ -726,10 +739,10 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                     // Mensagem pré-formatada editável
                     TextField(
                       controller: _messageController,
-                      maxLines: 8,
+                      maxLines: isMobile ? 6 : 8,
                       style: const TextStyle(fontSize: 13),
                       decoration: const InputDecoration(
-                        labelText: 'Mensagem Formatada (Você pode editar antes de enviar)',
+                        labelText: 'Mensagem (editável antes de enviar)',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -755,23 +768,68 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                   ],
                 ),
               ),
-            ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Fechar'),
-        ),
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF25D366),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            );
+
+    final closeButton = TextButton(
+      onPressed: () => Navigator.of(context).pop(),
+      child: const Text('Fechar'),
+    );
+    final sendButton = ElevatedButton.icon(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF25D366),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      icon: const Icon(Icons.send_rounded, size: 18),
+      label: const Text('Abrir no WhatsApp'),
+      onPressed: _openWhatsApp,
+    );
+
+    if (isMobile) {
+      final bg = isDark ? const Color(0xFF0F172A) : Colors.white;
+      return Dialog.fullscreen(
+        backgroundColor: bg,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 4, 8),
+                child: Row(
+                  children: [
+                    Expanded(child: titleWidget),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      tooltip: 'Fechar',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: bodyWidget,
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: sendButton,
+                ),
+              ),
+            ],
           ),
-          icon: const Icon(Icons.send_rounded),
-          label: const Text('Abrir no WhatsApp'),
-          onPressed: _openWhatsApp,
         ),
-      ],
+      );
+    }
+
+    return AlertDialog(
+      title: titleWidget,
+      content: bodyWidget,
+      actions: [closeButton, sendButton],
     );
   }
 }

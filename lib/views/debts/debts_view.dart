@@ -54,47 +54,31 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Quem me Deve',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Controle de contas por pessoa, cobrança no WhatsApp e abatimentos',
-                    style: TextStyle(
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: SegmentedButton<DebtViewMode>(
-                          segments: const [
-                            ButtonSegment(
-                              value: DebtViewMode.month,
-                              icon: Icon(Icons.calendar_month_rounded, size: 14),
-                              label: Text('Mês', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Quem me Deve',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                             ),
-                            ButtonSegment(
-                              value: DebtViewMode.total,
-                              icon: Icon(Icons.all_inclusive_rounded, size: 14),
-                              label: Text('Total', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Contas por pessoa, cobrança e abatimentos',
+                              style: TextStyle(
+                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
-                          selected: {debtProvider.viewMode},
-                          onSelectionChanged: (newVal) => debtProvider.setViewMode(newVal.first),
-                          style: ButtonStyle(
-                            visualDensity: VisualDensity.compact,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 4, vertical: 0)),
-                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AppConstants.primaryColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -110,6 +94,30 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                         },
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<DebtViewMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: DebtViewMode.month,
+                          icon: Icon(Icons.calendar_month_rounded, size: 14),
+                          label: Text('Mês', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                        ButtonSegment(
+                          value: DebtViewMode.total,
+                          icon: Icon(Icons.all_inclusive_rounded, size: 14),
+                          label: Text('Total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                      selected: {debtProvider.viewMode},
+                      onSelectionChanged: (newVal) => debtProvider.setViewMode(newVal.first),
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -492,26 +500,34 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: color.withOpacity(0.12),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: color, size: 24),
+          child: Icon(icon, color: color, size: 20),
         ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
-            ),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-            ),
-          ],
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -521,7 +537,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
     return Container(
       height: 36,
       width: 1,
-      margin: const EdgeInsets.symmetric(horizontal: 14),
+      margin: const EdgeInsets.symmetric(horizontal: 8),
       color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
     );
   }
@@ -730,18 +746,19 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                                       ],
                                     ),
                                     const SizedBox(height: 4),
-                                    Row(
+                                    Text(
+                                      'Faltam ${d.remainingInstallments} de ${d.totalInstallments}x (${CurrencyFormatter.format(d.installmentValue)}/mês) • Dia ${d.dueDay}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
                                       children: [
-                                        Expanded(
-                                          child: Text(
-                                            'Faltam ${d.remainingInstallments} de ${d.totalInstallments}x (${CurrencyFormatter.format(d.installmentValue)}/mês) • Dia ${d.dueDay}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
                                         // Botão manual para receber parcela desta conta específica
                                         InkWell(
                                           borderRadius: BorderRadius.circular(6),
@@ -782,7 +799,6 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(width: 4),
                                         InkWell(
                                           borderRadius: BorderRadius.circular(6),
                                           onTap: () {

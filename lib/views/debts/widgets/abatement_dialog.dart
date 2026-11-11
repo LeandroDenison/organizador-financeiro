@@ -105,7 +105,7 @@ class _AbatementDialogState extends State<AbatementDialog> {
         ],
       ),
       content: SizedBox(
-        width: 420,
+        width: MediaQuery.of(context).size.width < 600 ? double.maxFinite : 420,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
