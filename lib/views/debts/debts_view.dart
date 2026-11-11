@@ -650,36 +650,73 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                           CurrencyFormatter.format(displayVal),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 18,
+                            fontSize: 17,
                             color: AppConstants.accentAmber,
                           ),
                         ),
                         Text(
-                          isMonthMode
-                              ? (personPaidMonth > 0
-                                  ? 'Subtotal: ${CurrencyFormatter.format(personGrossMonth)} • Abatido: -${CurrencyFormatter.format(personPaidMonth)}'
-                                  : 'Neste mês • Total: ${CurrencyFormatter.format(personTotalVal)}')
-                              : 'Total geral • Mês: ${CurrencyFormatter.format(personMonthVal)}',
+                          isMonthMode ? 'Restante no mês' : 'Total acumulado',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10,
                             color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        if (isMonthMode && personPaidMonth > 0)
-                          Text(
-                            'Total geral acumulado: ${CurrencyFormatter.format(personTotalVal)}',
-                            style: TextStyle(fontSize: 10, color: isDark ? Colors.grey.shade500 : Colors.grey.shade600),
-                          )
-                        else if (totalPaid > 0)
-                          Text(
-                            'Já pago: ${CurrencyFormatter.format(totalPaid)}',
-                            style: const TextStyle(fontSize: 11, color: AppConstants.accentGreen, fontWeight: FontWeight.w600),
-                          ),
                       ],
                     ),
                   ],
                 ),
+                if (isMonthMode && personPaidMonth > 0) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppConstants.accentGreen.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppConstants.accentGreen.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        const Icon(Icons.check_circle_rounded, size: 14, color: AppConstants.accentGreen),
+                        Text(
+                          'Subtotal do mês: ${CurrencyFormatter.format(personGrossMonth)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppConstants.accentGreen,
+                          ),
+                        ),
+                        Text(
+                          '•',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppConstants.accentGreen.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        Text(
+                          'Abatido: -${CurrencyFormatter.format(personPaidMonth)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppConstants.accentGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (!isMonthMode && totalPaid > 0) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Já pago: ${CurrencyFormatter.format(totalPaid)}',
+                    style: const TextStyle(fontSize: 11, color: AppConstants.accentGreen, fontWeight: FontWeight.w600),
+                  ),
+                ],
                 const SizedBox(height: 10),
 
                 // Overall progress

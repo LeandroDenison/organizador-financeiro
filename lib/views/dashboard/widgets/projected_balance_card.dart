@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../models/transaction_model.dart';
 import '../../../providers/finance_provider.dart';
 import '../../../providers/debt_provider.dart';
 import '../../../providers/subscription_provider.dart';
@@ -53,12 +54,28 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
       return !alreadyInTransactions;
     }).fold(0.0, (sum, s) => sum + (_onlyMyBills ? s.effectiveMyCost : s.amount));
 
-    // Saldo final estimado do MÊS (projeção do fluxo mensal real):
-    // Modo Apenas Minhas Contas: Suas Receitas - Seus Gastos Pessoais Líquidos - Assinaturas restantes
-    // Modo Com Devedores: Suas Receitas - Gastos Totais + O que os devedores ainda vão pagar - Assinaturas
-    final projectedBalance = _onlyMyBills
-        ? (finance.totalIncome - finance.myNetExpense - unbilledSubs)
-        : (monthlyFlowBalance + pendingDebtorReceivables - unbilledSubs);
+    // Identificação do Salário do Usuário (transação de salário no mês ou fallback do valor real conhecido)
+    final salaryTxs = finance.scopedTransactions.where((t) =>
+        t.type == TransactionType.income &&
+        (t.category.toLowerCase().contains('salário') ||
+            t.title.toLowerCase().contains('salário') ||
+            t.title.toLowerCase().contains('salarios') ||
+            t.title.toLowerCase().contains('pagto'))).toList();
+    final detectedSalary = salaryTxs.isNotEmpty
+        ? salaryTxs.fold(0.0, (s, t) => s + t.amount)
+        : (finance.totalIncome > 0 ? finance.totalIncome : 2995.34);
+
+    // Minhas Contas Pessoais do Mês (meu gasto líquido pessoal + assinaturas pessoais)
+    final myPersonalBills = finance.myNetExpense + unbilledSubs;
+
+    // Sobra Real do Salário: Salário - Minhas Contas
+    final salarySurplus = detectedSalary - myPersonalBills;
+
+    // Modo Com Devedores: Projeção de fluxo considerando o que os devedores ainda vão pagar
+    final projectedWithDebtors = monthlyFlowBalance + pendingDebtorReceivables - unbilledSubs;
+
+    // Saldo projetado conforme o modo selecionado
+    final projectedBalance = _onlyMyBills ? salarySurplus : projectedWithDebtors;
 
     final isPositive = projectedBalance >= 0;
     final isTight = isPositive && projectedBalance < 300;
@@ -368,7 +385,7 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
-                      _onlyMyBills ? 'Sobra Real: ' : 'Saldo Final: ',
+                      _onlyMyBills ? 'Sobra Real do Salário: ' : 'Saldo Final Projetado: ',
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -503,27 +520,27 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
             Column(
               children: [
                 _buildBreakdownTile(
-                  label: 'Fluxo Atual do Mês',
-                  amount: monthlyFlowBalance,
-                  icon: Icons.trending_up_rounded,
-                  color: monthlyFlowBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentAmber,
-                  prefix: '',
+                  label: _onlyMyBills ? 'Meu Salário no Mês' : 'Saldo Atual nos Bancos',
+                  amount: _onlyMyBills ? detectedSalary : currentCashBalance,
+                  icon: _onlyMyBills ? Icons.account_balance_wallet_rounded : Icons.hub_rounded,
+                  color: AppConstants.accentGreen,
+                  prefix: _onlyMyBills ? '+ ' : '',
                 ),
                 const SizedBox(height: 6),
                 _buildBreakdownTile(
-                  label: _onlyMyBills ? 'Devedores (Desconsiderados)' : 'A Receber (Devedores este mês)',
-                  amount: _onlyMyBills ? 0.0 : pendingDebtorReceivables,
-                  icon: Icons.arrow_downward_rounded,
-                  color: _onlyMyBills ? Colors.grey : AppConstants.accentGreen,
-                  prefix: _onlyMyBills ? '' : '+ ',
+                  label: _onlyMyBills ? 'Minhas Contas do Mês' : 'A Receber (Devedores este mês)',
+                  amount: _onlyMyBills ? myPersonalBills : pendingDebtorReceivables,
+                  icon: _onlyMyBills ? Icons.receipt_long_rounded : Icons.arrow_downward_rounded,
+                  color: _onlyMyBills ? AppConstants.accentRed : AppConstants.accentGreen,
+                  prefix: _onlyMyBills ? '- ' : '+ ',
                 ),
                 const SizedBox(height: 6),
                 _buildBreakdownTile(
-                  label: _onlyMyBills ? 'Minhas Contas Restantes' : 'Contas Restantes a Vencer',
-                  amount: unbilledSubs,
-                  icon: Icons.repeat_rounded,
-                  color: AppConstants.accentRed,
-                  prefix: '- ',
+                  label: _onlyMyBills ? 'Saldo Atual em Caixa' : 'Contas Restantes a Vencer',
+                  amount: _onlyMyBills ? currentCashBalance : unbilledSubs,
+                  icon: _onlyMyBills ? Icons.savings_rounded : Icons.repeat_rounded,
+                  color: _onlyMyBills ? AppConstants.accentCyan : AppConstants.accentRed,
+                  prefix: _onlyMyBills ? '' : '- ',
                 ),
               ],
             )
@@ -532,31 +549,31 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
               children: [
                 Expanded(
                   child: _buildBreakdownTile(
-                    label: 'Fluxo Atual do Mês',
-                    amount: monthlyFlowBalance,
-                    icon: Icons.trending_up_rounded,
-                    color: monthlyFlowBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentAmber,
-                    prefix: '',
+                    label: _onlyMyBills ? 'Meu Salário no Mês' : 'Saldo Atual nos Bancos',
+                    amount: _onlyMyBills ? detectedSalary : currentCashBalance,
+                    icon: _onlyMyBills ? Icons.account_balance_wallet_rounded : Icons.hub_rounded,
+                    color: AppConstants.accentGreen,
+                    prefix: _onlyMyBills ? '+ ' : '',
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildBreakdownTile(
-                    label: _onlyMyBills ? 'Devedores (Desconsiderados)' : 'A Receber (Devedores este mês)',
-                    amount: _onlyMyBills ? 0.0 : pendingDebtorReceivables,
-                    icon: Icons.arrow_downward_rounded,
-                    color: _onlyMyBills ? Colors.grey : AppConstants.accentGreen,
-                    prefix: _onlyMyBills ? '' : '+ ',
+                    label: _onlyMyBills ? 'Minhas Contas do Mês' : 'A Receber (Devedores este mês)',
+                    amount: _onlyMyBills ? myPersonalBills : pendingDebtorReceivables,
+                    icon: _onlyMyBills ? Icons.receipt_long_rounded : Icons.arrow_downward_rounded,
+                    color: _onlyMyBills ? AppConstants.accentRed : AppConstants.accentGreen,
+                    prefix: _onlyMyBills ? '- ' : '+ ',
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildBreakdownTile(
-                    label: _onlyMyBills ? 'Minhas Contas Restantes' : 'Contas Restantes a Vencer',
-                    amount: unbilledSubs,
-                    icon: Icons.repeat_rounded,
-                    color: AppConstants.accentRed,
-                    prefix: '- ',
+                    label: _onlyMyBills ? 'Saldo Atual em Caixa' : 'Contas Restantes a Vencer',
+                    amount: _onlyMyBills ? currentCashBalance : unbilledSubs,
+                    icon: _onlyMyBills ? Icons.savings_rounded : Icons.repeat_rounded,
+                    color: _onlyMyBills ? AppConstants.accentCyan : AppConstants.accentRed,
+                    prefix: _onlyMyBills ? '' : '- ',
                   ),
                 ),
               ],

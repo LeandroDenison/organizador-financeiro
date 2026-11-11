@@ -19,6 +19,8 @@ import 'package:organizador_financeiro/views/transactions/transactions_view.dart
 import 'package:organizador_financeiro/views/transactions/widgets/add_transaction_dialog.dart';
 import 'package:organizador_financeiro/views/transactions/widgets/assign_to_debt_dialog.dart';
 import 'package:organizador_financeiro/views/debts/debts_view.dart';
+import 'package:organizador_financeiro/views/debts/widgets/whatsapp_reminder_dialog.dart';
+import 'package:organizador_financeiro/models/debt_model.dart';
 import 'package:organizador_financeiro/views/settings/settings_view.dart';
 
 void main() {
@@ -186,5 +188,42 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.byType(SettingsView), findsOneWidget);
+  });
+
+  testWidgets('WhatsAppReminderDialog renders on 360dp mobile screen without overflow', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(720, 1600);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final debt = DebtModel(
+      id: 'd1',
+      personName: 'Sérgio Lucas',
+      description: 'Jim.Com* Sergio Lucas',
+      totalAmount: 641.78,
+      installmentValue: 641.78,
+      totalInstallments: 1,
+      remainingInstallments: 1,
+      dueDay: 10,
+      createdAt: DateTime.now(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WhatsAppReminderDialog(
+            personName: 'Sérgio Lucas',
+            debts: [debt],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Cobrança • Sérgio Lucas'), findsOneWidget);
+    expect(find.text('Resumo da Fatura'), findsOneWidget);
+    expect(find.text('Copiar Pix Copia e Cola'), findsOneWidget);
+    expect(find.textContaining('Compartilhar Cobrança'), findsOneWidget);
   });
 }

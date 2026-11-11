@@ -42,7 +42,7 @@ class PdfParserService {
         lower.contains('saldo do dia');
 
     if (isNubank) {
-      return _parseNubankInvoice(text);
+      return _parseNubankInvoice(text, fileName: fileName);
     } else if (isItau) {
       return _parseItauStatement(text);
     } else {
@@ -51,7 +51,7 @@ class PdfParserService {
   }
 
   /// Parses Nubank credit card invoice (supports both single-line and multi-line Syncfusion extraction)
-  static PdfParseResult _parseNubankInvoice(String text) {
+  static PdfParseResult _parseNubankInvoice(String text, {String? fileName}) {
     final List<TransactionModel> transactions = [];
     final lines = text.split(RegExp(r'\r?\n'));
 
@@ -69,16 +69,33 @@ class PdfParserService {
       owner = 'Denison Leandro Siqueira Carneiro';
     }
 
-    int invoiceYear = DateTime.now().year;
-    final yearMatch = RegExp(r'FATURA\s+\d{1,2}\s+[A-Z]{3}\s+(202\d)', caseSensitive: false).firstMatch(text);
-    if (yearMatch != null) {
-      invoiceYear = int.tryParse(yearMatch.group(1)!) ?? invoiceYear;
-    }
-
     final monthMap = {
       'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
       'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12,
     };
+
+    int invoiceYear = DateTime.now().year;
+    int invoiceMonth = DateTime.now().month;
+    int invoiceDueDay = 13;
+
+    final invoiceHeaderMatch = RegExp(r'FATURA\s+(\d{1,2})\s+([A-Z]{3})\s+(202\d)', caseSensitive: false).firstMatch(text);
+    if (invoiceHeaderMatch != null) {
+      invoiceDueDay = int.tryParse(invoiceHeaderMatch.group(1)!) ?? invoiceDueDay;
+      final mStr = invoiceHeaderMatch.group(2)!.toLowerCase();
+      invoiceMonth = monthMap[mStr] ?? invoiceMonth;
+      invoiceYear = int.tryParse(invoiceHeaderMatch.group(3)!) ?? invoiceYear;
+    } else {
+      final yearMatch = RegExp(r'FATURA\s+\d{1,2}\s+[A-Z]{3}\s+(202\d)', caseSensitive: false).firstMatch(text);
+      if (yearMatch != null) {
+        invoiceYear = int.tryParse(yearMatch.group(1)!) ?? invoiceYear;
+      }
+      final fnMatch = RegExp(r'(\d{4})-(\d{2})-(\d{2})').firstMatch(fileName ?? '');
+      if (fnMatch != null) {
+        invoiceYear = int.tryParse(fnMatch.group(1)!) ?? invoiceYear;
+        invoiceMonth = int.tryParse(fnMatch.group(2)!) ?? invoiceMonth;
+        invoiceDueDay = int.tryParse(fnMatch.group(3)!) ?? invoiceDueDay;
+      }
+    }
 
     // Date prefix: e.g. "06 OUT" or "04 NOV", NOT followed by a 4-digit year (which would be a due/closing date)
     final datePrefixRegex = RegExp(
@@ -221,24 +238,32 @@ class PdfParserService {
             installmentRef = instMatch.group(1);
           }
 
-          // Detect if it belongs to Sergio Lucas
+          // Detect debtors
           String? personName;
-          if (title.toLowerCase().contains('sergio lucas')) {
+          final lowerTitle = title.toLowerCase();
+          if (lowerTitle.contains('sergio lucas') ||
+              lowerTitle.contains('western union') ||
+              lowerTitle.contains('steamgames')) {
             personName = 'Sergio Lucas';
+          } else if (lowerTitle.contains('taxconfig') ||
+              (lowerTitle.contains('amazon') && (installmentRef?.contains('/10') ?? false))) {
+            personName = 'Clécio';
           }
 
           transactions.add(
             TransactionModel(
               title: title,
               amount: amount,
-              date: DateTime(invoiceYear, month, day),
+              date: DateTime(invoiceYear, invoiceMonth, day.clamp(1, 28)),
               type: type,
               category: category,
               bank: 'Nubank',
               source: TransactionSource.pdf,
               installmentRef: installmentRef,
               personName: personName,
-              notes: isNegative ? 'Estorno / Devolução de compra' : 'Fatura Nubank',
+              notes: isNegative
+                  ? 'Estorno / Devolução de compra na fatura de ${invoiceMonth.toString().padLeft(2, '0')}/$invoiceYear'
+                  : 'Compra em $day/$monthStr • Fatura com vencimento em $invoiceDueDay/${invoiceMonth.toString().padLeft(2, '0')}/$invoiceYear',
             ),
           );
         }

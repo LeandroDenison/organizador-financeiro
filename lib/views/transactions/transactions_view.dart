@@ -285,16 +285,10 @@ class TransactionsView extends StatelessWidget {
                                       const SizedBox(height: 8),
                                       // Row 3: Badges on left + Action buttons (responsive wrap to prevent mobile overflow)
                                       Wrap(
-                                        alignment: WrapAlignment.spaceBetween,
-                                        crossAxisAlignment: WrapCrossAlignment.center,
                                         spacing: 6,
                                         runSpacing: 6,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
                                         children: [
-                                          Wrap(
-                                            spacing: 6,
-                                            runSpacing: 4,
-                                            crossAxisAlignment: WrapCrossAlignment.center,
-                                            children: [
                                                 if (tx.bank != null)
                                                   Container(
                                                     padding: const EdgeInsets.symmetric(
@@ -382,12 +376,7 @@ class TransactionsView extends StatelessWidget {
                                                       ),
                                                     ),
                                                   ),
-                                              ],
-                                          ),
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              if (!isIncome) ...[
+                                           if (!isIncome)
                                                 InkWell(
                                                   borderRadius: BorderRadius.circular(6),
                                                   onTap: () {
@@ -438,9 +427,7 @@ class TransactionsView extends StatelessWidget {
                                                     ),
                                                   ),
                                                 ),
-                                                const SizedBox(width: 8),
-                                              ],
-                                              InkWell(
+                                           InkWell(
                                                 borderRadius: BorderRadius.circular(6),
                                                 onTap: () {
                                                   finance.deleteTransaction(tx.id);
@@ -461,10 +448,8 @@ class TransactionsView extends StatelessWidget {
                                                   ),
                                                 ),
                                               ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
+                                         ],
+                                       ),
                                     ],
                                   ),
                                 ),
