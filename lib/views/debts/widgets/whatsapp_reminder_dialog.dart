@@ -510,7 +510,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Flexible(
-                                  flex: 4,
+                                  flex: isMobile ? 0 : 4,
                                   child: TextField(
                                     controller: _abatementAmountController,
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -535,7 +535,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                                 ),
                                 SizedBox(width: isMobile ? 0 : 8, height: isMobile ? 8 : 0),
                                 Flexible(
-                                  flex: 6,
+                                  flex: isMobile ? 0 : 6,
                                   child: TextField(
                                     controller: _abatementDescController,
                                     decoration: const InputDecoration(
