@@ -22,6 +22,7 @@ import 'package:organizador_financeiro/views/transactions/widgets/assign_to_debt
 import 'package:organizador_financeiro/views/debts/debts_view.dart';
 import 'package:organizador_financeiro/views/debts/widgets/whatsapp_reminder_dialog.dart';
 import 'package:organizador_financeiro/views/payables/payables_view.dart';
+import 'package:organizador_financeiro/views/invoice/unified_invoice_view.dart';
 import 'package:organizador_financeiro/models/debt_model.dart';
 import 'package:organizador_financeiro/views/settings/settings_view.dart';
 
@@ -260,5 +261,36 @@ void main() {
 
     expect(find.textContaining('Agenda'), findsOneWidget);
     expect(find.text('Nova Conta'), findsOneWidget);
+  });
+
+  testWidgets('UnifiedInvoiceView renders on 360dp mobile screen without overflow', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(720, 1600);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() => tester.view.reset());
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AppStateProvider()),
+          ChangeNotifierProvider(create: (_) => FinanceProvider()),
+          ChangeNotifierProvider(create: (_) => DebtProvider()),
+          ChangeNotifierProvider(create: (_) => NotificationProvider()),
+          ChangeNotifierProvider.value(value: FirebaseService()),
+          ChangeNotifierProvider(create: (_) => BudgetProvider()),
+          ChangeNotifierProvider(create: (_) => SavingsProvider()),
+          ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+          ChangeNotifierProvider(create: (_) => BankLoanProvider()),
+          ChangeNotifierProvider(create: (_) => PayableProvider()),
+        ],
+        child: const MaterialApp(
+          home: UnifiedInvoiceView(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fatura Unificada'), findsOneWidget);
+    expect(find.textContaining('Nubank'), findsWidgets);
+    expect(find.textContaining('Pagar'), findsWidgets);
   });
 }

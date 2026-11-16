@@ -8,6 +8,7 @@ import '../../providers/subscription_provider.dart';
 import '../../providers/bank_loan_provider.dart';
 import '../../utils/currency_formatter.dart';
 import '../../utils/constants.dart';
+import '../invoice/unified_invoice_view.dart';
 
 class PayablesView extends StatefulWidget {
   const PayablesView({super.key});
@@ -419,6 +420,31 @@ class _PayablesViewState extends State<PayablesView> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppConstants.primaryColor,
+                side: BorderSide(
+                  color: AppConstants.primaryColor.withValues(alpha: 0.5),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.credit_card_rounded, size: 16),
+              label: const Text(
+                'Abrir Fatura Unificada (Estilo Nubank)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const UnifiedInvoiceView()),
+                );
+              },
+            ),
           ),
         ],
       ),

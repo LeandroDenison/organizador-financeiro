@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/payable_provider.dart';
-import '../../../providers/app_state_provider.dart';
 import '../../../utils/currency_formatter.dart';
 import '../../../utils/constants.dart';
+import '../../invoice/unified_invoice_view.dart';
 
 class NextInvoiceConsolidatedCard extends StatelessWidget {
   const NextInvoiceConsolidatedCard({super.key});
@@ -11,7 +11,6 @@ class NextInvoiceConsolidatedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final payables = context.watch<PayableProvider>();
-    final appState = context.watch<AppStateProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 650;
@@ -19,24 +18,32 @@ class NextInvoiceConsolidatedCard extends StatelessWidget {
     final invoice = payables.nextInvoice;
     if (invoice == null) return const SizedBox.shrink();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: EdgeInsets.all(isMobile ? 16 : 20),
-      decoration: BoxDecoration(
-        color: isDark ? AppConstants.oledCard : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppConstants.primaryColor.withValues(alpha: 0.35),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppConstants.primaryColor.withValues(alpha: 0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const UnifiedInvoiceView()),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: EdgeInsets.all(isMobile ? 16 : 20),
+        decoration: BoxDecoration(
+          color: isDark ? AppConstants.oledCard : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppConstants.primaryColor.withValues(alpha: 0.35),
+            width: 1.5,
           ),
-        ],
-      ),
+          boxShadow: [
+            BoxShadow(
+              color: AppConstants.primaryColor.withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -267,17 +274,20 @@ class NextInvoiceConsolidatedCard extends StatelessWidget {
               ),
               icon: const Icon(Icons.arrow_forward_rounded, size: 14),
               label: const Text(
-                'Ver Detalhes das Faturas',
+                'Abrir Fatura Unificada (Estilo Nubank)',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
               onPressed: () {
-                payables.toggleViewingMode(true);
-                appState.setTab(3); // Aba Contas a Pagar
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const UnifiedInvoiceView()),
+                );
               },
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
