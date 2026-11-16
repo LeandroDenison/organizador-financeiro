@@ -66,8 +66,8 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
 
     for (final cardConfig in CardConfig.defaultCards) {
       final targetDue = DateTime(targetMonth.year, targetMonth.month, cardConfig.dueDay);
-      final cycleEnd = DateTime(targetMonth.year, targetMonth.month, cardConfig.closingDay);
-      final cycleStart = DateTime(targetMonth.year, targetMonth.month - 1, cardConfig.closingDay);
+      final cycleEnd = DateTime(targetMonth.year, targetMonth.month, cardConfig.closingDay, 23, 59, 59);
+      final cycleStart = DateTime(targetMonth.year, targetMonth.month - 1, cardConfig.closingDay, 23, 59, 59);
 
       List<TransactionModel> cardTxs = [];
       List<SubscriptionModel> cardSubs = [];
@@ -89,12 +89,11 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
       } else if (isPastMonth) {
         // Fatura Passada (Novembro, Outubro...): busca transações do ciclo correspondente
         cardTxs = finance.transactions.where((tx) {
-          if (tx.type != TransactionType.expense) return false;
-          final title = tx.title.toLowerCase();
-          if (title.contains('pagamento de fatura') || title.contains('fatura paga')) return false;
+          if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
 
           bool matchesCard = false;
           final txBank = tx.bank?.toLowerCase() ?? '';
+          final title = tx.title.toLowerCase();
           if (cardConfig.id == 'nubank') {
             matchesCard = txBank.contains('nubank');
           } else if (cardConfig.id == 'itau_click') {
@@ -188,26 +187,13 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
     final activeMyShare = displayedCardInvoices.fold(0.0, (s, c) => s + c.myShareAmount);
     final activeDebtorShare = displayedCardInvoices.fold(0.0, (s, c) => s + c.debtorShareAmount);
 
-    // Lista de transações consolidadas para o feed cronológico
+    // Lista de transações consolidadas para o feed cronológico (apenas compras reais!)
     List<TransactionModel> allTransactions = [];
+    final List<SubscriptionModel> allProjectedSubs = [];
+
     for (final card in displayedCardInvoices) {
       allTransactions.addAll(card.transactions);
-      // Inclui assinaturas projetadas como itens visuais
-      for (final sub in card.projectedSubscriptions) {
-        allTransactions.add(
-          TransactionModel(
-            id: 'sub_${sub.id}_${targetMonth.month}',
-            title: '${sub.name} (Assinatura Prevista)',
-            amount: sub.amount,
-            date: DateTime(targetMonth.year, targetMonth.month, sub.billingDay.clamp(1, 28)),
-            type: TransactionType.expense,
-            category: sub.category,
-            bank: card.config.bank,
-            personName: sub.sharedWithPerson,
-            notes: 'Cobrança recorrente estimada para ${card.config.cardName}',
-          ),
-        );
-      }
+      allProjectedSubs.addAll(card.projectedSubscriptions);
     }
 
     // Filtro de busca se houver
@@ -342,6 +328,8 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
                         payables,
                       );
                     }),
+                  if (allProjectedSubs.isNotEmpty)
+                    _buildProjectedSubscriptionsSection(isDark, allProjectedSubs),
                   const SizedBox(height: 80), // Espaço para a barra de ações fixada
                 ],
               ),
@@ -1291,5 +1279,120 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
       default:
         return Icons.credit_card_rounded;
     }
+  }
+
+  Widget _buildProjectedSubscriptionsSection(bool isDark, List<SubscriptionModel> subs) {
+    final totalSubs = subs.fold(0.0, (s, sub) => s + sub.amount);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16, bottom: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppConstants.oledCard : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.autorenew_rounded, size: 16, color: AppConstants.accentAmber),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Assinaturas Previstas',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppConstants.accentAmber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '+ ${CurrencyFormatter.format(totalSubs)}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppConstants.accentAmber,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Cobranças estimadas que ainda não caíram no extrato do cartão. Não inclusas no total oficial acima.',
+            style: TextStyle(
+              fontSize: 10,
+              color: isDark ? AppConstants.oledSubtext : Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...subs.map((sub) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Text(
+                          'Dia ${sub.billingDay}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppConstants.oledSubtext : Colors.grey.shade500,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            sub.name,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (sub.sharedWithPerson != null && sub.sharedWithPerson!.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppConstants.accentIndigo.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              sub.sharedWithPerson!,
+                              style: const TextStyle(
+                                fontSize: 9,
+                                color: AppConstants.accentIndigo,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Text(
+                    CurrencyFormatter.format(sub.amount),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
   }
 }

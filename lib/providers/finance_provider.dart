@@ -84,6 +84,19 @@ class FinanceProvider extends ChangeNotifier {
 
       final lower = t.title.toLowerCase();
 
+      // Expunge artificial duplicate transactions with date 2026-12-05 00:00:00
+      // that were shifted from previous cycles (e.g. Tim Pos, iFood, Vanegas, Odonto, Jose Arlindo)
+      if (t.date.year == 2026 && t.date.month == 12 && t.date.day == 5 && t.date.hour == 0 && t.date.minute == 0) {
+        if (lower.contains('jose arlindo') ||
+            lower.contains('ifood') ||
+            lower.contains('odonto') ||
+            lower.contains('vanegas') ||
+            lower.contains('tim pos')) {
+          modified = true;
+          continue;
+        }
+      }
+
       // Clear mistakenly assigned person on Jim.Com or non-debt expenses
       if (lower.contains('jim.com') && t.personName != null) {
         t = t.copyWith(personName: null, personId: null);
@@ -178,6 +191,67 @@ class FinanceProvider extends ChangeNotifier {
         lower.contains('fatura paga') ||
         lower.contains('pagamento fatura') ||
         lower.contains('pagamento efetuado');
+  }
+
+  /// Verifica com precisão absoluta se uma transação pertence a uma fatura de Cartão de Crédito.
+  /// Rejeita Boletos DDA, Transferências Pix, TED/DOC, compras no débito e liquidações.
+  static bool isCreditCardTransaction(TransactionModel t) {
+    if (t.type != TransactionType.expense) return false;
+    final title = t.title.toLowerCase();
+    final notes = (t.notes ?? '').toLowerCase();
+    final cat = t.category.toLowerCase();
+
+    // 1. Bloqueios estritos: Boletos, Pix, TED, DOC, Débito e Pagamentos de fatura
+    if (title.contains('boleto') ||
+        title.contains('dda') ||
+        title.contains('pix') ||
+        title.contains('transferência') ||
+        title.contains('transferencia') ||
+        title.contains('ted') ||
+        title.contains('doc') ||
+        title.contains('compra no débito') ||
+        title.contains('compra no debito') ||
+        title.contains('pagamento de fatura') ||
+        title.contains('fatura paga') ||
+        title.contains('pagamento recebido') ||
+        title.contains('rendimento') ||
+        title.contains('depósito') ||
+        title.contains('deposito')) {
+      return false;
+    }
+
+    // 2. Confirmação direta por metadados de Cartão de Crédito
+    if (notes.contains('cartão de crédito') ||
+        notes.contains('cartao de credito') ||
+        notes.contains('credit_card') ||
+        cat.contains('cartão de crédito') ||
+        cat.contains('cartao de credito') ||
+        title.contains('cartão com final') ||
+        title.contains('cartao com final') ||
+        title.contains('compra no crédito') ||
+        title.contains('compra no credito') ||
+        title.contains('parcela') ||
+        (t.installmentRef != null && t.installmentRef!.isNotEmpty)) {
+      return true;
+    }
+
+    // 3. Notificações do Nubank de compra aprovada
+    if (t.source == TransactionSource.notification &&
+        (notes.contains('com.nu.production') || notes.contains('aprovada'))) {
+      return true;
+    }
+
+    // 4. Se a transação veio de extrato/fatura de cartão (PDF)
+    if (t.source == TransactionSource.pdf) {
+      return true;
+    }
+
+    // 5. Open Finance marcado para cartão
+    if (t.source == TransactionSource.ofx && notes.contains('cartão de crédito')) {
+      return true;
+    }
+
+    return false;
   }
 
   static bool _isCreditRefund(TransactionModel t) {

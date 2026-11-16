@@ -189,6 +189,29 @@ class NextInvoiceConsolidatedCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (invoice.projectedSubscriptionsTotal > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppConstants.accentAmber.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.autorenew_rounded, size: 14, color: AppConstants.accentAmber),
+                      const SizedBox(width: 6),
+                      Text(
+                        '+ ${CurrencyFormatter.format(invoice.projectedSubscriptionsTotal)} previstos',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppConstants.accentAmber,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 16),

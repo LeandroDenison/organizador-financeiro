@@ -80,17 +80,19 @@ class CardOpenInvoice {
   double get projectedSubsTotal =>
       projectedSubscriptions.fold(0.0, (sum, sub) => sum + sub.amount);
 
-  double get totalAmount => transactionsTotal + projectedSubsTotal;
+  /// Fatura real oficial: apenas as compras reais já lançadas no cartão!
+  double get totalAmount => transactionsTotal;
+
+  /// Projeção geral com assinaturas que ainda não caíram no extrato
+  double get totalProjectedWithSubscriptions => transactionsTotal + projectedSubsTotal;
 
   double get myShareAmount {
-    final myTxs = transactions.fold(0.0, (sum, tx) {
+    return transactions.fold(0.0, (sum, tx) {
       if (tx.personName != null && tx.personName!.trim().isNotEmpty) {
         return sum; // Pertence a devedor
       }
       return sum + tx.amount;
     });
-    final mySubs = projectedSubscriptions.fold(0.0, (sum, sub) => sum + sub.effectiveMyCost);
-    return myTxs + mySubs;
   }
 
   double get debtorShareAmount => totalAmount - myShareAmount;
@@ -105,8 +107,17 @@ class NextConsolidatedInvoice {
     required this.cardInvoices,
   });
 
+  /// Total consolidado oficial das faturas (apenas compras reais lançadas)
   double get totalAmount =>
       cardInvoices.fold(0.0, (sum, card) => sum + card.totalAmount);
+
+  /// Total projetado adicional de assinaturas ainda não lançadas
+  double get projectedSubscriptionsTotal =>
+      cardInvoices.fold(0.0, (sum, card) => sum + card.projectedSubsTotal);
+
+  /// Total geral projetado (faturas reais + assinaturas futuras)
+  double get projectedTotalWithSubscriptions =>
+      totalAmount + projectedSubscriptionsTotal;
 
   double get myShareAmount =>
       cardInvoices.fold(0.0, (sum, card) => sum + card.myShareAmount);

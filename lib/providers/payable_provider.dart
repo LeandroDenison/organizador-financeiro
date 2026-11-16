@@ -86,19 +86,16 @@ class PayableProvider extends ChangeNotifier {
     final List<CardOpenInvoice> cardInvoices = [];
 
     for (final cardConfig in CardConfig.defaultCards) {
-      final lastClosing = DateTime(now.year, now.month, cardConfig.closingDay);
-      final nextClosing = DateTime(targetMonth.year, targetMonth.month, cardConfig.closingDay);
+      final lastClosing = DateTime(now.year, now.month, cardConfig.closingDay, 23, 59, 59);
+      final nextClosing = DateTime(targetMonth.year, targetMonth.month, cardConfig.closingDay, 23, 59, 59);
       final targetDue = DateTime(targetMonth.year, targetMonth.month, cardConfig.dueDay);
 
       final cardTxs = finance.transactions.where((tx) {
-        if (tx.type != TransactionType.expense) return false;
-        final title = tx.title.toLowerCase();
-        if (title.contains('pagamento de fatura') || title.contains('fatura paga')) {
-          return false;
-        }
+        if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
 
         bool matchesCard = false;
         final txBank = tx.bank?.toLowerCase() ?? '';
+        final title = tx.title.toLowerCase();
 
         if (cardConfig.id == 'nubank') {
           matchesCard = txBank.contains('nubank');
@@ -114,6 +111,7 @@ class PayableProvider extends ChangeNotifier {
 
         if (!matchesCard) return false;
 
+        // Corte estrito: compras realizadas estritamente APÓS o fechamento da fatura em Novembro!
         return tx.date.isAfter(lastClosing) && !tx.date.isAfter(nextClosing);
       }).toList();
 

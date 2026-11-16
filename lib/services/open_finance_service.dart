@@ -382,7 +382,6 @@ class OpenFinanceService {
                   : (rawAmount < 0 || typeStr == 'DEBIT');
 
               final parsedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
-              DateTime effectiveDate = parsedDate;
 
               String? installmentRef;
               if (map['creditCardMetadata'] != null) {
@@ -391,39 +390,6 @@ class OpenFinanceService {
                 final totInst = ccMeta['totalInstallments'];
                 if (instNum != null && totInst != null && (totInst as num) > 1) {
                   installmentRef = '$instNum/$totInst';
-                }
-
-                // Align billing cycle if billForecastDate is present
-                final billForecast = ccMeta['billForecastDate']?.toString();
-                if (billForecast != null && billForecast.contains('-')) {
-                  final parts = billForecast.split('-');
-                  if (parts.length == 2) {
-                    final yr = int.tryParse(parts[0]);
-                    final mo = int.tryParse(parts[1]);
-                    if (yr != null && mo != null) {
-                      effectiveDate = DateTime(yr, mo, 5);
-                    }
-                  }
-                }
-              }
-
-              // Alinhamento exato do ciclo dos cartões conforme fechamento e vencimento:
-              // Nubank: fecha 06, vence 13
-              // Itaú Click / Samsung Itaú: fecha 03, vence 10
-              // Mercado Pago: fecha 05, vence 10
-              if (isCreditCard && effectiveDate == parsedDate) {
-                final bLower = bank.bankName.toLowerCase();
-                int closingDay = 6;
-                int dueDay = 13;
-                if (bLower.contains('itau') || bLower.contains('itaú')) {
-                  closingDay = 3;
-                  dueDay = 10;
-                } else if (bLower.contains('mercado pago')) {
-                  closingDay = 5;
-                  dueDay = 10;
-                }
-                if (parsedDate.day > closingDay) {
-                  effectiveDate = DateTime(parsedDate.year, parsedDate.month + 1, dueDay);
                 }
               }
 
@@ -453,17 +419,21 @@ class OpenFinanceService {
                   id: map['id'] != null ? 'pluggy_${map['id']}' : null,
                   title: description,
                   amount: rawAmount.abs(),
-                  date: effectiveDate,
+                  date: parsedDate, // Data REAL e exata da transação
                   type: isExpense ? TransactionType.expense : TransactionType.income,
-                  category: OfxParserService.normalizeCategory(
-                    map['category']?.toString(),
-                    description,
-                  ),
+                  category: isCreditCard
+                      ? 'Cartão de Crédito'
+                      : OfxParserService.normalizeCategory(
+                          map['category']?.toString(),
+                          description,
+                        ),
                   bank: bank.bankName,
                   source: TransactionSource.ofx,
                   installmentRef: installmentRef,
                   personName: personName,
-                  notes: 'Sincronizado via Open Finance (${bank.bankName})',
+                  notes: isCreditCard
+                      ? 'Cartão de Crédito • Open Finance (${bank.bankName})'
+                      : 'Conta Corrente • Open Finance (${bank.bankName})',
                 ),
               );
             }
