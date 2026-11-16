@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/finance_provider.dart';
 import '../../providers/debt_provider.dart';
@@ -264,10 +264,10 @@ class DashboardView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+          color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
         ),
       ),
       child: Column(
@@ -302,10 +302,10 @@ class DashboardView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+          color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
         ),
       ),
       child: Column(
@@ -444,10 +444,10 @@ class DashboardView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+          color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
         ),
       ),
       child: Column(
@@ -629,10 +629,10 @@ class DashboardView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+          color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
         ),
       ),
       child: Wrap(
@@ -701,7 +701,7 @@ class DashboardView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: AppConstants.nubankPurple.withOpacity(0.35),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/bank_loan_provider.dart';
 import '../../models/bank_loan_model.dart';
@@ -136,9 +136,9 @@ class BankLoansView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  color: isDark ? AppConstants.oledCard : Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade200),
+                  border: Border.all(color: isDark ? AppConstants.oledBorder : Colors.grey.shade200),
                 ),
                 child: const Center(
                   child: Text('Nenhum empréstimo ativo no momento!'),
@@ -183,12 +183,12 @@ class BankLoansView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: loan.isSettled
               ? Colors.green.withValues(alpha: 0.3)
-              : (isDark ? const Color(0xFF334155) : Colors.grey.shade200),
+              : (isDark ? AppConstants.oledBorder : Colors.grey.shade200),
         ),
       ),
       child: Column(

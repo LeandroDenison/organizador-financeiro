@@ -3,10 +3,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
 import '../models/debt_model.dart';
 import '../models/notification_event_model.dart';
+import '../models/payable_model.dart';
 
 class StorageService {
   static const String _transactionsKey = 'financial_transactions_v1';
   static const String _debtsKey = 'financial_debts_v1';
+  static const String _payablesKey = 'financial_payables_v1';
   static const String _notificationsKey = 'financial_notifications_v1';
   static const String _autoAddNotificationKey = 'config_auto_add_notification';
   static const String _firebaseConfigKey = 'config_firebase_credentials';
@@ -49,6 +51,26 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     final list = debts.map((d) => d.toMap()).toList();
     await prefs.setString(_debtsKey, jsonEncode(list));
+  }
+
+  static Future<List<PayableModel>> loadPayables() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_payablesKey);
+    if (jsonString == null || jsonString.isEmpty) return [];
+    try {
+      final List<dynamic> list = jsonDecode(jsonString);
+      return list
+          .map((item) => PayableModel.fromMap(Map<String, dynamic>.from(item as Map)))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<void> savePayables(List<PayableModel> payables) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = payables.map((p) => p.toMap()).toList();
+    await prefs.setString(_payablesKey, jsonEncode(list));
   }
 
   static Future<List<NotificationEventModel>> loadNotifications() async {

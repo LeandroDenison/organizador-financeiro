@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/transaction_model.dart';
 import '../../models/debt_model.dart';
@@ -85,11 +85,11 @@ class TransactionsView extends StatelessWidget {
                   hintText: 'Buscar transações...',
                   prefixIcon: const Icon(Icons.search_rounded),
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  fillColor: isDark ? AppConstants.oledCard : Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                      color: isDark ? AppConstants.oledBorder : Colors.grey.shade300,
                     ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -134,11 +134,11 @@ class TransactionsView extends StatelessWidget {
                         hintText: 'Buscar por descrição, banco, pessoa ou categoria...',
                         prefixIcon: const Icon(Icons.search_rounded),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        fillColor: isDark ? AppConstants.oledCard : Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                            color: isDark ? AppConstants.oledBorder : Colors.grey.shade300,
                           ),
                         ),
                         contentPadding:
@@ -216,10 +216,10 @@ class TransactionsView extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                             side: BorderSide(
-                              color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                              color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                             ),
                           ),
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          color: isDark ? AppConstants.oledCard : Colors.white,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
                             child: Row(
@@ -555,10 +555,10 @@ class TransactionsView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+          color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
         ),
       ),
       child: Wrap(

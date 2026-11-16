@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 
 class AppConstants {
-  static const Color primaryColor = Color(0xFF6366F1); // Indigo
-  static const Color primaryDark = Color(0xFF4F46E5);
+  // FinTech Minimalist Palette (Nubank / Revolut / Apple Style)
+  static const Color primaryColor = Color(0xFF10B981); // Emerald Green principal
+  static const Color primaryDark = Color(0xFF059669);
   static const Color accentGreen = Color(0xFF10B981); // Emerald
-  static const Color accentRed = Color(0xFFEF4444); // Rose/Red
+  static const Color accentRed = Color(0xFFF43F5E); // Elegant Rose Red
   static const Color accentAmber = Color(0xFFF59E0B); // Amber
   static const Color accentCyan = Color(0xFF06B6D4); // Cyan
+  static const Color accentIndigo = Color(0xFF6366F1); // Indigo
   static const Color nubankPurple = Color(0xFF820AD1);
   static const Color itauOrange = Color(0xFFEC7000);
   static const Color mercadoPagoBlue = Color(0xFF009EE3);
+
+  // True OLED Black Minimalist Theme (Pixels desligados para Samsung Galaxy S24+ Dynamic AMOLED)
+  static const Color oledBlack = Color(0xFF000000); // 100% Preto Puro
+  static const Color oledSurface = Color(0xFF0D0D0F); // Superfície primária
+  static const Color oledCard = Color(0xFF141417); // Cartões grafite obsidiana
+  static const Color oledCardElevated = Color(0xFF1C1C20); // Destaque/Inputs
+  static const Color oledBorder = Color(0xFF27272A); // Borda sutil neutra
+  static const Color oledSubtext = Color(0xFFA1A1AA); // Cinza neutro legível (sem azul)
 
   static const List<String> defaultExpenseCategories = [
     'Alimentação',

@@ -142,7 +142,6 @@ class PdfParserService {
       if (dateMatch != null) {
         final day = int.tryParse(dateMatch.group(1)!) ?? 1;
         final monthStr = dateMatch.group(2)!.toLowerCase();
-        final month = monthMap[monthStr] ?? 1;
 
         String rest = line.substring(dateMatch.end).trim();
 

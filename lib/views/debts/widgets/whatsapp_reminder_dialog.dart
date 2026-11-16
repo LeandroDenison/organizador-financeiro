@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -528,12 +528,12 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? const Color(0xFF1E293B)
+                      ? AppConstants.oledCard
                       : const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: isDark
-                        ? const Color(0xFF334155)
+                        ? AppConstants.oledBorder
                         : Colors.grey.shade300,
                   ),
                 ),
@@ -667,7 +667,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                     Divider(
                       height: 20,
                       color: isDark
-                          ? const Color(0xFF334155)
+                          ? AppConstants.oledBorder
                           : Colors.grey.shade300,
                     ),
 
@@ -793,14 +793,14 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
 
               // Expandable Section: Editable message, QR Code, and Custom Pix Key
               Material(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? AppConstants.oledCard : Colors.white,
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isDark
-                          ? const Color(0xFF334155)
+                          ? AppConstants.oledBorder
                           : Colors.grey.shade200,
                     ),
                   ),
@@ -939,7 +939,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             color: isDark
-                                ? const Color(0xFF0F172A)
+                                ? AppConstants.oledSurface
                                 : const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -1168,7 +1168,7 @@ class _WhatsAppReminderDialogState extends State<WhatsAppReminderDialog> {
     );
 
     if (isMobile) {
-      final bg = isDark ? const Color(0xFF0F172A) : Colors.white;
+      final bg = isDark ? AppConstants.oledSurface : Colors.white;
       return Dialog.fullscreen(
         backgroundColor: bg,
         child: SafeArea(

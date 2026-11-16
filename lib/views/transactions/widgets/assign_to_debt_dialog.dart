@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/transaction_model.dart';
 import '../../../models/debt_model.dart';
@@ -248,10 +248,10 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                  color: isDark ? AppConstants.oledCard : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                    color: isDark ? AppConstants.oledBorder : Colors.grey.shade300,
                   ),
                 ),
                 child: Row(

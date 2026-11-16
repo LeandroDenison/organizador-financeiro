@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/finance_provider.dart';
@@ -108,12 +108,12 @@ class BudgetsView extends StatelessWidget {
                   return Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      color: isDark ? AppConstants.oledCard : Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isExceeded
                             ? AppConstants.accentRed.withOpacity(0.5)
-                            : (isDark ? const Color(0xFF334155) : Colors.grey.shade200),
+                            : (isDark ? AppConstants.oledBorder : Colors.grey.shade200),
                         width: isExceeded ? 1.5 : 1,
                       ),
                     ),

@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -323,7 +323,7 @@ NEWFILEUID:NONE
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isDark
-                      ? [const Color(0xFF1E1B4B), const Color(0xFF0F172A)]
+                      ? [const Color(0xFF1E1B4B), AppConstants.oledSurface]
                       : [const Color(0xFFEEF2FF), Colors.white],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -398,7 +398,7 @@ NEWFILEUID:NONE
                 width: double.infinity,
                 padding: const EdgeInsets.all(36),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  color: isDark ? AppConstants.oledCard : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: AppConstants.primaryColor.withValues(alpha: 0.4),
@@ -591,10 +591,10 @@ NEWFILEUID:NONE
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+          color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
         ),
       ),
       child: Column(
@@ -772,10 +772,10 @@ NEWFILEUID:NONE
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+          color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
         ),
       ),
       child: Column(

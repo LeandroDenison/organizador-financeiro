@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -239,10 +239,10 @@ class _SettingsViewState extends State<SettingsView> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? AppConstants.oledCard : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                  color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                 ),
               ),
               child: Column(
@@ -414,9 +414,9 @@ class _SettingsViewState extends State<SettingsView> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                      color: isDark ? AppConstants.oledSurface : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200),
+                      border: Border.all(color: isDark ? AppConstants.oledCard : Colors.grey.shade200),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,10 +450,10 @@ class _SettingsViewState extends State<SettingsView> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? AppConstants.oledCard : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                  color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                 ),
               ),
               child: Column(
@@ -569,10 +569,10 @@ class _SettingsViewState extends State<SettingsView> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? AppConstants.oledCard : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                  color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                 ),
               ),
               child: Column(
@@ -706,10 +706,10 @@ class _SettingsViewState extends State<SettingsView> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? AppConstants.oledCard : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                  color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                 ),
               ),
               child: Row(
@@ -764,10 +764,10 @@ class _SettingsViewState extends State<SettingsView> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? AppConstants.oledCard : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                  color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                 ),
               ),
               child: Column(
@@ -859,9 +859,9 @@ class _SettingsViewState extends State<SettingsView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+        color: isDark ? AppConstants.oledSurface : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200),
+        border: Border.all(color: isDark ? AppConstants.oledCard : Colors.grey.shade200),
       ),
       child: Row(
         children: [
@@ -968,10 +968,10 @@ class _SettingsViewState extends State<SettingsView> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+          color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
         ),
       ),
       child: Column(
@@ -1042,10 +1042,10 @@ class _SettingsViewState extends State<SettingsView> {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                    color: isDark ? AppConstants.oledSurface : Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                      color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                     ),
                   ),
                   child: Row(
@@ -1132,10 +1132,10 @@ class _SettingsViewState extends State<SettingsView> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0F172A).withOpacity(0.6) : Colors.grey.shade100,
+              color: isDark ? AppConstants.oledSurface.withOpacity(0.6) : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                color: isDark ? AppConstants.oledBorder : Colors.grey.shade300,
               ),
             ),
             child: Column(

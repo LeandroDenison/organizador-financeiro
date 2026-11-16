@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/debt_provider.dart';
 import '../../../providers/subscription_provider.dart';
@@ -49,10 +49,10 @@ class FutureCommitmentsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+          color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
         ),
       ),
       child: Column(
@@ -108,10 +108,10 @@ class FutureCommitmentsCard extends StatelessWidget {
                   width: 145,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                    color: isDark ? AppConstants.oledSurface : const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                      color: isDark ? AppConstants.oledBorder : Colors.grey.shade300,
                     ),
                   ),
                   child: Column(

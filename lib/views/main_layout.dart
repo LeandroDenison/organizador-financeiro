@@ -1,13 +1,15 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/notification_provider.dart';
 import '../providers/debt_provider.dart';
 import '../providers/bank_loan_provider.dart';
+import '../providers/payable_provider.dart';
 import '../utils/constants.dart';
 import 'dashboard/dashboard_view.dart';
 import 'transactions/transactions_view.dart';
 import 'debts/debts_view.dart';
+import 'payables/payables_view.dart';
 import 'loans/bank_loans_view.dart';
 import 'savings/savings_goals_view.dart';
 import 'subscriptions/subscriptions_view.dart';
@@ -25,6 +27,7 @@ class MainLayout extends StatelessWidget {
     final notifProvider = context.watch<NotificationProvider>();
     final debtProvider = context.watch<DebtProvider>();
     final loanProvider = context.watch<BankLoanProvider>();
+    final payableProvider = context.watch<PayableProvider>();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -34,13 +37,14 @@ class MainLayout extends StatelessWidget {
       DashboardView(), // 0
       TransactionsView(), // 1
       DebtsView(), // 2
-      BankLoansView(), // 3
-      SavingsGoalsView(), // 4
-      SubscriptionsView(), // 5
-      BudgetsView(), // 6
-      BankImportView(), // 7
-      NotificationsView(), // 8
-      SettingsView(), // 9
+      PayablesView(), // 3
+      BankLoansView(), // 4
+      SavingsGoalsView(), // 5
+      SubscriptionsView(), // 6
+      BudgetsView(), // 7
+      BankImportView(), // 8
+      NotificationsView(), // 9
+      SettingsView(), // 10
     ];
 
     if (isDesktop) {
@@ -51,10 +55,10 @@ class MainLayout extends StatelessWidget {
             Container(
               width: 260,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                color: isDark ? AppConstants.oledSurface : Colors.white,
                 border: Border(
                   right: BorderSide(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
+                    color: isDark ? AppConstants.oledCard : Colors.grey.shade200,
                   ),
                 ),
               ),
@@ -123,6 +127,16 @@ class MainLayout extends StatelessWidget {
                         _buildNavItem(
                           context,
                           index: 3,
+                          icon: Icons.calendar_month_rounded,
+                          label: 'Contas a Pagar',
+                          badgeCount: payableProvider.pendingCount > 0
+                              ? payableProvider.pendingCount
+                              : null,
+                          currentIndex: appState.currentTabIndex,
+                        ),
+                        _buildNavItem(
+                          context,
+                          index: 4,
                           icon: Icons.account_balance_rounded,
                           label: 'Empréstimos Bancários',
                           badgeCount: loanProvider.activeLoans.length,
@@ -130,21 +144,21 @@ class MainLayout extends StatelessWidget {
                         ),
                         _buildNavItem(
                           context,
-                          index: 4,
+                          index: 5,
                           icon: Icons.savings_rounded,
                           label: 'Caixinhas & Metas',
                           currentIndex: appState.currentTabIndex,
                         ),
                         _buildNavItem(
                           context,
-                          index: 5,
+                          index: 6,
                           icon: Icons.repeat_rounded,
                           label: 'Assinaturas Fixas',
                           currentIndex: appState.currentTabIndex,
                         ),
                         _buildNavItem(
                           context,
-                          index: 6,
+                          index: 7,
                           icon: Icons.pie_chart_rounded,
                           label: 'Tetos de Gastos',
                           currentIndex: appState.currentTabIndex,
@@ -152,14 +166,14 @@ class MainLayout extends StatelessWidget {
                         const Divider(height: 16),
                         _buildNavItem(
                           context,
-                          index: 7,
+                          index: 8,
                           icon: Icons.upload_file_rounded,
                           label: 'Importar Extrato',
                           currentIndex: appState.currentTabIndex,
                         ),
                         _buildNavItem(
                           context,
-                          index: 8,
+                          index: 9,
                           icon: Icons.notifications_active_rounded,
                           label: 'Captura Android',
                           badgeCount: notifProvider.pendingNotifications.length,
@@ -167,7 +181,7 @@ class MainLayout extends StatelessWidget {
                         ),
                         _buildNavItem(
                           context,
-                          index: 9,
+                          index: 10,
                           icon: Icons.settings_rounded,
                           label: 'Configurações',
                           currentIndex: appState.currentTabIndex,
@@ -182,7 +196,7 @@ class MainLayout extends StatelessWidget {
                     decoration: BoxDecoration(
                       border: Border(
                         top: BorderSide(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
+                          color: isDark ? AppConstants.oledCard : Colors.grey.shade200,
                         ),
                       ),
                     ),
@@ -297,10 +311,10 @@ class MainLayout extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.account_balance_rounded),
-              title: const Text('Empréstimos Bancários'),
-              trailing: loanProvider.activeLoans.isNotEmpty
-                  ? Badge(label: Text('${loanProvider.activeLoans.length}'))
+              leading: const Icon(Icons.calendar_month_rounded),
+              title: const Text('Contas a Pagar'),
+              trailing: payableProvider.pendingCount > 0
+                  ? Badge(label: Text('${payableProvider.pendingCount}'))
                   : null,
               selected: appState.currentTabIndex == 3,
               onTap: () {
@@ -309,8 +323,11 @@ class MainLayout extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.savings_rounded),
-              title: const Text('Caixinhas & Metas'),
+              leading: const Icon(Icons.account_balance_rounded),
+              title: const Text('Empréstimos Bancários'),
+              trailing: loanProvider.activeLoans.isNotEmpty
+                  ? Badge(label: Text('${loanProvider.activeLoans.length}'))
+                  : null,
               selected: appState.currentTabIndex == 4,
               onTap: () {
                 Navigator.pop(context);
@@ -318,8 +335,8 @@ class MainLayout extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.repeat_rounded),
-              title: const Text('Assinaturas Fixas'),
+              leading: const Icon(Icons.savings_rounded),
+              title: const Text('Caixinhas & Metas'),
               selected: appState.currentTabIndex == 5,
               onTap: () {
                 Navigator.pop(context);
@@ -327,22 +344,31 @@ class MainLayout extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.pie_chart_rounded),
-              title: const Text('Tetos de Gastos'),
+              leading: const Icon(Icons.repeat_rounded),
+              title: const Text('Assinaturas Fixas'),
               selected: appState.currentTabIndex == 6,
               onTap: () {
                 Navigator.pop(context);
                 appState.setTab(6);
               },
             ),
-            const Divider(),
             ListTile(
-              leading: const Icon(Icons.upload_file_rounded),
-              title: const Text('Importar Extrato (OFX/CSV)'),
+              leading: const Icon(Icons.pie_chart_rounded),
+              title: const Text('Tetos de Gastos'),
               selected: appState.currentTabIndex == 7,
               onTap: () {
                 Navigator.pop(context);
                 appState.setTab(7);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.upload_file_rounded),
+              title: const Text('Importar Extrato (OFX/CSV)'),
+              selected: appState.currentTabIndex == 8,
+              onTap: () {
+                Navigator.pop(context);
+                appState.setTab(8);
               },
             ),
             ListTile(
@@ -351,19 +377,19 @@ class MainLayout extends StatelessWidget {
               trailing: notifProvider.pendingNotifications.isNotEmpty
                   ? Badge(label: Text('${notifProvider.pendingNotifications.length}'))
                   : null,
-              selected: appState.currentTabIndex == 8,
+              selected: appState.currentTabIndex == 9,
               onTap: () {
                 Navigator.pop(context);
-                appState.setTab(8);
+                appState.setTab(9);
               },
             ),
             ListTile(
               leading: const Icon(Icons.settings_rounded),
               title: const Text('Configurações'),
-              selected: appState.currentTabIndex == 9,
+              selected: appState.currentTabIndex == 10,
               onTap: () {
                 Navigator.pop(context);
-                appState.setTab(9);
+                appState.setTab(10);
               },
             ),
           ],
@@ -403,7 +429,7 @@ class MainLayout extends StatelessWidget {
           if (appState.currentTabIndex == 0) return 0;
           if (appState.currentTabIndex == 1) return 1;
           if (appState.currentTabIndex == 2) return 2;
-          if (appState.currentTabIndex == 5) return 3;
+          if (appState.currentTabIndex == 3) return 3;
           return 4;
         }(),
         onDestinationSelected: (idx) {
@@ -414,7 +440,7 @@ class MainLayout extends StatelessWidget {
           } else if (idx == 2) {
             appState.setTab(2);
           } else if (idx == 3) {
-            appState.setTab(5); // Assinaturas & Fixos
+            appState.setTab(3); // Contas a Pagar
           } else {
             _showMobileMoreMenu(context, appState, notifProvider, loanProvider);
           }
@@ -439,10 +465,14 @@ class MainLayout extends StatelessWidget {
             selectedIcon: const Icon(Icons.handshake_rounded),
             label: 'Devedores',
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.repeat_rounded),
-            selectedIcon: Icon(Icons.repeat_on_rounded),
-            label: 'Assinaturas',
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: payableProvider.pendingCount > 0,
+              label: Text('${payableProvider.pendingCount}'),
+              child: const Icon(Icons.calendar_month_outlined),
+            ),
+            selectedIcon: const Icon(Icons.calendar_month_rounded),
+            label: 'Contas',
           ),
           NavigationDestination(
             icon: Badge(
@@ -467,18 +497,20 @@ class MainLayout extends StatelessWidget {
       case 2:
         return 'Quem me Deve';
       case 3:
-        return 'Empréstimos Bancários';
+        return 'Contas a Pagar';
       case 4:
-        return 'Caixinhas & Metas';
+        return 'Empréstimos Bancários';
       case 5:
-        return 'Assinaturas Fixas';
+        return 'Caixinhas & Metas';
       case 6:
-        return 'Tetos de Gastos';
+        return 'Assinaturas Fixas';
       case 7:
-        return 'Importar Extrato';
+        return 'Tetos de Gastos';
       case 8:
-        return 'Captura Android';
+        return 'Importar Extrato';
       case 9:
+        return 'Captura Android';
+      case 10:
         return 'Configurações';
       default:
         return 'Organizador';
@@ -518,13 +550,23 @@ class MainLayout extends StatelessWidget {
                     ),
                   ),
                   ListTile(
+                    leading: const Icon(Icons.repeat_rounded, color: AppConstants.primaryColor),
+                    title: const Text('Assinaturas Fixas'),
+                    subtitle: const Text('Serviços recorrentes e streamings'),
+                    dense: true,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      appState.setTab(6);
+                    },
+                  ),
+                  ListTile(
                     leading: const Icon(Icons.savings_rounded, color: Colors.green),
                     title: const Text('Caixinhas & Metas de Economia'),
                     subtitle: const Text('Objetivos financeiros e reserva'),
                     dense: true,
                     onTap: () {
                       Navigator.pop(ctx);
-                      appState.setTab(4);
+                      appState.setTab(5);
                     },
                   ),
                   ListTile(
@@ -537,7 +579,7 @@ class MainLayout extends StatelessWidget {
                         : null,
                     onTap: () {
                       Navigator.pop(ctx);
-                      appState.setTab(3);
+                      appState.setTab(4);
                     },
                   ),
                   ListTile(
@@ -547,7 +589,7 @@ class MainLayout extends StatelessWidget {
                     dense: true,
                     onTap: () {
                       Navigator.pop(ctx);
-                      appState.setTab(6);
+                      appState.setTab(7);
                     },
                   ),
                   ListTile(
@@ -557,7 +599,7 @@ class MainLayout extends StatelessWidget {
                     dense: true,
                     onTap: () {
                       Navigator.pop(ctx);
-                      appState.setTab(7);
+                      appState.setTab(8);
                     },
                   ),
                   ListTile(
@@ -570,7 +612,7 @@ class MainLayout extends StatelessWidget {
                         : null,
                     onTap: () {
                       Navigator.pop(ctx);
-                      appState.setTab(8);
+                      appState.setTab(9);
                     },
                   ),
                   ListTile(
@@ -580,7 +622,7 @@ class MainLayout extends StatelessWidget {
                     dense: true,
                     onTap: () {
                       Navigator.pop(ctx);
-                      appState.setTab(9);
+                      appState.setTab(10);
                     },
                   ),
                 ],

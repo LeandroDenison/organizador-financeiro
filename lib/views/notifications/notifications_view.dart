@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/notification_event_model.dart';
 import '../../providers/notification_provider.dart';
@@ -182,10 +182,10 @@ class _NotificationsViewState extends State<NotificationsView> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? AppConstants.oledCard : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                  color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                 ),
               ),
               child: isMobile
@@ -304,10 +304,10 @@ class _NotificationsViewState extends State<NotificationsView> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? AppConstants.oledCard : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                  color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                 ),
               ),
               child: Material(
@@ -399,10 +399,10 @@ class _NotificationsViewState extends State<NotificationsView> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                color: isDark ? AppConstants.oledCard : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  color: isDark ? AppConstants.oledBorder : const Color(0xFFE2E8F0),
                 ),
               ),
               child: Column(
@@ -565,10 +565,10 @@ class _NotificationsViewState extends State<NotificationsView> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                       side: BorderSide(
-                        color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                        color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                       ),
                     ),
-                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    color: isDark ? AppConstants.oledCard : Colors.white,
                     child: Padding(
                       padding: EdgeInsets.all(isMobile ? 12.0 : 16.0),
                       child: Column(

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/transaction_model.dart';
 import '../../../providers/finance_provider.dart';
@@ -99,7 +99,7 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
     return Container(
       padding: EdgeInsets.all(isMobile ? 16 : 20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: statusColor.withOpacity(0.35),
@@ -164,10 +164,10 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
             const SizedBox(height: 10),
             Container(
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade100,
+                color: isDark ? AppConstants.oledSurface : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                  color: isDark ? AppConstants.oledBorder : Colors.grey.shade300,
                 ),
               ),
               padding: const EdgeInsets.all(3),
@@ -294,10 +294,10 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                 // Segmented Button Toggle
                 Container(
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade100,
+                    color: isDark ? AppConstants.oledSurface : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                      color: isDark ? AppConstants.oledBorder : Colors.grey.shade300,
                     ),
                   ),
                   padding: const EdgeInsets.all(3),
@@ -425,10 +425,10 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+              color: isDark ? AppConstants.oledSurface : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
               ),
             ),
             child: Column(
@@ -584,7 +584,7 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : Colors.green.shade50,
+                color: isDark ? AppConstants.oledSurface : Colors.green.shade50,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: AppConstants.accentGreen.withValues(alpha: 0.35),

@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import '../../../utils/constants.dart';
 
 class SummaryCard extends StatelessWidget {
   final String title;
@@ -26,7 +27,7 @@ class SummaryCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Material(
-      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+      color: isDark ? AppConstants.oledCard : Colors.white,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -36,7 +37,7 @@ class SummaryCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+              color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
             ),
           ),
         child: Column(

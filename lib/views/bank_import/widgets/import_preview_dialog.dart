@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/transaction_model.dart';
 import '../../../models/debt_model.dart';
@@ -155,7 +155,7 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                color: isDark ? AppConstants.oledCard : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(

@@ -81,7 +81,7 @@ class DebtDetailDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                    color: isDark ? AppConstants.oledCard : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -102,10 +102,10 @@ class DebtDetailDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade50,
+                  color: isDark ? AppConstants.oledCard : Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                    color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                   ),
                 ),
                 child: Column(

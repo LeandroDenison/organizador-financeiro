@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/subscription_provider.dart';
 import '../../providers/finance_provider.dart';
@@ -233,11 +233,11 @@ class SubscriptionsView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppConstants.oledCard : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: sub.isActive
-              ? (isDark ? const Color(0xFF334155) : Colors.grey.shade200)
+              ? (isDark ? AppConstants.oledBorder : Colors.grey.shade200)
               : Colors.amber.withValues(alpha: 0.4),
         ),
       ),

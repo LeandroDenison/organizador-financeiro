@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/debt_model.dart';
 import '../../providers/debt_provider.dart';
@@ -197,10 +197,10 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  color: isDark ? AppConstants.oledCard : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                    color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                   ),
                 ),
                 child: Column(
@@ -238,7 +238,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                         ),
                       ],
                     ),
-                    Divider(height: 16, color: isDark ? const Color(0xFF334155) : Colors.grey.shade200),
+                    Divider(height: 16, color: isDark ? AppConstants.oledBorder : Colors.grey.shade200),
                     Row(
                       children: [
                         Expanded(
@@ -267,10 +267,10 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  color: isDark ? AppConstants.oledCard : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                    color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
                   ),
                 ),
                 child: Row(
@@ -538,7 +538,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
       height: 36,
       width: 1,
       margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+      color: isDark ? AppConstants.oledBorder : Colors.grey.shade300,
     );
   }
 
@@ -598,10 +598,10 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+              color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
             ),
           ),
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: isDark ? AppConstants.oledCard : Colors.white,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -735,10 +735,10 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                    color: isDark ? AppConstants.oledSurface : const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                      color: isDark ? AppConstants.oledBorder : Colors.grey.shade300,
                     ),
                   ),
                   child: Column(
@@ -1217,10 +1217,10 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+              color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
             ),
           ),
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: isDark ? AppConstants.oledCard : Colors.white,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(

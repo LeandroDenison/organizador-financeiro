@@ -10,6 +10,7 @@ import 'providers/budget_provider.dart';
 import 'providers/savings_provider.dart';
 import 'providers/subscription_provider.dart';
 import 'providers/bank_loan_provider.dart';
+import 'providers/payable_provider.dart';
 import 'services/firebase_service.dart';
 import 'utils/constants.dart';
 import 'views/main_layout.dart';
@@ -48,6 +49,9 @@ void main() async {
   final bankLoanProvider = BankLoanProvider();
   await bankLoanProvider.init();
 
+  final payableProvider = PayableProvider();
+  await payableProvider.init();
+
   // Start real-time two-way cloud synchronization (Phone <-> Browser via Firestore)
   unawaited(
     firebaseService.startRealtimeSync(
@@ -62,6 +66,7 @@ void main() async {
           debtProvider: debtProvider,
         );
         await bankLoanProvider.init();
+        await payableProvider.init();
       },
     ),
   );
@@ -78,6 +83,7 @@ void main() async {
         ChangeNotifierProvider.value(value: savingsProvider),
         ChangeNotifierProvider.value(value: subscriptionProvider),
         ChangeNotifierProvider.value(value: bankLoanProvider),
+        ChangeNotifierProvider.value(value: payableProvider),
       ],
       child: const FinancialOrganizerApp(),
     ),
@@ -121,17 +127,24 @@ class FinancialOrganizerApp extends StatelessWidget {
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppConstants.primaryColor,
-          brightness: Brightness.dark,
+        colorScheme: ColorScheme.dark(
           primary: AppConstants.primaryColor,
-          surface: const Color(0xFF0F172A),
+          secondary: AppConstants.accentGreen,
+          surface: AppConstants.oledCard,
+          error: AppConstants.accentRed,
         ),
-        scaffoldBackgroundColor: const Color(0xFF0B1120),
-        cardColor: const Color(0xFF1E293B),
+        scaffoldBackgroundColor: AppConstants.oledBlack,
+        cardColor: AppConstants.oledCard,
+        dialogBackgroundColor: AppConstants.oledCard,
+        dividerColor: AppConstants.oledBorder,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0F172A),
+          backgroundColor: AppConstants.oledBlack,
           elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: AppConstants.oledBlack,
+          indicatorColor: AppConstants.primaryColor.withValues(alpha: 0.18),
         ),
       ),
       home: const MainLayout(),
