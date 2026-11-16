@@ -103,6 +103,16 @@ class FinanceProvider extends ChangeNotifier {
         modified = true;
       }
 
+      // Atribuir parcelamento 1/4 para Super Motos e Clínica dos Capacetes
+      if (lower.contains('super motos') && t.installmentRef == null) {
+        t = t.copyWith(installmentRef: '1/4');
+        modified = true;
+      }
+      if (lower.contains('clinica dos cap') && t.installmentRef == null) {
+        t = t.copyWith(installmentRef: '1/4');
+        modified = true;
+      }
+
       // Normalize English categories from Open Finance to Portuguese
       final normalizedCat = OfxParserService.normalizeCategory(t.category, t.title);
       if (normalizedCat != t.category) {

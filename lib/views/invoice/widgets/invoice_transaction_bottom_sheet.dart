@@ -299,7 +299,7 @@ class InvoiceTransactionBottomSheet extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.person_add_rounded, size: 16),
                     label: Text(
-                      hasDebtor ? 'Alterar Devedor' : 'Atribuir a Devedor',
+                      hasDebtor ? 'Alterar Devedor' : 'Atribuir Devedor',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                     onPressed: () {
@@ -311,37 +311,68 @@ class InvoiceTransactionBottomSheet extends StatelessWidget {
                     },
                   ),
                 ),
-                if (hasDebtor) ...[
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF25D366),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: BorderSide(
+                        color: transaction.installmentRef != null
+                            ? AppConstants.accentAmber
+                            : (isDark ? AppConstants.oledBorder : Colors.grey.shade300),
                       ),
-                      icon: const Icon(Icons.chat_bubble_rounded, size: 16),
-                      label: const Text(
-                        'Cobrar WhatsApp',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        final personDebts = debtProvider.activeDebtsByPerson[transaction.personName!] ?? [];
-                        showDialog(
-                          context: context,
-                          builder: (_) => WhatsAppReminderDialog(
-                            personName: transaction.personName!,
-                            debts: personDebts,
-                          ),
-                        );
-                      },
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
+                    icon: Icon(
+                      Icons.pie_chart_outline_rounded,
+                      size: 16,
+                      color: transaction.installmentRef != null ? AppConstants.accentAmber : null,
+                    ),
+                    label: Text(
+                      transaction.installmentRef != null
+                          ? 'Parcela ${transaction.installmentRef}'
+                          : 'Definir Parcelas',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: transaction.installmentRef != null ? AppConstants.accentAmber : null,
+                      ),
+                    ),
+                    onPressed: () => _showInstallmentDialog(context, financeProvider),
                   ),
-                ],
+                ),
               ],
             ),
+            if (hasDebtor) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.chat_bubble_rounded, size: 16),
+                  label: const Text(
+                    'Cobrar WhatsApp',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    final personDebts = debtProvider.activeDebtsByPerson[transaction.personName!] ?? [];
+                    showDialog(
+                      context: context,
+                      builder: (_) => WhatsAppReminderDialog(
+                        personName: transaction.personName!,
+                        debts: personDebts,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             Row(
               children: [
@@ -376,6 +407,150 @@ class InvoiceTransactionBottomSheet extends StatelessWidget {
                   },
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showInstallmentDialog(BuildContext context, FinanceProvider financeProvider) {
+    int current = 1;
+    int total = 4;
+    if (transaction.installmentRef != null) {
+      final parts = transaction.installmentRef!.split('/');
+      if (parts.length == 2) {
+        current = int.tryParse(parts[0]) ?? 1;
+        total = int.tryParse(parts[1]) ?? 4;
+      }
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentController = TextEditingController(text: current.toString());
+    final totalController = TextEditingController(text: total.toString());
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          backgroundColor: isDark ? AppConstants.oledCard : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.pie_chart_outline_rounded, color: AppConstants.accentAmber, size: 20),
+              SizedBox(width: 8),
+              Text('Definir Parcelamento', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Indique qual parcela desta compra você está visualizando e o total de parcelas.',
+                style: TextStyle(fontSize: 12, color: isDark ? AppConstants.oledSubtext : Colors.grey.shade600),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: currentController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Parcela Atual',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: Text('/', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: totalController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Total Parcelas',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [2, 3, 4, 5, 6, 10, 12].map((n) {
+                  final isSelected = totalController.text == n.toString();
+                  return InkWell(
+                    onTap: () {
+                      setDlgState(() {
+                        totalController.text = n.toString();
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppConstants.oledSurface : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppConstants.accentAmber
+                              : (isDark ? AppConstants.oledBorder : Colors.grey.shade300),
+                        ),
+                      ),
+                      child: Text(
+                        '${n}x',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected ? AppConstants.accentAmber : null,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            if (transaction.installmentRef != null)
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  final updated = transaction.copyWith(installmentRef: null);
+                  await financeProvider.updateTransaction(updated);
+                  Navigator.pop(context);
+                  onUpdated?.call();
+                },
+                child: const Text('Remover Parcelas', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar', style: TextStyle(fontSize: 12)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppConstants.accentAmber,
+                foregroundColor: Colors.black,
+              ),
+              onPressed: () async {
+                final cur = int.tryParse(currentController.text.trim()) ?? 1;
+                final tot = int.tryParse(totalController.text.trim()) ?? 1;
+                final ref = '$cur/$tot';
+                Navigator.pop(ctx);
+                final updated = transaction.copyWith(installmentRef: ref);
+                await financeProvider.updateTransaction(updated);
+                Navigator.pop(context);
+                onUpdated?.call();
+              },
+              child: const Text('Salvar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             ),
           ],
         ),
