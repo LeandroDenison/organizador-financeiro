@@ -109,9 +109,40 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
           return tx.date.isAfter(cycleStart) && !tx.date.isAfter(cycleEnd);
         }).toList();
       } else {
-        // Faturas Futuras (Janeiro 2027, Fevereiro 2027...): projeta compras parceladas
+        // Faturas Futuras (Janeiro 2027, Fevereiro 2027...): projeta compras parceladas da fatura aberta atual
         final futureOffset = _selectedMonthOffset;
-        for (final tx in finance.transactions) {
+        final currentOpenInv = payables.nextInvoice?.cardInvoices.firstWhere(
+          (c) => c.config.id == cardConfig.id,
+          orElse: () => CardOpenInvoice(
+            config: cardConfig,
+            targetDueDate: targetDue,
+            cycleStartDate: cycleStart,
+            cycleEndDate: cycleEnd,
+            transactions: [],
+          ),
+        );
+
+        List<TransactionModel> baseTransactions = currentOpenInv?.transactions ?? [];
+        if (baseTransactions.isEmpty) {
+          // Fallback seguro: ciclo aberto atual (Novembro -> Dezembro)
+          final now = DateTime(2026, 11, 16);
+          final defCycleEnd = DateTime(now.year, now.month + 1, cardConfig.closingDay, 23, 59, 59);
+          final defCycleStart = DateTime(now.year, now.month, cardConfig.closingDay, 23, 59, 59);
+          baseTransactions = finance.transactions.where((tx) {
+            if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
+            final txBank = tx.bank?.toLowerCase() ?? '';
+            final title = tx.title.toLowerCase();
+            bool matches = false;
+            if (cardConfig.id == 'nubank') matches = txBank.contains('nubank');
+            if (cardConfig.id == 'itau_click') matches = (txBank.contains('itau') || txBank.contains('itaú')) && !title.contains('samsung');
+            if (cardConfig.id == 'itau_samsung') matches = (txBank.contains('itau') || txBank.contains('itaú')) && title.contains('samsung');
+            if (cardConfig.id == 'mercado_pago') matches = txBank.contains('mercado pago');
+            if (!matches) return false;
+            return tx.date.isAfter(defCycleStart) && !tx.date.isAfter(defCycleEnd);
+          }).toList();
+        }
+
+        for (final tx in baseTransactions) {
           if (!FinanceProvider.isCreditCardTransaction(tx)) continue;
 
           // Extrai referência de parcelamento válida (ex: 1/4, 2/6, 13/18)
@@ -134,38 +165,22 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
           final projectedNum = currentNum + futureOffset;
 
           if (projectedNum <= totalNum) {
-              bool matchesCard = false;
-              final txBank = tx.bank?.toLowerCase() ?? '';
-              final title = tx.title.toLowerCase();
-              if (cardConfig.id == 'nubank') {
-                matchesCard = txBank.contains('nubank');
-              } else if (cardConfig.id == 'itau_click') {
-                matchesCard = (txBank.contains('itau') || txBank.contains('itaú')) &&
-                    (title.contains('click') || !title.contains('samsung'));
-              } else if (cardConfig.id == 'itau_samsung') {
-                matchesCard = (txBank.contains('itau') || txBank.contains('itaú')) && title.contains('samsung');
-              } else if (cardConfig.id == 'mercado_pago') {
-                matchesCard = txBank.contains('mercado pago');
-              }
-
-              if (matchesCard) {
-                cardTxs.add(
-                  TransactionModel(
-                    id: 'future_${tx.id}_$projectedNum',
-                    title: tx.title.replaceAll(RegExp(r'\d+/\d+'), '$projectedNum/$totalNum'),
-                    amount: tx.amount,
-                    date: DateTime(targetMonth.year, targetMonth.month, cardConfig.closingDay),
-                    type: TransactionType.expense,
-                    category: tx.category,
-                    bank: cardConfig.bank,
-                    installmentRef: '$projectedNum/$totalNum',
-                    personName: tx.personName,
-                    notes: 'Parcela futura projetada para ${DateFormat('MMMM yyyy', 'pt_BR').format(targetMonth)}',
-                  ),
-                );
-              }
-            }
+            cardTxs.add(
+              TransactionModel(
+                id: 'future_${tx.id}_$projectedNum',
+                title: tx.title.replaceAll(RegExp(r'\d+/\d+'), '$projectedNum/$totalNum'),
+                amount: tx.amount,
+                date: DateTime(targetMonth.year, targetMonth.month, cardConfig.closingDay),
+                type: TransactionType.expense,
+                category: tx.category,
+                bank: cardConfig.bank,
+                installmentRef: '$projectedNum/$totalNum',
+                personName: tx.personName,
+                notes: 'Parcela futura projetada para ${DateFormat('MMMM yyyy', 'pt_BR').format(targetMonth)}',
+              ),
+            );
           }
+        }
 
         // Assinaturas ativas continuam nas faturas futuras
         cardSubs = subs.activeSubscriptions.where((s) {
@@ -652,71 +667,95 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
           ),
           const SizedBox(height: 16),
 
-          // 4 MINI-CARDS INDIVIDUAIS DOS BANCOS
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: cardInvoices.map((card) {
-              final isCardSelected = _selectedCardId == card.config.id;
-              return InkWell(
-                onTap: () {
-                  setState(() {
-                    _selectedCardId = isCardSelected ? 'all' : card.config.id;
-                  });
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppConstants.oledSurface : Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isCardSelected
-                          ? card.config.color
-                          : (isDark ? AppConstants.oledBorder : Colors.grey.shade200),
-                      width: isCardSelected ? 1.5 : 1,
-                    ),
-                  ),
+          // 4 MINI-CARDS INDIVIDUAIS DOS BANCOS (2 POR LINHA - GRID 2x2 ELEGANTE)
+          Column(
+            children: [
+              for (int i = 0; i < cardInvoices.length; i += 2)
+                Padding(
+                  padding: EdgeInsets.only(bottom: i + 2 < cardInvoices.length ? 8.0 : 0.0),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: card.config.color,
-                          shape: BoxShape.circle,
-                        ),
+                      Expanded(
+                        child: _buildMiniCardItem(isDark, cardInvoices[i]),
                       ),
-                      const SizedBox(width: 6),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            card.config.cardName,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? AppConstants.oledSubtext : Colors.grey.shade700,
-                            ),
-                          ),
-                          Text(
-                            CurrencyFormatter.format(card.totalAmount),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: (i + 1 < cardInvoices.length)
+                            ? _buildMiniCardItem(isDark, cardInvoices[i + 1])
+                            : const SizedBox.shrink(),
                       ),
                     ],
                   ),
                 ),
-              );
-            }).toList(),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMiniCardItem(bool isDark, CardOpenInvoice card) {
+    final isCardSelected = _selectedCardId == card.config.id;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedCardId = isCardSelected ? 'all' : card.config.id;
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? AppConstants.oledSurface : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isCardSelected
+                ? card.config.color
+                : (isDark ? AppConstants.oledBorder : Colors.grey.shade200),
+            width: isCardSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: card.config.color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    card.config.cardName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppConstants.oledSubtext : Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    CurrencyFormatter.format(card.totalAmount),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

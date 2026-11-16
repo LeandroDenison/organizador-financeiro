@@ -1,3 +1,4 @@
+﻿import '../utils/installment_helper.dart';
 import 'dart:typed_data';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../models/transaction_model.dart';
@@ -62,11 +63,6 @@ class PdfParserService {
     final totalMatch = totalRegex.firstMatch(text);
     if (totalMatch != null) {
       invoiceTotal = _parseAmount(totalMatch.group(1)!);
-    }
-
-    final ownerRegex = RegExp(r'(?:D\s*ENISON|DENISON)\s+LEANDRO\s+SIQUEIRA\s+CARNEIRO', caseSensitive: false);
-    if (ownerRegex.hasMatch(text)) {
-      owner = 'Denison Leandro Siqueira Carneiro';
     }
 
     final monthMap = {
@@ -232,22 +228,10 @@ class PdfParserService {
 
           // Extract installment reference if present (e.g. "Parcela 4/10")
           String? installmentRef;
-          final instMatch = RegExp(r'Parcela\s+(\d+/\d+)', caseSensitive: false).firstMatch(title);
-          if (instMatch != null) {
-            installmentRef = instMatch.group(1);
-          }
+          installmentRef = InstallmentHelper.extractInstallmentRef(title);
 
-          // Detect debtors
-          String? personName;
-          final lowerTitle = title.toLowerCase();
-          if (lowerTitle.contains('sergio lucas') ||
-              lowerTitle.contains('western union') ||
-              lowerTitle.contains('steamgames')) {
-            personName = 'Sergio Lucas';
-          } else if (lowerTitle.contains('taxconfig') ||
-              (lowerTitle.contains('amazon') && (installmentRef?.contains('/10') ?? false))) {
-            personName = 'Clécio';
-          }
+          // Devedores são atribuídos pelo usuário no app (sem regras por nome).
+          const String? personName = null;
 
           transactions.add(
             TransactionModel(
@@ -504,3 +488,4 @@ class PdfParserService {
     return isExpense ? 'Outros' : 'Outras Receitas';
   }
 }
+

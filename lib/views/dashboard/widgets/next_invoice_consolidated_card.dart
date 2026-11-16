@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/payable_provider.dart';
+import '../../../models/card_cycle_model.dart';
 import '../../../utils/currency_formatter.dart';
 import '../../../utils/constants.dart';
 import '../../invoice/unified_invoice_view.dart';
@@ -218,81 +219,27 @@ class NextInvoiceConsolidatedCard extends StatelessWidget {
           const Divider(height: 1),
           const SizedBox(height: 14),
 
-          // 4 Cards Grid/Wrap
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: invoice.cardInvoices.map((card) {
-              final double cardWidth = isMobile
-                  ? (screenWidth - (isMobile ? 32 : 48) - 40) / 2
-                  : 180;
-
-              return SizedBox(
-                width: cardWidth.clamp(140.0, 260.0),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppConstants.oledSurface : Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: card.config.color.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          // 4 Cards Grid 2x2 (2 por linha)
+          Column(
+            children: [
+              for (int i = 0; i < invoice.cardInvoices.length; i += 2)
+                Padding(
+                  padding: EdgeInsets.only(bottom: i + 2 < invoice.cardInvoices.length ? 8.0 : 0.0),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: card.config.color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              card.config.cardName,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                      Expanded(
+                        child: _buildCardItem(isDark, invoice.cardInvoices[i]),
                       ),
-                      const SizedBox(height: 6),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          CurrencyFormatter.format(card.totalAmount),
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: card.totalAmount > 0
-                                ? (isDark ? Colors.white : Colors.black87)
-                                : (isDark ? AppConstants.oledSubtext : Colors.grey),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Fecha dia ${card.config.closingDay} • Vence ${card.config.dueDay}',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: isDark ? AppConstants.oledSubtext : Colors.grey.shade600,
-                        ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: (i + 1 < invoice.cardInvoices.length)
+                            ? _buildCardItem(isDark, invoice.cardInvoices[i + 1])
+                            : const SizedBox.shrink(),
                       ),
                     ],
                   ),
                 ),
-              );
-            }).toList(),
+            ],
           ),
           const SizedBox(height: 12),
 
@@ -322,4 +269,71 @@ class NextInvoiceConsolidatedCard extends StatelessWidget {
     ),
   );
 }
+
+  Widget _buildCardItem(bool isDark, CardOpenInvoice card) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark ? AppConstants.oledSurface : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: card.config.color.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: card.config.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  card.config.cardName,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              CurrencyFormatter.format(card.totalAmount),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: card.totalAmount > 0
+                    ? (isDark ? Colors.white : Colors.black87)
+                    : (isDark ? AppConstants.oledSubtext : Colors.grey),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Fecha dia ${card.config.closingDay} • Vence ${card.config.dueDay}',
+            style: TextStyle(
+              fontSize: 9,
+              color: isDark ? AppConstants.oledSubtext : Colors.grey.shade600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
 }

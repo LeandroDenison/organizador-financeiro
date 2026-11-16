@@ -1,9 +1,10 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import '../models/transaction_model.dart';
 import '../services/storage_service.dart';
 import '../services/firebase_service.dart';
 import '../services/open_finance_service.dart';
 import '../services/ofx_parser_service.dart';
+import '../utils/installment_helper.dart';
 
 class FinanceProvider extends ChangeNotifier {
   List<TransactionModel> _transactions = [];
@@ -50,6 +51,9 @@ class FinanceProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    final ownerName = await StorageService.getUserName();
+    ownerNameTokens = ownerName.toLowerCase().split(RegExp(r'\s+')).where((w) => w.length >= 3).toList();
+
     // Remove legacy fake transactions if they exist
     final cleaned = await StorageService.hasCleanedFakeData();
     var stored = await StorageService.loadTransactions();
@@ -84,52 +88,11 @@ class FinanceProvider extends ChangeNotifier {
 
       final lower = t.title.toLowerCase();
 
-      // Expunge artificial duplicate transactions with date 2026-12-05 00:00:00
-      // that were shifted from previous cycles (e.g. Tim Pos, iFood, Vanegas, Odonto, Jose Arlindo)
-      if (t.date.year == 2026 && t.date.month == 12 && t.date.day == 5 && t.date.hour == 0 && t.date.minute == 0) {
-        if (lower.contains('jose arlindo') ||
-            lower.contains('ifood') ||
-            lower.contains('odonto') ||
-            lower.contains('vanegas') ||
-            lower.contains('tim pos')) {
-          modified = true;
-          continue;
-        }
-      }
-
-      // Clear mistakenly assigned person on Jim.Com or non-debt expenses
-      if (lower.contains('jim.com') && t.personName != null) {
-        t = t.copyWith(personName: null, personId: null);
+      // Detecção automática e universal de parcelas via InstallmentHelper (sem hardcoding)
+      final detectedRef = InstallmentHelper.extractInstallmentRef(t.title, existingRef: t.installmentRef);
+      if (detectedRef != t.installmentRef) {
+        t = t.copyWith(installmentRef: detectedRef);
         modified = true;
-      }
-
-      // Atribuir parcelamento 1/4 para Super Motos e Clínica dos Capacetes
-      if (lower.contains('super motos') && t.installmentRef == null) {
-        t = t.copyWith(installmentRef: '1/4');
-        modified = true;
-      }
-      if (lower.contains('clinica dos cap') && t.installmentRef == null) {
-        t = t.copyWith(installmentRef: '1/4');
-        modified = true;
-      }
-
-      // Limpar parcelamentos falsos gerados por barras de data no título (ex: 1/11, 4/11, 6/11)
-      if (t.installmentRef != null) {
-        final match = RegExp(r'^(\d+)/(\d+)$').firstMatch(t.installmentRef!);
-        if (match != null) {
-          final tot = int.tryParse(match.group(2) ?? '0') ?? 0;
-          if (tot == 11 || tot == 12 || tot == 10) {
-            if (!lower.contains('parcela') &&
-                !lower.contains('amazon') &&
-                !lower.contains('mercado') &&
-                !lower.contains('ingresso') &&
-                !lower.contains('super motos') &&
-                !lower.contains('clinica')) {
-              t = t.copyWith(installmentRef: null);
-              modified = true;
-            }
-          }
-        }
       }
 
       // Normalize English categories from Open Finance to Portuguese
@@ -170,19 +133,18 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Palavras do nome do titular (configurado pelo usuário), usadas para detectar transferências entre contas próprias.
+  static List<String> ownerNameTokens = [];
+
   static bool _isSelfTransfer(TransactionModel t) {
     final lower = t.title.toLowerCase();
 
-    // 1. Transferências entre contas do próprio Denison
-    final mentionsDenison = lower.contains('denison') ||
-        lower.contains('d enison') ||
-        lower.contains('d eniso') ||
-        lower.contains('enison leandro');
-    if (mentionsDenison &&
+    // 1. Transferências entre contas do próprio usuário (nome configurado em Configurações)
+    final tokens = ownerNameTokens;
+    final mentionsOwner = tokens.length >= 2 && tokens.every((tk) => lower.replaceAll(' ', '').contains(tk));
+    if (mentionsOwner &&
         (lower.contains('pix') ||
             lower.contains('transf') ||
-            lower.contains('transferência') ||
-            lower.contains('transferencia') ||
             lower.contains('enviad') ||
             lower.contains('recebid'))) {
       return true;
@@ -538,3 +500,5 @@ class FinanceProvider extends ChangeNotifier {
     FirebaseService().triggerSync();
   }
 }
+
+

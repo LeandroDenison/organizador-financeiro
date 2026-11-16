@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/services.dart';
 import '../models/notification_event_model.dart';
 import '../models/transaction_model.dart';
@@ -13,6 +13,7 @@ class NotificationParseResult {
   final String? ddaBeneficiary;
   final DateTime? ddaDueDate;
   final String? ddaSignature;
+  final String? installmentRef;
 
   NotificationParseResult({
     required this.amount,
@@ -24,6 +25,7 @@ class NotificationParseResult {
     this.ddaBeneficiary,
     this.ddaDueDate,
     this.ddaSignature,
+    this.installmentRef,
   });
 }
 
@@ -418,3 +420,4 @@ class NotificationService {
     );
   }
 }
+

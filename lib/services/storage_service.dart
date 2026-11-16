@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
 import '../models/debt_model.dart';
@@ -129,7 +129,7 @@ class StorageService {
 
   static Future<String> getUserName() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('user_pix_name') ?? 'LEANDRO DENISON';
+    return prefs.getString('user_pix_name') ?? '';
   }
 
   static Future<void> setUserName(String name) async {
@@ -198,7 +198,7 @@ class StorageService {
       'budgets': jsonDecode(prefs.getString('financial_budgets_v1') ?? '[]'),
       'pix': {
         'key': prefs.getString('user_pix_key') ?? '',
-        'name': prefs.getString('user_pix_name') ?? 'LEANDRO DENISON',
+        'name': prefs.getString('user_pix_name') ?? '',
         'city': prefs.getString('user_pix_city') ?? 'FORTALEZA',
       },
       'open_finance_bank_balances_v1': prefs.getString('open_finance_bank_balances_v1') ?? '[]',
@@ -270,3 +270,4 @@ class StorageService {
     }
   }
 }
+

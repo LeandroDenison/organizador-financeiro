@@ -1,9 +1,10 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/transaction_model.dart';
 import '../models/bank_loan_model.dart';
 import 'storage_service.dart';
 import 'ofx_parser_service.dart';
+import '../utils/installment_helper.dart';
 
 class BankAccountBalance {
   final String bankName;
@@ -368,14 +369,6 @@ class OpenFinanceService {
                 description = description.replaceAll('|', ' - ').trim();
               }
 
-              final lowerDesc = description.toLowerCase();
-
-              // Ignore self-transfers between own accounts
-              if ((lowerDesc.contains('d enison') || lowerDesc.contains('denison')) &&
-                  (lowerDesc.contains('transferência enviada') || lowerDesc.contains('transferencia enviada'))) {
-                continue;
-              }
-
               final isCreditCard = accType.toUpperCase().contains('CREDIT');
               final isExpense = isCreditCard
                   ? (rawAmount > 0 && typeStr != 'CREDIT')
@@ -383,6 +376,8 @@ class OpenFinanceService {
 
               final parsedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
 
+              // Parcelamento: prioridade ao metadado oficial do banco (Open Finance);
+              // fallback genérico via texto, sem regras específicas de usuário.
               String? installmentRef;
               if (map['creditCardMetadata'] != null) {
                 final ccMeta = Map<String, dynamic>.from(map['creditCardMetadata'] as Map);
@@ -392,27 +387,12 @@ class OpenFinanceService {
                   installmentRef = '$instNum/$totInst';
                 }
               }
+              installmentRef ??= InstallmentHelper.extractInstallmentRef(description);
 
-              if (installmentRef == null) {
-                final instMatch = RegExp(r'(?:Parcela\s+)?(\d+/\d+)', caseSensitive: false).firstMatch(description);
-                if (instMatch != null) {
-                  installmentRef = instMatch.group(1);
-                }
-              }
+              // Devedores NÃO são atribuídos automaticamente por nome: o usuário define
+              // por compra (ou por regra própria), tornando o app utilizável por qualquer pessoa.
+              const String? personName = null;
 
-              String? personName;
-              if (lowerDesc.contains('taxconfig') ||
-                  (lowerDesc.contains('amazon') && (installmentRef?.contains('/10') ?? false))) {
-                personName = 'Clécio';
-              } else if (!isExpense && (lowerDesc.contains('sergio lucas') || lowerDesc.contains('sergio'))) {
-                personName = 'Sergio Lucas';
-              } else if (isExpense && (
-                  lowerDesc.contains('steamgames') ||
-                  lowerDesc.contains('azul linhas') ||
-                  lowerDesc.contains('latam air') ||
-                  (lowerDesc.contains('mercadolivre') && (installmentRef?.contains('/18') ?? false)))) {
-                personName = 'Sergio Lucas';
-              }
 
               allTransactions.add(
                 TransactionModel(
@@ -551,3 +531,6 @@ class OpenFinanceService {
     return loadStoredBalances();
   }
 }
+
+
+
