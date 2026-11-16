@@ -4,6 +4,8 @@ import '../../providers/finance_provider.dart';
 import '../../providers/debt_provider.dart';
 import '../../providers/app_state_provider.dart';
 import '../../providers/bank_loan_provider.dart';
+import '../../providers/payable_provider.dart';
+import '../../providers/subscription_provider.dart';
 import '../../services/firebase_service.dart';
 import '../../utils/currency_formatter.dart';
 import '../../utils/constants.dart';
@@ -11,6 +13,7 @@ import '../../models/transaction_model.dart';
 import 'widgets/summary_card.dart';
 import 'widgets/category_pie_chart.dart';
 import 'widgets/projected_balance_card.dart';
+import 'widgets/next_invoice_consolidated_card.dart';
 import 'widgets/budget_alert_banner.dart';
 import 'widgets/future_commitments_card.dart';
 import 'widgets/debtor_pix_alert_banner.dart';
@@ -32,6 +35,17 @@ class DashboardView extends StatelessWidget {
     final isDesktop = screenWidth >= 900;
 
     final isMobile = screenWidth < 650;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
+        context.read<PayableProvider>().syncWithProviders(
+              finance: finance,
+              debts: debts,
+              subscriptions: context.read<SubscriptionProvider>(),
+              loans: bankLoans,
+            );
+      }
+    });
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -118,6 +132,9 @@ class DashboardView extends StatelessWidget {
 
             // Feature 4: Budget Limit Alerts (if any threshold reached)
             const BudgetAlertBanner(),
+
+            // Card Principal: Próxima Fatura Consolidada (Acumulando para Dezembro)
+            const NextInvoiceConsolidatedCard(),
 
             // Feature 3: Projected Balance at End of Month
             const ProjectedBalanceCard(),

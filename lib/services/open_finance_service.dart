@@ -407,9 +407,24 @@ class OpenFinanceService {
                 }
               }
 
-              // End-of-month credit card charges (closing date 28-31) belong to the next billing cycle (due day 5)
-              if (isCreditCard && parsedDate.day >= 28 && effectiveDate == parsedDate) {
-                effectiveDate = DateTime(parsedDate.year, parsedDate.month + 1, 5);
+              // Alinhamento exato do ciclo dos cartões conforme fechamento e vencimento:
+              // Nubank: fecha 06, vence 13
+              // Itaú Click / Samsung Itaú: fecha 03, vence 10
+              // Mercado Pago: fecha 05, vence 10
+              if (isCreditCard && effectiveDate == parsedDate) {
+                final bLower = bank.bankName.toLowerCase();
+                int closingDay = 6;
+                int dueDay = 13;
+                if (bLower.contains('itau') || bLower.contains('itaú')) {
+                  closingDay = 3;
+                  dueDay = 10;
+                } else if (bLower.contains('mercado pago')) {
+                  closingDay = 5;
+                  dueDay = 10;
+                }
+                if (parsedDate.day > closingDay) {
+                  effectiveDate = DateTime(parsedDate.year, parsedDate.month + 1, dueDay);
+                }
               }
 
               if (installmentRef == null) {

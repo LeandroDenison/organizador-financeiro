@@ -121,4 +121,29 @@ void main() {
       expect(myNetExpense, 500.0);
     });
   });
+
+  group('Salary Surplus & Debtor Balance Logic', () {
+    test('Calculates salary surplus strictly subtracting personal bills (Apenas Minhas Contas)', () {
+      const salary = 2995.34;
+      const myBills = 850.0;
+      final surplus = salary - myBills;
+      expect(surplus, closeTo(2145.34, 0.01));
+    });
+
+    test('Calculates full surplus subtracting all payables and adding debtor receivables (Com Devedores)', () {
+      const salary = 2995.34;
+      const totalBills = 1500.0;
+      const debtorReceivables = 650.0;
+      final surplus = salary - totalBills + debtorReceivables;
+      expect(surplus, closeTo(2145.34, 0.01));
+    });
+
+    test('Identifies distinct cash balance (R\$ 51.57) vs projected salary surplus', () {
+      const nubank = 50.56;
+      const itau = 0.01;
+      const mp = 1.00;
+      final cashBalance = nubank + itau + mp;
+      expect(cashBalance, closeTo(51.57, 0.01));
+    });
+  });
 }

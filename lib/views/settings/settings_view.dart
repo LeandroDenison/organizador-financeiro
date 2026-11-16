@@ -10,6 +10,7 @@ import '../../providers/savings_provider.dart';
 import '../../providers/subscription_provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/bank_loan_provider.dart';
+import '../../providers/payable_provider.dart';
 import '../../services/firebase_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/pix_payload_service.dart';
@@ -826,6 +827,7 @@ class _SettingsViewState extends State<SettingsView> {
                             await context.read<NotificationProvider>().clearAll();
                             await context.read<SavingsProvider>().clearGoals();
                             await context.read<SubscriptionProvider>().clearSubscriptions();
+                            await FirebaseService().pushWipeToFirestore();
 
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -1469,6 +1471,15 @@ class _SettingsViewState extends State<SettingsView> {
 
               final importedCount = await finance.resetAndImportFromOpenFinance();
               await subscriptions.syncFromTransactions(finance.transactions, debtProvider: debts);
+
+              if (context.mounted) {
+                context.read<PayableProvider>().syncWithProviders(
+                  finance: finance,
+                  debts: debts,
+                  subscriptions: subscriptions,
+                  loans: context.read<BankLoanProvider>(),
+                );
+              }
 
               setState(() => _isSyncingOpenFinance = false);
 

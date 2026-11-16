@@ -113,6 +113,7 @@ class FirebaseService extends ChangeNotifier {
       final localTxs = await StorageService.loadTransactions();
       final localDebts = await StorageService.loadDebts();
       final localCount = localTxs.length + localDebts.length;
+      final hasCleaned = await StorageService.hasCleanedFakeData();
 
       final resp = await http.get(_firestoreDocUri).timeout(const Duration(seconds: 6));
       if (resp.statusCode >= 200 && resp.statusCode < 300) {
@@ -120,6 +121,24 @@ class FirebaseService extends ChangeNotifier {
         final fields = decoded['fields'] as Map<String, dynamic>?;
         final remoteUpdatedAt = fields?['updatedAt']?['stringValue'] as String?;
         final payloadJson = fields?['payloadJson']?['stringValue'] as String?;
+        final isRemoteWiped = fields?['isWiped']?['booleanValue'] as bool? ?? false;
+
+        if (isRemoteWiped) {
+          // Cloud foi explicitamente zerada pelo usuário -> reflete localmente
+          _lastSyncedUpdatedAt = remoteUpdatedAt;
+          await StorageService.clearAllData();
+          await onRemoteDataReceived?.call();
+          _lastSyncTime = DateTime.now();
+          _lastSyncMessage = 'Base zerada via nuvem ($_projectId)';
+          notifyListeners();
+          return;
+        }
+
+        if (localCount == 0 && hasCleaned) {
+          // Usuário limpou dados localmente no aparelho -> propaga limpeza para a nuvem
+          await pushWipeToFirestore();
+          return;
+        }
 
         if (payloadJson != null && payloadJson.isNotEmpty) {
           final remoteMap = jsonDecode(payloadJson) as Map<String, dynamic>;
@@ -162,17 +181,27 @@ class FirebaseService extends ChangeNotifier {
         final fields = decoded['fields'] as Map<String, dynamic>?;
         final remoteUpdatedAt = fields?['updatedAt']?['stringValue'] as String?;
         final payloadJson = fields?['payloadJson']?['stringValue'] as String?;
+        final isRemoteWiped = fields?['isWiped']?['booleanValue'] as bool? ?? false;
 
-        if (remoteUpdatedAt != null &&
-            payloadJson != null &&
-            remoteUpdatedAt != _lastSyncedUpdatedAt) {
+        if (remoteUpdatedAt != null && remoteUpdatedAt != _lastSyncedUpdatedAt) {
           _lastSyncedUpdatedAt = remoteUpdatedAt;
-          final ok = await StorageService.importFullBackupJson(payloadJson);
-          if (ok) {
-            _lastSyncTime = DateTime.now();
-            _lastSyncMessage = 'Atualizado em tempo real ($_projectId)';
+          if (isRemoteWiped) {
+            await StorageService.clearAllData();
             await onRemoteDataReceived?.call();
+            _lastSyncTime = DateTime.now();
+            _lastSyncMessage = 'Base zerada via nuvem ($_projectId)';
             notifyListeners();
+            return;
+          }
+
+          if (payloadJson != null) {
+            final ok = await StorageService.importFullBackupJson(payloadJson);
+            if (ok) {
+              _lastSyncTime = DateTime.now();
+              _lastSyncMessage = 'Atualizado em tempo real ($_projectId)';
+              await onRemoteDataReceived?.call();
+              notifyListeners();
+            }
           }
         }
       }
@@ -254,6 +283,54 @@ class FirebaseService extends ChangeNotifier {
       _lastSyncTime = DateTime.now();
       _lastSyncMessage = 'Salvo localmente (aguardando rede para sincronizar)';
       notifyListeners();
+      return false;
+    } finally {
+      _isPushing = false;
+    }
+  }
+
+  /// Propaga uma limpeza/zeramento de dados explícita para o Cloud Firestore
+  Future<bool> pushWipeToFirestore() async {
+    if (_projectId == null || _projectId!.isEmpty) return false;
+    _isPushing = true;
+    try {
+      final nowIso = DateTime.now().toUtc().toIso8601String();
+      _lastSyncedUpdatedAt = nowIso;
+
+      final body = jsonEncode({
+        'fields': {
+          'updatedAt': {'stringValue': nowIso},
+          'projectId': {'stringValue': _projectId},
+          'isWiped': {'booleanValue': true},
+          'payloadJson': {
+            'stringValue': jsonEncode({
+              'transactions': [],
+              'debts': [],
+              'savings_goals': [],
+              'subscriptions': [],
+              'budgets': [],
+            }),
+          },
+        },
+      });
+
+      final resp = await http
+          .patch(
+            _firestoreDocUri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: body,
+          )
+          .timeout(const Duration(seconds: 6));
+
+      _status = FirebaseSyncStatus.connected;
+      _lastSyncTime = DateTime.now();
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        _lastSyncMessage = 'Base zerada com sucesso no Firestore ($_projectId)';
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (_) {
       return false;
     } finally {
       _isPushing = false;

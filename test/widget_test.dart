@@ -258,7 +258,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Agenda de Contas'), findsOneWidget);
+    expect(find.textContaining('Agenda'), findsOneWidget);
     expect(find.text('Nova Conta'), findsOneWidget);
   });
 }

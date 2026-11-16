@@ -78,6 +78,7 @@ class _PayablesViewState extends State<PayablesView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildCycleSelector(context, payables, isDark),
                     _buildOverviewCard(context, payables, isDark, isMobile),
                     if (urgentItems.isNotEmpty) ...[
                       const SizedBox(height: 14),
@@ -156,12 +157,124 @@ class _PayablesViewState extends State<PayablesView> {
     );
   }
 
+  Widget _buildCycleSelector(
+    BuildContext context,
+    PayableProvider payables,
+    bool isDark,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark ? AppConstants.oledCard : Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppConstants.oledBorder : Colors.transparent,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                payables.toggleViewingMode(true);
+                _syncPayables();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  color: payables.isViewingOpenNextMonth
+                      ? AppConstants.primaryColor
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.upcoming_rounded,
+                      size: 15,
+                      color: payables.isViewingOpenNextMonth
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : Colors.black87),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Fatura Aberta (Dez)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: payables.isViewingOpenNextMonth
+                            ? Colors.white
+                            : (isDark ? Colors.white70 : Colors.black87),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                payables.toggleViewingMode(false);
+                _syncPayables();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  color: !payables.isViewingOpenNextMonth
+                      ? AppConstants.primaryColor
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.history_rounded,
+                      size: 15,
+                      color: !payables.isViewingOpenNextMonth
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : Colors.black87),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Fatura Paga (Nov)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: !payables.isViewingOpenNextMonth
+                            ? Colors.white
+                            : (isDark ? Colors.white70 : Colors.black87),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOverviewCard(
     BuildContext context,
     PayableProvider payables,
     bool isDark,
     bool isMobile,
   ) {
+    final isOpen = payables.isViewingOpenNextMonth;
+
     return Container(
       padding: EdgeInsets.all(isMobile ? 16 : 20),
       decoration: BoxDecoration(
@@ -189,18 +302,18 @@ class _PayablesViewState extends State<PayablesView> {
                       color: AppConstants.primaryColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(
-                      Icons.calendar_month_rounded,
+                    child: Icon(
+                      isOpen ? Icons.credit_score_rounded : Icons.check_circle_rounded,
                       color: AppConstants.primaryColor,
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Flexible(
+                  Flexible(
                     child: Text(
-                      'Agenda de Contas',
-                      style: TextStyle(
-                        fontSize: 16,
+                      isOpen ? 'Agenda Aberta • Dezembro' : 'Contas Pagas • Novembro',
+                      style: const TextStyle(
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -211,20 +324,24 @@ class _PayablesViewState extends State<PayablesView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: payables.pendingCount > 0
-                      ? AppConstants.accentAmber.withValues(alpha: 0.15)
+                  color: isOpen
+                      ? (payables.pendingCount > 0
+                          ? AppConstants.accentAmber.withValues(alpha: 0.15)
+                          : AppConstants.accentGreen.withValues(alpha: 0.15))
                       : AppConstants.accentGreen.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  payables.pendingCount > 0
-                      ? '${payables.pendingCount} pendente(s)'
-                      : 'Tudo pago!',
+                  isOpen
+                      ? '${payables.pendingCount} a pagar'
+                      : '100% Quitado!',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: payables.pendingCount > 0
-                        ? AppConstants.accentAmber
+                    color: isOpen
+                        ? (payables.pendingCount > 0
+                            ? AppConstants.accentAmber
+                            : AppConstants.accentGreen)
                         : AppConstants.accentGreen,
                   ),
                 ),
@@ -240,7 +357,7 @@ class _PayablesViewState extends State<PayablesView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'TOTAL DO MÊS',
+                    isOpen ? 'TOTAL ABERTO (PREVISTO)' : 'TOTAL PAGO NO MÊS',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
