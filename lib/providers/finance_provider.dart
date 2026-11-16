@@ -113,6 +113,25 @@ class FinanceProvider extends ChangeNotifier {
         modified = true;
       }
 
+      // Limpar parcelamentos falsos gerados por barras de data no título (ex: 1/11, 4/11, 6/11)
+      if (t.installmentRef != null) {
+        final match = RegExp(r'^(\d+)/(\d+)$').firstMatch(t.installmentRef!);
+        if (match != null) {
+          final tot = int.tryParse(match.group(2) ?? '0') ?? 0;
+          if (tot == 11 || tot == 12 || tot == 10) {
+            if (!lower.contains('parcela') &&
+                !lower.contains('amazon') &&
+                !lower.contains('mercado') &&
+                !lower.contains('ingresso') &&
+                !lower.contains('super motos') &&
+                !lower.contains('clinica')) {
+              t = t.copyWith(installmentRef: null);
+              modified = true;
+            }
+          }
+        }
+      }
+
       // Normalize English categories from Open Finance to Portuguese
       final normalizedCat = OfxParserService.normalizeCategory(t.category, t.title);
       if (normalizedCat != t.category) {

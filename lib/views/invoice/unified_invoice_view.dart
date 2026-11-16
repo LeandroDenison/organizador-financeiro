@@ -112,14 +112,28 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
         // Faturas Futuras (Janeiro 2027, Fevereiro 2027...): projeta compras parceladas
         final futureOffset = _selectedMonthOffset;
         for (final tx in finance.transactions) {
-          if (tx.type != TransactionType.expense) continue;
-          final instMatch = RegExp(r'(\d+)/(\d+)').firstMatch(tx.installmentRef ?? tx.title);
-          if (instMatch != null) {
-            final currentNum = int.tryParse(instMatch.group(1) ?? '1') ?? 1;
-            final totalNum = int.tryParse(instMatch.group(2) ?? '1') ?? 1;
-            final projectedNum = currentNum + futureOffset;
+          if (!FinanceProvider.isCreditCardTransaction(tx)) continue;
 
-            if (projectedNum <= totalNum) {
+          // Extrai referência de parcelamento válida (ex: 1/4, 2/6, 13/18)
+          String? instStr = tx.installmentRef;
+          if (instStr == null) {
+            final match = RegExp(r'(?:parcela|parc\.?)\s*(\d+)\s*/\s*(\d+)', caseSensitive: false).firstMatch(tx.title);
+            if (match != null) {
+              instStr = '${match.group(1)}/${match.group(2)}';
+            }
+          }
+          if (instStr == null) continue;
+
+          final instMatch = RegExp(r'^(\d+)/(\d+)$').firstMatch(instStr.trim());
+          if (instMatch == null) continue;
+
+          final currentNum = int.tryParse(instMatch.group(1) ?? '1') ?? 1;
+          final totalNum = int.tryParse(instMatch.group(2) ?? '1') ?? 1;
+          if (totalNum <= 1 || totalNum > 48 || currentNum > totalNum) continue;
+
+          final projectedNum = currentNum + futureOffset;
+
+          if (projectedNum <= totalNum) {
               bool matchesCard = false;
               final txBank = tx.bank?.toLowerCase() ?? '';
               final title = tx.title.toLowerCase();
@@ -152,7 +166,6 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
               }
             }
           }
-        }
 
         // Assinaturas ativas continuam nas faturas futuras
         cardSubs = subs.activeSubscriptions.where((s) {
