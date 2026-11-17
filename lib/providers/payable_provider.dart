@@ -125,8 +125,13 @@ class PayableProvider extends ChangeNotifier {
         final isOnOpeningDay = tx.date.year == openCycleStart.year &&
             tx.date.month == openCycleStart.month &&
             tx.date.day == openCycleStart.day;
-        if (isOnOpeningDay && cardConfig.id == 'nubank' && tx.source != TransactionSource.csv) {
-          return false;
+        if (isOnOpeningDay) {
+          if (cardConfig.id == 'nubank') {
+            if (tx.source != TransactionSource.csv) return false;
+          } else {
+            // Em cartões como Mercado Pago e Itaú, compras no dia de fechamento pertencem à fatura fechada de Novembro
+            return false;
+          }
         }
 
         return !tx.date.isBefore(openCycleStart) && !tx.date.isAfter(openCycleEnd);
@@ -141,11 +146,11 @@ class PayableProvider extends ChangeNotifier {
               if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
               if (!matchesCard(tx)) return false;
               final inPrev = !tx.date.isBefore(prevCycleStart) && tx.date.isBefore(openCycleStart);
-              final onOpeningPdf = tx.date.year == openCycleStart.year &&
+              final onOpeningDayClosed = tx.date.year == openCycleStart.year &&
                   tx.date.month == openCycleStart.month &&
                   tx.date.day == openCycleStart.day &&
-                  tx.source == TransactionSource.pdf;
-              return (inPrev || onOpeningPdf) && tx.installmentRef != null;
+                  (cardConfig.id != 'nubank' || tx.source == TransactionSource.pdf);
+              return (inPrev || onOpeningDayClosed) && tx.installmentRef != null;
             }).toList();
 
       for (final prevTx in prevCycleInstallments) {
