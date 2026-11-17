@@ -4,5 +4,17 @@
     "indexes": "firestore.indexes.json",
     "database": "(default)",
     "location": "southamerica-east1"
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ]
 }
