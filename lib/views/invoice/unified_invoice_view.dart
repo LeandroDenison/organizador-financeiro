@@ -30,7 +30,7 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _monthScrollController = ScrollController();
 
-  final List<int> _availableOffsets = [-3, -2, -1, 0, 1, 2, 3];
+  final List<int> _availableOffsets = [-3, -2, -1, 0, 1, 2, 3, 4, 5, 6];
 
   DateTime _getTargetMonth(int offset) {
     final base = DateTime(2026, 12, 1);
@@ -74,7 +74,7 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
 
       if (isCurrentOpenMonth) {
         // Fatura Aberta de Dezembro (usar dados apurados do PayableProvider)
-        final inv = payables.nextInvoice?.cardInvoices.firstWhere(
+        final inv = payables.baseOpenInvoice?.cardInvoices.firstWhere(
           (c) => c.config.id == cardConfig.id,
           orElse: () => CardOpenInvoice(
             config: cardConfig,
@@ -125,7 +125,7 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
       } else {
         // Faturas Futuras (Janeiro 2027, Fevereiro 2027...): projeta compras parceladas da fatura aberta atual
         final futureOffset = _selectedMonthOffset;
-        final currentOpenInv = payables.nextInvoice?.cardInvoices.firstWhere(
+        final currentOpenInv = payables.baseOpenInvoice?.cardInvoices.firstWhere(
           (c) => c.config.id == cardConfig.id,
           orElse: () => CardOpenInvoice(
             config: cardConfig,

@@ -17,12 +17,14 @@ class PayableProvider extends ChangeNotifier {
 
   List<PayableModel> _computedPayables = [];
   NextConsolidatedInvoice? _nextConsolidatedInvoice;
+  NextConsolidatedInvoice? _baseOpenDecemberInvoice;
   bool _isViewingOpenNextMonth = true; // Padrão: Foco na fatura aberta de Dezembro
 
   List<PayableModel> get payables => List.unmodifiable(_computedPayables);
   DateTime get selectedMonth => _selectedMonth;
   bool get isLoading => _isLoading;
   NextConsolidatedInvoice? get nextInvoice => _nextConsolidatedInvoice;
+  NextConsolidatedInvoice? get baseOpenInvoice => _baseOpenDecemberInvoice ?? _nextConsolidatedInvoice;
   bool get isViewingOpenNextMonth => _isViewingOpenNextMonth;
 
   Future<void> init() async {
@@ -47,9 +49,11 @@ class PayableProvider extends ChangeNotifier {
     required SubscriptionProvider subscriptions,
     required BankLoanProvider loans,
   }) {
-    final now = DateTime.now();
-    final targetMonth = DateTime(now.year, now.month + 1); // Dezembro de 2026
-    final month = _selectedMonth;
+    final realNow = DateTime(2026, 11, 16);
+    final baseMonth = finance.selectedMonth;
+    final monthOffset = (baseMonth.year - realNow.year) * 12 + (baseMonth.month - realNow.month);
+    final targetMonth = DateTime(baseMonth.year, baseMonth.month + 1);
+    final month = baseMonth;
 
     // --- 1. REGRA INTELIGENTE DE ASSINATURAS ---
     final upcomingSubs = <SubscriptionModel>[];
@@ -62,37 +66,38 @@ class PayableProvider extends ChangeNotifier {
         closingDay = 5;
       }
 
-      final lastClosingDate = DateTime(now.year, now.month, closingDay);
+      final lastClosingDate = DateTime(realNow.year, realNow.month, closingDay);
 
-      final alreadyBilledAfterClosing = finance.transactions.any((tx) {
-        if (tx.type != TransactionType.expense || tx.date.isBefore(lastClosingDate)) return false;
-        final tLower = tx.title.toLowerCase();
-        final sName = sub.name.toLowerCase();
-        final sSrc = sub.sourceTransactionTitle?.toLowerCase() ?? '';
-        final nameMatch = tLower.contains(sName) ||
-            (sSrc.isNotEmpty && (tLower.contains(sSrc) || sSrc.contains(tLower)));
-        if (!nameMatch) return false;
-        return (tx.amount - sub.amount).abs() <= 3.0;
-      });
+      final alreadyBilledAfterClosing = monthOffset == 0 &&
+          finance.transactions.any((tx) {
+            if (tx.type != TransactionType.expense || tx.date.isBefore(lastClosingDate)) return false;
+            final tLower = tx.title.toLowerCase();
+            final sName = sub.name.toLowerCase();
+            final sSrc = sub.sourceTransactionTitle?.toLowerCase() ?? '';
+            final nameMatch = tLower.contains(sName) ||
+                (sSrc.isNotEmpty && (tLower.contains(sSrc) || sSrc.contains(tLower)));
+            if (!nameMatch) return false;
+            return (tx.amount - sub.amount).abs() <= 3.0;
+          });
 
       if (sub.isActive) {
-        if (!alreadyBilledAfterClosing) {
+        if (monthOffset >= 0 && !alreadyBilledAfterClosing) {
           upcomingSubs.add(sub);
         }
-      } else {
-        // Cancelada no app: se já foi cobrada após o fechamento, já estará nas compras do cartão.
-        // Se ainda não cobrou, não projeta para dezembro!
       }
     }
 
-    // --- 2. CÁLCULO DOS 4 CARTÕES PARA O CICLO ABERTO DE DEZEMBRO ---
+    // --- 2. CÁLCULO DOS 4 CARTÕES CONFORME O MÊS SELECIONADO NO DASHBOARD ---
     final List<CardOpenInvoice> cardInvoices = [];
+    final List<CardOpenInvoice> baseDecCardInvoices = [];
 
     for (final cardConfig in CardConfig.defaultCards) {
-      // No dia de fechamento (ex: dia 06 no Nubank), o novo ciclo já abre e recebe as parcelas recorrentes do mês.
-      final openCycleStart = DateTime(now.year, now.month, cardConfig.closingDay);
-      final prevCycleStart = DateTime(now.year, now.month - 1, cardConfig.closingDay);
-      final nextClosing = DateTime(targetMonth.year, targetMonth.month, cardConfig.closingDay, 23, 59, 59);
+      final openCycleStart = DateTime(realNow.year, realNow.month, cardConfig.closingDay);
+      final prevCycleStart = DateTime(realNow.year, realNow.month - 1, cardConfig.closingDay);
+      final openCycleEnd = DateTime(realNow.year, realNow.month + 1, cardConfig.closingDay, 23, 59, 59);
+
+      final selectedCycleStart = DateTime(baseMonth.year, baseMonth.month, cardConfig.closingDay);
+      final selectedCycleEnd = DateTime(targetMonth.year, targetMonth.month, cardConfig.closingDay, 23, 59, 59);
       final targetDue = DateTime(targetMonth.year, targetMonth.month, cardConfig.dueDay);
 
       bool matchesCard(TransactionModel tx) {
@@ -112,11 +117,11 @@ class PayableProvider extends ChangeNotifier {
         return false;
       }
 
-      final rawCardTxs = finance.transactions.where((tx) {
+      // Base do ciclo aberto atual (Novembro -> Dezembro)
+      final baseOpenTxs = finance.transactions.where((tx) {
         if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
         if (!matchesCard(tx)) return false;
 
-        // No dia exato de fechamento/abertura (ex: 06/11 no Nubank), inclui apenas lançamentos do novo ciclo (CSV)
         final isOnOpeningDay = tx.date.year == openCycleStart.year &&
             tx.date.month == openCycleStart.month &&
             tx.date.day == openCycleStart.day;
@@ -124,12 +129,10 @@ class PayableProvider extends ChangeNotifier {
           return false;
         }
 
-        return !tx.date.isBefore(openCycleStart) && !tx.date.isAfter(nextClosing);
+        return !tx.date.isBefore(openCycleStart) && !tx.date.isAfter(openCycleEnd);
       }).toList();
 
-      // Projeta automaticamente parcelas do ciclo anterior (k/N -> (k+1)/N) apenas se o ciclo aberto
-      // ainda não recebeu o lote oficial de parcelas do banco (CSV/Open Finance)
-      final hasOfficialOpenInstallments = rawCardTxs.any(
+      final hasOfficialOpenInstallments = baseOpenTxs.any(
         (t) => t.installmentRef != null && t.source != TransactionSource.notification,
       );
       final prevCycleInstallments = hasOfficialOpenInstallments
@@ -154,11 +157,11 @@ class PayableProvider extends ChangeNotifier {
         if (tot <= 1 || nextInst > tot) continue;
 
         final nextRef = '$nextInst/$tot';
-        final alreadyInOpenCycle = rawCardTxs.any((t) =>
+        final alreadyInOpenCycle = baseOpenTxs.any((t) =>
             t.installmentRef == nextRef &&
             (t.amount - prevTx.amount).abs() <= 0.10);
         if (!alreadyInOpenCycle) {
-          rawCardTxs.add(
+          baseOpenTxs.add(
             TransactionModel(
               id: 'roll_${prevTx.id}_$nextInst',
               title: prevTx.title.replaceAll(RegExp(r'\d+/\d+'), nextRef),
@@ -175,6 +178,49 @@ class PayableProvider extends ChangeNotifier {
             ),
           );
         }
+      }
+
+      List<TransactionModel> rawCardTxs = [];
+      if (monthOffset == 0) {
+        rawCardTxs = baseOpenTxs;
+      } else if (monthOffset > 0) {
+        // Meses futuros selecionados no Dashboard: projeta parcelas ativas (+ monthOffset)
+        for (final tx in baseOpenTxs) {
+          final instStr = tx.installmentRef;
+          if (instStr == null) continue;
+          final instMatch = RegExp(r'^(\d+)/(\d+)$').firstMatch(instStr.trim());
+          if (instMatch == null) continue;
+          final currentNum = int.tryParse(instMatch.group(1) ?? '1') ?? 1;
+          final totalNum = int.tryParse(instMatch.group(2) ?? '1') ?? 1;
+          final projectedNum = currentNum + monthOffset;
+          if (totalNum > 1 && projectedNum <= totalNum) {
+            rawCardTxs.add(
+              TransactionModel(
+                id: 'future_${tx.id}_$projectedNum',
+                title: tx.title.replaceAll(RegExp(r'\d+/\d+'), '$projectedNum/$totalNum'),
+                amount: tx.amount,
+                date: DateTime(targetMonth.year, targetMonth.month, cardConfig.closingDay),
+                type: TransactionType.expense,
+                category: tx.category,
+                bank: cardConfig.bank,
+                installmentRef: '$projectedNum/$totalNum',
+                personName: tx.personName,
+                notes: tx.notes,
+              ),
+            );
+          }
+        }
+      } else {
+        // Meses passados selecionados no Dashboard: busca compras reais daquele ciclo
+        rawCardTxs = finance.transactions.where((tx) {
+          if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
+          if (!matchesCard(tx)) return false;
+          final isOnEndDay = tx.date.year == selectedCycleEnd.year &&
+              tx.date.month == selectedCycleEnd.month &&
+              tx.date.day == selectedCycleEnd.day;
+          if (isOnEndDay && tx.source == TransactionSource.csv) return false;
+          return tx.date.isAfter(selectedCycleStart) && !tx.date.isAfter(selectedCycleEnd);
+        }).toList();
       }
 
       // Vincula automaticamente compras aos devedores cadastrados em "Quem me Deve" (sem hardcoding)
@@ -196,18 +242,42 @@ class PayableProvider extends ChangeNotifier {
         return false;
       }).toList();
 
+      final baseDecMatchedTxs = baseOpenTxs.map((tx) {
+        final matchedPerson = debts.matchDebtorForPurchase(tx);
+        if (matchedPerson != null && tx.personName != matchedPerson) {
+          return tx.copyWith(personName: matchedPerson);
+        }
+        return tx;
+      }).toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+
+      baseDecCardInvoices.add(
+        CardOpenInvoice(
+          config: cardConfig,
+          targetDueDate: DateTime(realNow.year, realNow.month + 1, cardConfig.dueDay),
+          cycleStartDate: openCycleStart,
+          cycleEndDate: openCycleEnd,
+          transactions: baseDecMatchedTxs,
+          projectedSubscriptions: cardSubs,
+        ),
+      );
+
       cardInvoices.add(
         CardOpenInvoice(
           config: cardConfig,
           targetDueDate: targetDue,
-          cycleStartDate: openCycleStart,
-          cycleEndDate: nextClosing,
+          cycleStartDate: selectedCycleStart,
+          cycleEndDate: selectedCycleEnd,
           transactions: cardTxs,
           projectedSubscriptions: cardSubs,
         ),
       );
     }
 
+    _baseOpenDecemberInvoice = NextConsolidatedInvoice(
+      targetDueDate: DateTime(realNow.year, realNow.month + 1),
+      cardInvoices: baseDecCardInvoices,
+    );
     _nextConsolidatedInvoice = NextConsolidatedInvoice(
       targetDueDate: targetMonth,
       cardInvoices: cardInvoices,
@@ -304,8 +374,8 @@ class PayableProvider extends ChangeNotifier {
       }
 
       // Auto-detecção genérica de Boletos Fixos Mensais (presentes nos 2 últimos meses fechados consecutivos)
-      final m1 = DateTime(now.year, now.month - 1);
-      final m2 = DateTime(now.year, now.month - 2);
+      final m1 = DateTime(realNow.year, realNow.month - 1);
+      final m2 = DateTime(realNow.year, realNow.month - 2);
       final m1Boletos = finance.transactions.where((t) {
         if (t.type != TransactionType.expense) return false;
         final l = t.title.toLowerCase();

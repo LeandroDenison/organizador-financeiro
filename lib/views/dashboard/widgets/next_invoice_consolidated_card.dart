@@ -19,6 +19,21 @@ class NextInvoiceConsolidatedCard extends StatelessWidget {
     final invoice = payables.nextInvoice;
     if (invoice == null) return const SizedBox.shrink();
 
+    const monthsPt = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+    ];
+    final targetDue = invoice.targetDueDate;
+    final dueMonthName = monthsPt[(targetDue.month - 1).clamp(0, 11)];
+    final isCurrentDec = targetDue.year == 2026 && targetDue.month == 12;
+    final isFuture = targetDue.isAfter(DateTime(2026, 12, 31));
+    final subtitleText = isCurrentDec
+        ? 'Gastos acumulando para $dueMonthName/${targetDue.year}'
+        : (isFuture
+            ? 'Parcelas projetadas para $dueMonthName/${targetDue.year}'
+            : 'Fatura fechada de $dueMonthName/${targetDue.year}');
+    final badgeText = isCurrentDec ? 'Fatura Aberta' : (isFuture ? 'Fatura Futura' : 'Fatura Paga');
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -82,7 +97,7 @@ class NextInvoiceConsolidatedCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              'Gastos acumulando para Dezembro',
+                              subtitleText,
                               style: TextStyle(
                                 fontSize: 11,
                                 color: isDark ? AppConstants.oledSubtext : Colors.grey.shade600,
@@ -103,9 +118,9 @@ class NextInvoiceConsolidatedCard extends StatelessWidget {
                     color: AppConstants.primaryColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
-                    'Fatura Aberta',
-                    style: TextStyle(
+                  child: Text(
+                    badgeText,
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: AppConstants.primaryColor,
