@@ -14,10 +14,17 @@ class DebtProvider extends ChangeNotifier {
   List<DebtModel> _debts = [];
   bool _isLoading = true;
   DebtViewMode _viewMode = DebtViewMode.month;
+  DateTime _selectedMonth = DateTime(2026, 11);
 
   List<DebtModel> get debts => _debts;
   bool get isLoading => _isLoading;
   DebtViewMode get viewMode => _viewMode;
+  DateTime get selectedMonth => _selectedMonth;
+
+  void setSelectedMonth(DateTime month) {
+    _selectedMonth = DateTime(month.year, month.month);
+    notifyListeners();
+  }
 
   void setViewMode(DebtViewMode mode) {
     _viewMode = mode;
@@ -154,24 +161,34 @@ class DebtProvider extends ChangeNotifier {
     return activeDebts.fold(0.0, (sum, d) => sum + d.remainingAmount);
   }
 
-  /// Subtotal bruto das parcelas que vencem no mês atual para uma pessoa (sem deduzir pagamentos deste mês)
-  double personGrossMonthInstallments(String personName) {
+  /// Subtotal bruto das parcelas que vencem no mês para uma pessoa (sem deduzir pagamentos deste mês)
+  double personGrossMonthInstallments(String personName, [DateTime? targetMonth]) {
+    final target = targetMonth ?? _selectedMonth;
     final list = _debts.where((d) => normalizeText(d.personName) == normalizeText(personName));
     return list.fold(0.0, (sum, d) {
-      if (d.isSettled && d.paymentHistory.isEmpty) return sum;
+      if (d.isSettled) {
+        // Dívida quitada só entra no subtotal bruto do mês exato em que foi liquidada
+        final wasPaidInTargetMonth = d.paymentHistory.any(
+          (p) => p.date.year == target.year && p.date.month == target.month,
+        );
+        if (!wasPaidInTargetMonth) return sum;
+        final instVal = d.installmentValue > 0 ? d.installmentValue : d.totalAmount;
+        return sum + instVal;
+      }
+      if (d.remainingInstallments <= 0) return sum;
       final instVal = d.installmentValue > 0 ? d.installmentValue : d.totalAmount;
       return sum + instVal;
     });
   }
 
-  /// Total pago ou abatido pela pessoa no mês atual
-  double personPaidThisMonth(String personName) {
-    final now = DateTime.now();
+  /// Total pago ou abatido pela pessoa no mês alvo
+  double personPaidThisMonth(String personName, [DateTime? targetMonth]) {
+    final target = targetMonth ?? _selectedMonth;
     final list = _debts.where((d) => normalizeText(d.personName) == normalizeText(personName));
     double paid = 0.0;
     for (final d in list) {
       for (final p in d.paymentHistory) {
-        if (p.date.year == now.year && p.date.month == now.month) {
+        if (p.date.year == target.year && p.date.month == target.month) {
           paid += p.amount;
         }
       }
@@ -179,27 +196,30 @@ class DebtProvider extends ChangeNotifier {
     return paid;
   }
 
-  /// Valor líquido que a pessoa REALMENTE deve pagar no mês atual (Subtotal do Mês - Abatimentos deste Mês)
-  double personOwedThisMonth(String personName) {
-    final gross = personGrossMonthInstallments(personName);
-    final paid = personPaidThisMonth(personName);
+  /// Valor líquido que a pessoa REALMENTE deve pagar no mês (Subtotal do Mês - Abatimentos deste Mês)
+  double personOwedThisMonth(String personName, [DateTime? targetMonth]) {
+    final gross = personGrossMonthInstallments(personName, targetMonth);
+    final paid = personPaidThisMonth(personName, targetMonth);
     final net = gross - paid;
     return net > 0.01 ? net : 0.0;
   }
 
-  /// Soma das parcelas que vencem/são cobradas no mês atual de TODOS os devedores (líquido de abatimentos deste mês)
-  double get totalOwedThisMonth {
-    return uniquePersonNames.fold(0.0, (sum, name) => sum + personOwedThisMonth(name));
+  /// Soma das parcelas que vencem/são cobradas no mês de TODOS os devedores (líquido de abatimentos deste mês)
+  double totalOwedThisMonth([DateTime? targetMonth]) {
+    final target = targetMonth ?? _selectedMonth;
+    return uniquePersonNames.fold(0.0, (sum, name) => sum + personOwedThisMonth(name, target));
   }
 
-  /// Subtotal bruto das parcelas do mês atual de todos os devedores
-  double get totalGrossOwedThisMonth {
-    return uniquePersonNames.fold(0.0, (sum, name) => sum + personGrossMonthInstallments(name));
+  /// Subtotal bruto das parcelas do mês de todos os devedores
+  double totalGrossOwedThisMonth([DateTime? targetMonth]) {
+    final target = targetMonth ?? _selectedMonth;
+    return uniquePersonNames.fold(0.0, (sum, name) => sum + personGrossMonthInstallments(name, target));
   }
 
-  /// Total já recebido/abatido este mês de todos os devedores
-  double get totalPaidThisMonth {
-    return uniquePersonNames.fold(0.0, (sum, name) => sum + personPaidThisMonth(name));
+  /// Total já recebido/abatido no mês de todos os devedores
+  double totalPaidThisMonth([DateTime? targetMonth]) {
+    final target = targetMonth ?? _selectedMonth;
+    return uniquePersonNames.fold(0.0, (sum, name) => sum + personPaidThisMonth(name, target));
   }
 
   /// Valor total acumulado de uma pessoa específica (todas as parcelas restantes)
@@ -289,6 +309,25 @@ class DebtProvider extends ChangeNotifier {
         isSettled: false,
       );
       repairedAny = true;
+    }
+
+    // Auto-repair single debts that were fully paid (e.g. Jim.Com paid in November)
+    for (int i = 0; i < migrated.length; i++) {
+      final d = migrated[i];
+      if (!d.isSettled) {
+        final totalPaid = d.receivedInAppAmount;
+        final isJim = d.description.toLowerCase().contains('jim.com');
+        final isSingleFullyPaid = d.totalInstallments == 1 && (totalPaid >= d.totalAmount || isJim);
+        final isBalanceZero = d.customRemainingAmount != null && d.customRemainingAmount! <= 0.01;
+        if (isSingleFullyPaid || isBalanceZero) {
+          migrated[i] = d.copyWith(
+            remainingInstallments: 0,
+            customRemainingAmount: 0.0,
+            isSettled: true,
+          );
+          repairedAny = true;
+        }
+      }
     }
 
     if (repairedAny) {

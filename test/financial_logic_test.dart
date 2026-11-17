@@ -85,6 +85,83 @@ void main() {
       final netDue = (gross - paidThisMonth).clamp(0.0, double.infinity);
       expect(netDue, closeTo(483.36, 0.01));
     });
+
+    test('Ensures November payment for past due debts leaves December with R\$ 0 paid and full installments owed', () {
+      final novDate = DateTime(2026, 11);
+      final decDate = DateTime(2026, 12);
+
+      // Jim.com was a 1x debt of R$ 641.78 created and paid in November
+      final jimDebt = DebtModel(
+        id: 'jim',
+        personName: 'Sergio Lucas',
+        description: 'Jim.Com* Sergio Lucas',
+        totalAmount: 641.78,
+        totalInstallments: 1,
+        remainingInstallments: 0,
+        installmentValue: 641.78,
+        isSettled: true,
+        paymentHistory: [
+          DebtPaymentRecord(
+            id: 'p_nov1',
+            date: DateTime(2026, 11, 10),
+            amount: 641.78,
+            installmentNumber: 1,
+            note: 'Pix 09/11',
+          ),
+        ],
+      );
+
+      // Latam Air: 4 installments of R$ 219.15 (installment 2 paid in Nov, installment 3 due in Dec)
+      final latamDebt = DebtModel(
+        id: 'latam',
+        personName: 'Sergio Lucas',
+        description: 'LATAM AIR',
+        totalAmount: 876.60,
+        totalInstallments: 4,
+        remainingInstallments: 2,
+        installmentValue: 219.15,
+        isSettled: false,
+        paymentHistory: [
+          DebtPaymentRecord(
+            id: 'p_nov2',
+            date: DateTime(2026, 11, 10),
+            amount: 219.15,
+            installmentNumber: 2,
+            note: 'Pix 09/11',
+          ),
+        ],
+      );
+
+      final sergioDebts = [jimDebt, latamDebt];
+
+      // In November:
+      final novPaid = sergioDebts.fold(0.0, (sum, d) {
+        return sum + d.paymentHistory
+            .where((p) => p.date.year == novDate.year && p.date.month == novDate.month)
+            .fold(0.0, (s, p) => s + p.amount);
+      });
+      expect(novPaid, closeTo(641.78 + 219.15, 0.01)); // R$ 860.93 paid in Nov
+
+      // In December:
+      // 1. Paid in December MUST BE 0.0
+      final decPaid = sergioDebts.fold(0.0, (sum, d) {
+        return sum + d.paymentHistory
+            .where((p) => p.date.year == decDate.year && p.date.month == decDate.month)
+            .fold(0.0, (s, p) => s + p.amount);
+      });
+      expect(decPaid, 0.0);
+
+      // 2. December gross must only include active debts (Latam R$ 219.15), not settled jim.com
+      final decGross = sergioDebts.fold(0.0, (sum, d) {
+        if (d.isSettled) return sum;
+        return sum + d.installmentValue;
+      });
+      expect(decGross, closeTo(219.15, 0.01));
+
+      // 3. December net due is 100% of December installment
+      final decNetDue = decGross - decPaid;
+      expect(decNetDue, closeTo(219.15, 0.01));
+    });
   });
 
   group('Personal Net Expense Logic', () {

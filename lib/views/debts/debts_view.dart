@@ -33,10 +33,100 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
     super.dispose();
   }
 
+  String _getMonthName(int month) {
+    const names = [
+      '',
+      'Janeiro',
+      'Fevereiro',
+      'Março',
+      'Abril',
+      'Maio',
+      'Junho',
+      'Julho',
+      'Agosto',
+      'Setembro',
+      'Outubro',
+      'Novembro',
+      'Dezembro'
+    ];
+    return month >= 1 && month <= 12 ? names[month] : '';
+  }
+
+  Widget _buildMonthSelector(BuildContext context, FinanceProvider finance, bool isDark) {
+    final selected = finance.selectedMonth;
+    final label = '${_getMonthName(selected.month)} de ${selected.year}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? AppConstants.oledCard : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppConstants.oledBorder : Colors.grey.shade200,
+        ),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left_rounded),
+                  tooltip: 'Mês anterior',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    final prev = DateTime(selected.year, selected.month - 1);
+                    finance.setSelectedMonth(prev);
+                  },
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.calendar_month_rounded, size: 16, color: AppConstants.primaryColor),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right_rounded),
+                  tooltip: 'Próximo mês',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    final next = DateTime(selected.year, selected.month + 1);
+                    finance.setSelectedMonth(next);
+                  },
+                ),
+              ],
+            ),
+          ),
+          Text(
+            'Ciclo de cobrança',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final debtProvider = context.watch<DebtProvider>();
-    final financeProvider = context.read<FinanceProvider>();
+    final financeProvider = context.watch<FinanceProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final screenWidth = MediaQuery.of(context).size.width;
@@ -192,6 +282,12 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
             ],
             const SizedBox(height: 16),
 
+            // Month Selector (active when viewing monthly dues)
+            if (debtProvider.viewMode == DebtViewMode.month) ...[
+              _buildMonthSelector(context, financeProvider, isDark),
+              const SizedBox(height: 14),
+            ],
+
             // Top Metric Bar (responsive 2x2 grid on mobile, horizontal row on desktop)
             if (isMobile)
               Container(
@@ -212,7 +308,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                             debtProvider.viewMode == DebtViewMode.month ? 'A Receber no Mês' : 'Total a Receber',
                             CurrencyFormatter.format(
                               debtProvider.viewMode == DebtViewMode.month
-                                  ? debtProvider.totalOwedThisMonth
+                                  ? debtProvider.totalOwedThisMonth(financeProvider.selectedMonth)
                                   : debtProvider.totalOwedToMe,
                             ),
                             debtProvider.viewMode == DebtViewMode.month
@@ -228,7 +324,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                             CurrencyFormatter.format(
                               debtProvider.viewMode == DebtViewMode.month
                                   ? debtProvider.totalOwedToMe
-                                  : debtProvider.totalOwedThisMonth,
+                                  : debtProvider.totalOwedThisMonth(financeProvider.selectedMonth),
                             ),
                             debtProvider.viewMode == DebtViewMode.month
                                 ? Icons.all_inclusive_rounded
@@ -280,7 +376,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                         debtProvider.viewMode == DebtViewMode.month ? 'A Receber no Mês' : 'Total a Receber',
                         CurrencyFormatter.format(
                           debtProvider.viewMode == DebtViewMode.month
-                              ? debtProvider.totalOwedThisMonth
+                              ? debtProvider.totalOwedThisMonth(financeProvider.selectedMonth)
                               : debtProvider.totalOwedToMe,
                         ),
                         debtProvider.viewMode == DebtViewMode.month
@@ -296,7 +392,7 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                         CurrencyFormatter.format(
                           debtProvider.viewMode == DebtViewMode.month
                               ? debtProvider.totalOwedToMe
-                              : debtProvider.totalOwedThisMonth,
+                              : debtProvider.totalOwedThisMonth(financeProvider.selectedMonth),
                         ),
                         debtProvider.viewMode == DebtViewMode.month
                             ? Icons.all_inclusive_rounded
@@ -582,9 +678,10 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
         final debts = entries[index].value;
 
         final isMonthMode = debtProvider.viewMode == DebtViewMode.month;
-        final personMonthVal = debtProvider.personOwedThisMonth(personName);
-        final personGrossMonth = debtProvider.personGrossMonthInstallments(personName);
-        final personPaidMonth = debtProvider.personPaidThisMonth(personName);
+        final selectedMonth = financeProvider.selectedMonth;
+        final personMonthVal = debtProvider.personOwedThisMonth(personName, selectedMonth);
+        final personGrossMonth = debtProvider.personGrossMonthInstallments(personName, selectedMonth);
+        final personPaidMonth = debtProvider.personPaidThisMonth(personName, selectedMonth);
         final personTotalVal = debtProvider.personTotalOwed(personName);
         final displayVal = isMonthMode ? personMonthVal : personTotalVal;
 
@@ -705,6 +802,35 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: AppConstants.accentGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (isMonthMode && personPaidMonth == 0 && personMonthVal > 0) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppConstants.accentAmber.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppConstants.accentAmber.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.schedule_rounded, size: 14, color: AppConstants.accentAmber),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Aguardando pagamento de ${_getMonthName(selectedMonth.month)} (${CurrencyFormatter.format(personMonthVal)})',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppConstants.accentAmber,
+                            ),
                           ),
                         ),
                       ],
@@ -1258,23 +1384,35 @@ class _DebtsViewState extends State<DebtsView> with SingleTickerProviderStateMix
                     Builder(
                       builder: (_) {
                         final isMonth = debtProvider.viewMode == DebtViewMode.month;
+                        final selMonth = financeProvider.selectedMonth;
+                        final paidInMonth = debt.paymentHistory
+                            .where((p) => p.date.year == selMonth.year && p.date.month == selMonth.month)
+                            .fold(0.0, (s, p) => s + p.amount);
                         final debtMonthVal = debt.remainingAmount < debt.installmentValue ? debt.remainingAmount : debt.installmentValue;
+                        final isPaidThisMonth = paidInMonth >= (debtMonthVal - 0.05) && debtMonthVal > 0;
+
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
                               isMonth && !debt.isSettled
-                                  ? '${CurrencyFormatter.format(debtMonthVal)}/mês'
+                                  ? (isPaidThisMonth
+                                      ? 'Pago no mês'
+                                      : '${CurrencyFormatter.format(debtMonthVal)}/mês')
                                   : CurrencyFormatter.format(debt.remainingAmount),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: debt.isSettled ? AppConstants.accentGreen : AppConstants.accentAmber,
+                                color: (debt.isSettled || (isMonth && isPaidThisMonth))
+                                    ? AppConstants.accentGreen
+                                    : AppConstants.accentAmber,
                               ),
                             ),
                             Text(
                               isMonth && !debt.isSettled
-                                  ? 'de ${CurrencyFormatter.format(debt.remainingAmount)} total'
+                                  ? (isPaidThisMonth
+                                      ? 'Abatido: ${CurrencyFormatter.format(paidInMonth)}'
+                                      : 'de ${CurrencyFormatter.format(debt.remainingAmount)} total')
                                   : 'de ${CurrencyFormatter.format(debt.totalAmount)}',
                               style: TextStyle(
                                 fontSize: 11,

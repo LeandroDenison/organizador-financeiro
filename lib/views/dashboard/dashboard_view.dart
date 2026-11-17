@@ -194,7 +194,7 @@ class DashboardView extends StatelessWidget {
                           : 'Quem me Deve (Total)',
                       value: CurrencyFormatter.format(
                         debts.viewMode == DebtViewMode.month
-                            ? debts.totalOwedThisMonth
+                            ? debts.totalOwedThisMonth(finance.selectedMonth)
                             : debts.totalOwedToMe,
                       ),
                       icon: Icons.handshake_rounded,
@@ -220,7 +220,7 @@ class DashboardView extends StatelessWidget {
                       ),
                       subtitle: debts.viewMode == DebtViewMode.month
                           ? '${debts.totalPendingInstallments} parcelas • Total: ${CurrencyFormatter.format(debts.totalOwedToMe)}'
-                          : '${debts.totalPendingInstallments} parcelas • Mês: ${CurrencyFormatter.format(debts.totalOwedThisMonth)}',
+                          : '${debts.totalPendingInstallments} parcelas • Mês: ${CurrencyFormatter.format(debts.totalOwedThisMonth(finance.selectedMonth))}',
                       onTap: () => appState.setTab(2), // Navega para aba Quem me deve
                     ),
                   ],
