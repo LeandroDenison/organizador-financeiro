@@ -144,9 +144,9 @@ class OpenFinanceService {
       accountName: 'Conta & Cartão Mercado Pago',
     ),
     ConnectedBankItem(
-      id: 'c04871ce-d5ed-43fb-ac54-e2de577d0545',
+      id: '22201148-31c8-4290-9acd-cd0bf0c92af0',
       bankName: 'Itaú',
-      accountName: 'Conta Universitária & Cartão Click',
+      accountName: 'Samsung Itaú Visa & Itaú Click',
     ),
   ];
 
