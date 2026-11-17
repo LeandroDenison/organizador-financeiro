@@ -496,14 +496,30 @@ class OpenFinanceService {
 
             for (final accObj in results) {
               final acc = Map<String, dynamic>.from(accObj as Map);
-              final accName = acc['name']?.toString() ?? bank.bankName;
+              final rawName = acc['name']?.toString() ?? bank.bankName;
               final accType = acc['type']?.toString().toUpperCase() ?? 'BANK';
+              final accSubtype = acc['subtype']?.toString().toUpperCase() ?? '';
+              final accNumber = acc['number']?.toString() ?? '';
               final rawBalance = (acc['balance'] as num?)?.toDouble() ?? 0.0;
+
+              String finalName = rawName;
+              if (finalName.trim().toLowerCase() == bank.bankName.trim().toLowerCase() ||
+                  finalName.trim().toLowerCase() == 'conta') {
+                if (accType == 'CREDIT' || accSubtype.contains('CREDIT')) {
+                  finalName = '${bank.bankName} Cartão de Crédito';
+                } else {
+                  finalName = '${bank.bankName} Conta Corrente';
+                }
+              }
+              if (accNumber.isNotEmpty && !finalName.contains(accNumber)) {
+                final lastDigits = accNumber.length > 4 ? accNumber.substring(accNumber.length - 4) : accNumber;
+                finalName = '$finalName ($lastDigits)';
+              }
 
               liveBalances.add(
                 BankAccountBalance(
                   bankName: bank.bankName,
-                  accountName: accName,
+                  accountName: finalName,
                   accountType: accType,
                   balance: rawBalance,
                   updatedAt: DateTime.now(),
@@ -516,16 +532,22 @@ class OpenFinanceService {
     } catch (_) {}
 
     if (liveBalances.isNotEmpty) {
-      // Mescla os saldos atualizados da API (ex: Nubank) com os saldos dos outros bancos
-      final existing = await loadStoredBalances();
-      final merged = <BankAccountBalance>[...liveBalances];
-      for (final prev in existing) {
-        if (!merged.any((b) => b.bankName.toLowerCase() == prev.bankName.toLowerCase())) {
-          merged.add(prev);
+      final uniqueBalances = <BankAccountBalance>[];
+      for (final b in liveBalances) {
+        final existingIdx = uniqueBalances.indexWhere((u) =>
+            u.bankName.toLowerCase() == b.bankName.toLowerCase() &&
+            u.accountType == b.accountType &&
+            (u.accountName.toLowerCase() == b.accountName.toLowerCase() ||
+                (u.balance - b.balance).abs() <= 0.01));
+        if (existingIdx != -1) {
+          uniqueBalances[existingIdx] = b;
+        } else {
+          uniqueBalances.add(b);
         }
       }
-      await saveStoredBalances(merged);
-      return merged;
+
+      await saveStoredBalances(uniqueBalances);
+      return uniqueBalances;
     }
 
     return loadStoredBalances();

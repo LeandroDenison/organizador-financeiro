@@ -109,8 +109,8 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
           final isOnClosingDay = tx.date.year == cycleEnd.year &&
               tx.date.month == cycleEnd.month &&
               tx.date.day == cycleEnd.day;
-          if (isOnClosingDay && tx.source != TransactionSource.pdf) {
-            return false; // Pertence ao ciclo aberto seguinte
+          if (isOnClosingDay && cardConfig.id == 'nubank' && tx.source != TransactionSource.pdf) {
+            return false; // No Nubank, compras no dia de fechamento pertencem ao ciclo aberto seguinte
           }
 
           return tx.date.isAfter(cycleStart) && !tx.date.isAfter(cycleEnd);

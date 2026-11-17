@@ -146,6 +146,7 @@ class _PayablesViewState extends State<PayablesView> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         backgroundColor: AppConstants.primaryColor,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),

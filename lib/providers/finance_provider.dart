@@ -121,7 +121,10 @@ class FinanceProvider extends ChangeNotifier {
     }
 
     // Mescla notificações de celular com lançamentos oficiais do extrato/CSV/Open Finance (±2 dias)
-    final reconciled = reconcileNotificationsWithStatements(repaired);
+    final reconciledNotifs = reconcileNotificationsWithStatements(repaired);
+
+    // Mescla lançamentos oficiais do Open Finance com arquivos CSV/PDF eliminando duplicidades
+    final reconciled = reconcileStatementsAndDuplicates(reconciledNotifs);
     if (reconciled.length != repaired.length) {
       modified = true;
     }
@@ -263,6 +266,57 @@ class FinanceProvider extends ChangeNotifier {
     final result = [...officials, ...survivingNotifications];
     result.sort((a, b) => b.date.compareTo(a.date));
     return result;
+  }
+
+  /// Mescla e remove duplicidades entre extratos bancários de fontes distintas
+  /// (por exemplo: compras importadas via CSV que também foram sincronizadas pelo Open Finance / OFX).
+  static List<TransactionModel> reconcileStatementsAndDuplicates(List<TransactionModel> input) {
+    final ofxTxs = input.where((t) => t.source == TransactionSource.ofx).toList();
+    final nonOfxTxs = input.where((t) => t.source != TransactionSource.ofx).toList();
+
+    if (ofxTxs.isEmpty) return input;
+
+    final merged = <TransactionModel>[...ofxTxs];
+
+    for (final nonOfx in nonOfxTxs) {
+      final nonOfxWords = _extractMerchantWords(nonOfx.title);
+      int matchIdx = -1;
+
+      for (int i = 0; i < merged.length; i++) {
+        final ofx = merged[i];
+        if (ofx.type != nonOfx.type) continue;
+        if ((ofx.amount - nonOfx.amount).abs() > 0.05) continue;
+        final diffDays = (ofx.date.difference(nonOfx.date).inDays).abs();
+        if (diffDays > 2) continue;
+
+        final ofxWords = _extractMerchantWords(ofx.title);
+        final sharesMerchant = nonOfxWords.isNotEmpty &&
+            ofxWords.isNotEmpty &&
+            (nonOfxWords.first == ofxWords.first || nonOfxWords.any((w) => ofxWords.contains(w)));
+
+        if (sharesMerchant) {
+          matchIdx = i;
+          break;
+        }
+      }
+
+      if (matchIdx != -1) {
+        final ofx = merged[matchIdx];
+        if ((ofx.personName == null || ofx.personName!.isEmpty) &&
+            nonOfx.personName != null &&
+            nonOfx.personName!.isNotEmpty) {
+          merged[matchIdx] = ofx.copyWith(
+            personName: nonOfx.personName,
+            personId: nonOfx.personId,
+          );
+        }
+      } else {
+        merged.add(nonOfx);
+      }
+    }
+
+    merged.sort((a, b) => b.date.compareTo(a.date));
+    return merged;
   }
 
   static List<String> _extractMerchantWords(String title) {

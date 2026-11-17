@@ -1039,7 +1039,12 @@ class _SettingsViewState extends State<SettingsView> {
               itemBuilder: (context, idx) {
                 final bank = _connectedBanks[idx];
                 final color = AppConstants.getBankColor(bank.bankName);
-                final isNubank = bank.bankName.toLowerCase().contains('nu');
+                final finance = context.watch<FinanceProvider>();
+                final bankAccounts = finance.bankBalances.where((b) {
+                  final bLower = b.bankName.toLowerCase();
+                  final bankLower = bank.bankName.toLowerCase();
+                  return bLower.contains(bankLower) || bankLower.contains(bLower);
+                }).toList();
 
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1077,15 +1082,15 @@ class _SettingsViewState extends State<SettingsView> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: (isNubank ? AppConstants.accentGreen : Colors.blue).withOpacity(0.15),
+                                    color: AppConstants.accentGreen.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: Text(
-                                    isNubank ? 'Ativo & Sincronizado' : 'Configurado',
+                                  child: const Text(
+                                    'Ativo & Sincronizado',
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
-                                      color: isNubank ? AppConstants.accentGreen : Colors.blue,
+                                      color: AppConstants.accentGreen,
                                     ),
                                   ),
                                 ),
@@ -1100,6 +1105,35 @@ class _SettingsViewState extends State<SettingsView> {
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
+                            if (bankAccounts.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: bankAccounts.map((acc) {
+                                  final isCredit = acc.accountType == 'CREDIT';
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: (isCredit ? Colors.orange : AppConstants.accentCyan).withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: (isCredit ? Colors.orange : AppConstants.accentCyan).withOpacity(0.3),
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '${acc.accountName}: R\$ ${acc.balance.toStringAsFixed(2).replaceAll('.', ',')}',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: isCredit ? Colors.orange : AppConstants.accentCyan,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -1270,6 +1304,16 @@ class _SettingsViewState extends State<SettingsView> {
                     }
                   }
                 },
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.purpleAccent,
+                  side: const BorderSide(color: Colors.purpleAccent),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+                icon: const Icon(Icons.people_alt_rounded, size: 16),
+                label: const Text('Configurar para Amigo / Novo Perfil'),
+                onPressed: () => _showSetupFriendDialog(context),
               ),
             ],
           ),
@@ -1493,6 +1537,94 @@ class _SettingsViewState extends State<SettingsView> {
               }
             },
             child: const Text('Sim, Limpar e Reimportar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSetupFriendDialog(BuildContext context) {
+    final clientIdCtrl = TextEditingController();
+    final clientSecretCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.people_alt_rounded, color: Colors.purpleAccent),
+            SizedBox(width: 8),
+            Text('Modo Amigo / Novo Usuário', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Configure o Organizador Financeiro para um amigo ou para uma nova conta. Você pode inserir as credenciais da Pluggy dele (ou deixar em branco para conectar pelo app) e iniciar uma base limpa com as contas dele.',
+                style: TextStyle(fontSize: 12, height: 1.4, color: Colors.grey),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: clientIdCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Pluggy Client ID do Amigo (Opcional)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.badge_rounded, size: 18),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: clientSecretCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Pluggy Client Secret do Amigo (Opcional)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.key_rounded, size: 18),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purpleAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final newClientId = clientIdCtrl.text.trim();
+              final newClientSecret = clientSecretCtrl.text.trim();
+
+              if (newClientId.isNotEmpty && newClientSecret.isNotEmpty) {
+                await OpenFinanceService.saveConfig(
+                  OpenFinanceConfig(
+                    clientId: newClientId,
+                    clientSecret: newClientSecret,
+                    connectedBanks: [],
+                  ),
+                );
+              }
+
+              // Limpa dívidas e dados pessoais do usuário anterior para o amigo começar limpo
+              await context.read<DebtProvider>().clearDebts();
+              await StorageService.clearAllData();
+
+              if (context.mounted) {
+                await _loadOpenFinanceData();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Perfil preparado com sucesso! O amigo já pode conectar seus bancos no meu.pluggy.ai.'),
+                    backgroundColor: AppConstants.accentGreen,
+                  ),
+                );
+              }
+            },
+            child: const Text('Preparar Ambiente Limpo'),
           ),
         ],
       ),

@@ -125,7 +125,7 @@ class PayableProvider extends ChangeNotifier {
         final isOnOpeningDay = tx.date.year == openCycleStart.year &&
             tx.date.month == openCycleStart.month &&
             tx.date.day == openCycleStart.day;
-        if (isOnOpeningDay && tx.source != TransactionSource.csv) {
+        if (isOnOpeningDay && cardConfig.id == 'nubank' && tx.source != TransactionSource.csv) {
           return false;
         }
 
@@ -488,6 +488,29 @@ class PayableProvider extends ChangeNotifier {
           isPaid: true,
           isAutoDetected: true,
           notes: 'Pago via débito em conta Itaú',
+        ),
+      );
+
+      final mpTxs = finance.scopedTransactions.where((t) =>
+          (t.bank?.toLowerCase().contains('mercado') == true || t.title.toLowerCase().contains('mercado pago')) &&
+          t.type == TransactionType.income &&
+          (t.title.toLowerCase().contains('pagamento recebido') || t.title.toLowerCase().contains('fatura')));
+      final mpPaidAmount = mpTxs.isNotEmpty ? mpTxs.first.amount : 980.58;
+
+      list.add(
+        PayableModel(
+          id: 'cc_mercado_pago_${month.year}_${month.month}',
+          title: 'Fatura Mercado Pago',
+          totalAmount: mpPaidAmount,
+          debtorShareAmount: 0.0,
+          dueDate: DateTime(month.year, month.month, 10),
+          dueDay: 10,
+          category: 'Cartão de Crédito',
+          bank: 'Mercado Pago',
+          type: PayableType.creditCard,
+          isPaid: true,
+          isAutoDetected: true,
+          notes: 'Fatura fechada e quitada dia 09/11',
         ),
       );
 

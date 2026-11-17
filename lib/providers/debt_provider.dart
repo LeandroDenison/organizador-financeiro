@@ -311,6 +311,28 @@ class DebtProvider extends ChangeNotifier {
       repairedAny = true;
     }
 
+    // Auto-repair / ensure Sérgio Lucas 24x installment (Mercado Livre R$ 120,04)
+    final ml24Index = migrated.indexWhere((d) =>
+        d.personName.toLowerCase().contains('sergio') &&
+        (d.description.toLowerCase().contains('mercadolivre') || d.description.toLowerCase().contains('mercado livre')) &&
+        (d.installmentValue - 120.04).abs() <= 0.05);
+
+    if (ml24Index != -1) {
+      final cur = migrated[ml24Index];
+      if (cur.totalInstallments != 24 || cur.remainingInstallments != 10) {
+        migrated[ml24Index] = cur.copyWith(
+          description: 'MERCADOLIVRE 24x (Sérgio Lucas)',
+          totalInstallments: 24,
+          installmentValue: 120.04,
+          totalAmount: 24 * 120.04,
+          remainingInstallments: 10,
+          customRemainingAmount: 10 * 120.04,
+          isSettled: false,
+        );
+        repairedAny = true;
+      }
+    }
+
     // Auto-repair single debts that were fully paid (e.g. Jim.Com paid in November)
     for (int i = 0; i < migrated.length; i++) {
       final d = migrated[i];
