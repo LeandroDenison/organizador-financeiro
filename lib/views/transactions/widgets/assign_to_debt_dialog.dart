@@ -239,7 +239,7 @@ class _AssignToDebtDialogState extends State<AssignToDebtDialog> {
       ),
       content: SingleChildScrollView(
         child: SizedBox(
-          width: 440,
+          width: MediaQuery.of(context).size.width < 500 ? double.maxFinite : 440,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -73,12 +73,16 @@ class SummaryCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.grey.shade900,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.grey.shade900,
+                ),
               ),
             ),
             if (subtitle != null) ...[

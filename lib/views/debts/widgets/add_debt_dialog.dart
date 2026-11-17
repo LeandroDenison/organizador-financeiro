@@ -89,7 +89,7 @@ class _AddDebtDialogState extends State<AddDebtDialog> {
       ),
       content: SingleChildScrollView(
         child: SizedBox(
-          width: 440,
+          width: MediaQuery.of(context).size.width < 500 ? double.maxFinite : 440,
           child: Form(
             key: _formKey,
             child: Column(

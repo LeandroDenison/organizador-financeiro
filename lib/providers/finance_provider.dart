@@ -47,7 +47,7 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> init() async {
+  Future<void> init({bool triggerCloudSync = false}) async {
     _isLoading = true;
     notifyListeners();
 
@@ -132,7 +132,9 @@ class FinanceProvider extends ChangeNotifier {
     _transactions = reconciled;
     if (modified) {
       await StorageService.saveTransactions(_transactions);
-      FirebaseService().triggerSync();
+      if (triggerCloudSync) {
+        FirebaseService().triggerSync();
+      }
     }
 
     // Carrega saldos consolidados do Open Finance
@@ -213,7 +215,7 @@ class FinanceProvider extends ChangeNotifier {
     final survivingNotifications = <TransactionModel>[];
 
     for (final notif in notifications) {
-      final notifWords = _extractMerchantWords(notif.title);
+      final notifWords = extractMerchantWords(notif.title);
       if (notifWords.isEmpty) {
         survivingNotifications.add(notif);
         continue;
@@ -226,7 +228,7 @@ class FinanceProvider extends ChangeNotifier {
         if (off.type != notif.type) continue;
         if ((off.date.difference(notif.date).inDays).abs() > 2) continue;
 
-        final offWords = _extractMerchantWords(off.title);
+        final offWords = extractMerchantWords(off.title);
         if (offWords.isEmpty) continue;
 
         final sharesMerchant = notifWords.first == offWords.first ||
@@ -270,6 +272,7 @@ class FinanceProvider extends ChangeNotifier {
 
   /// Mescla e remove duplicidades entre extratos bancários de fontes distintas
   /// (por exemplo: compras importadas via CSV que também foram sincronizadas pelo Open Finance / OFX).
+  /// PRESERVA RIGOROSAMENTE compras recorrentes do dia a dia (ex: café da manhã diário com mesmo valor/nome).
   static List<TransactionModel> reconcileStatementsAndDuplicates(List<TransactionModel> input) {
     final ofxTxs = input.where((t) => t.source == TransactionSource.ofx).toList();
     final nonOfxTxs = input.where((t) => t.source != TransactionSource.ofx).toList();
@@ -277,19 +280,34 @@ class FinanceProvider extends ChangeNotifier {
     if (ofxTxs.isEmpty) return input;
 
     final merged = <TransactionModel>[...ofxTxs];
+    final matchedOfxIds = <String>{};
 
     for (final nonOfx in nonOfxTxs) {
-      final nonOfxWords = _extractMerchantWords(nonOfx.title);
+      final nonOfxWords = extractMerchantWords(nonOfx.title);
       int matchIdx = -1;
 
       for (int i = 0; i < merged.length; i++) {
         final ofx = merged[i];
+        if (matchedOfxIds.contains(ofx.id)) continue;
         if (ofx.type != nonOfx.type) continue;
         if ((ofx.amount - nonOfx.amount).abs() > 0.05) continue;
-        final diffDays = (ofx.date.difference(nonOfx.date).inDays).abs();
-        if (diffDays > 2) continue;
 
-        final ofxWords = _extractMerchantWords(ofx.title);
+        // Compras de dias distintos NÃO são duplicadas (ex: café da manhã diário de R$ 15,00 na mesma padaria).
+        // Apenas mescla se for rigorosamente no mesmo dia, ou mesma referência de parcela, ou lag de 1 dia de notificação push.
+        final sameDay = ofx.date.year == nonOfx.date.year &&
+            ofx.date.month == nonOfx.date.month &&
+            ofx.date.day == nonOfx.date.day;
+
+        final sameInstallment = ofx.installmentRef != null &&
+            nonOfx.installmentRef != null &&
+            ofx.installmentRef == nonOfx.installmentRef;
+
+        final diffDays = (ofx.date.difference(nonOfx.date).inDays).abs();
+        final isNotificationLag = nonOfx.source == TransactionSource.notification && diffDays <= 1;
+
+        if (!sameDay && !sameInstallment && !isNotificationLag) continue;
+
+        final ofxWords = extractMerchantWords(ofx.title);
         final sharesMerchant = nonOfxWords.isNotEmpty &&
             ofxWords.isNotEmpty &&
             (nonOfxWords.first == ofxWords.first || nonOfxWords.any((w) => ofxWords.contains(w)));
@@ -302,6 +320,7 @@ class FinanceProvider extends ChangeNotifier {
 
       if (matchIdx != -1) {
         final ofx = merged[matchIdx];
+        matchedOfxIds.add(ofx.id);
         if ((ofx.personName == null || ofx.personName!.isEmpty) &&
             nonOfx.personName != null &&
             nonOfx.personName!.isNotEmpty) {
@@ -319,7 +338,7 @@ class FinanceProvider extends ChangeNotifier {
     return merged;
   }
 
-  static List<String> _extractMerchantWords(String title) {
+  static List<String> extractMerchantWords(String title) {
     final cleaned = title
         .toLowerCase()
         .replaceAll(RegExp(r'para o cart[aã]o com final \d+'), '')

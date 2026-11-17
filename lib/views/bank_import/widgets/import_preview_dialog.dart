@@ -146,8 +146,8 @@ class _ImportPreviewDialogState extends State<ImportPreviewDialog> {
         ],
       ),
       content: SizedBox(
-        width: 600,
-        height: 500,
+        width: MediaQuery.of(context).size.width < 650 ? double.maxFinite : 600,
+        height: MediaQuery.of(context).size.height < 650 ? MediaQuery.of(context).size.height * 0.7 : 500,
         child: Column(
           children: [
             // Top Selection & Totals bar

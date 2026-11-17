@@ -487,7 +487,7 @@ class SubscriptionsView extends StatelessWidget {
             title: Text('Dividir Assinatura: ${sub.name}'),
             content: SingleChildScrollView(
               child: SizedBox(
-                width: 400,
+                width: MediaQuery.of(context).size.width < 500 ? double.maxFinite : 400,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,

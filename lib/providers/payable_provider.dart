@@ -137,22 +137,18 @@ class PayableProvider extends ChangeNotifier {
         return !tx.date.isBefore(openCycleStart) && !tx.date.isAfter(openCycleEnd);
       }).toList();
 
-      final hasOfficialOpenInstallments = baseOpenTxs.any(
-        (t) => t.installmentRef != null && t.source != TransactionSource.notification,
-      );
-      final prevCycleInstallments = hasOfficialOpenInstallments
-          ? <TransactionModel>[]
-          : finance.transactions.where((tx) {
-              if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
-              if (!matchesCard(tx)) return false;
-              final inPrev = !tx.date.isBefore(prevCycleStart) && tx.date.isBefore(openCycleStart);
-              final onOpeningDayClosed = tx.date.year == openCycleStart.year &&
-                  tx.date.month == openCycleStart.month &&
-                  tx.date.day == openCycleStart.day &&
-                  (cardConfig.id != 'nubank' || tx.source == TransactionSource.pdf);
-              return (inPrev || onOpeningDayClosed) && tx.installmentRef != null;
-            }).toList();
+      final prevCycleInstallments = finance.transactions.where((tx) {
+        if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
+        if (!matchesCard(tx)) return false;
+        final inPrev = !tx.date.isBefore(prevCycleStart) && tx.date.isBefore(openCycleStart);
+        final onOpeningDayClosed = tx.date.year == openCycleStart.year &&
+            tx.date.month == openCycleStart.month &&
+            tx.date.day == openCycleStart.day &&
+            (cardConfig.id != 'nubank' || tx.source == TransactionSource.pdf);
+        return (inPrev || onOpeningDayClosed) && tx.installmentRef != null;
+      }).toList();
 
+      final projectedKeys = <String>{};
       for (final prevTx in prevCycleInstallments) {
         final m = RegExp(r'^(\d+)/(\d+)$').firstMatch(prevTx.installmentRef!.trim());
         if (m == null) continue;
@@ -162,10 +158,27 @@ class PayableProvider extends ChangeNotifier {
         if (tot <= 1 || nextInst > tot) continue;
 
         final nextRef = '$nextInst/$tot';
-        final alreadyInOpenCycle = baseOpenTxs.any((t) =>
-            t.installmentRef == nextRef &&
-            (t.amount - prevTx.amount).abs() <= 0.10);
+        final key = '${prevTx.bank}_${prevTx.amount.toStringAsFixed(2)}_$nextRef';
+        if (projectedKeys.contains(key)) continue;
+
+        final prevCleanWords = FinanceProvider.extractMerchantWords(prevTx.title);
+        final alreadyInOpenCycle = baseOpenTxs.any((t) {
+          if (t.installmentRef == nextRef && (t.amount - prevTx.amount).abs() <= 0.10) {
+            return true;
+          }
+          if ((t.amount - prevTx.amount).abs() <= 0.10 && t.installmentRef != null) {
+            final tWords = FinanceProvider.extractMerchantWords(t.title);
+            if (prevCleanWords.isNotEmpty &&
+                tWords.isNotEmpty &&
+                (prevCleanWords.first == tWords.first || prevCleanWords.any((w) => tWords.contains(w)))) {
+              return true;
+            }
+          }
+          return false;
+        });
+
         if (!alreadyInOpenCycle) {
+          projectedKeys.add(key);
           baseOpenTxs.add(
             TransactionModel(
               id: 'roll_${prevTx.id}_$nextInst',
@@ -502,12 +515,23 @@ class PayableProvider extends ChangeNotifier {
           (t.title.toLowerCase().contains('pagamento recebido') || t.title.toLowerCase().contains('fatura')));
       final mpPaidAmount = mpTxs.isNotEmpty ? mpTxs.first.amount : 980.58;
 
+      final mpNovCardTxs = finance.transactions.where((t) =>
+          FinanceProvider.isCreditCardTransaction(t) &&
+          (t.bank?.toLowerCase().contains('mercado pago') == true) &&
+          !t.date.isBefore(DateTime(month.year, month.month - 1, 5)) &&
+          !t.date.isAfter(DateTime(month.year, month.month, 5, 23, 59, 59))).toList();
+      final mpDebtorShare = mpNovCardTxs.fold(0.0, (sum, t) {
+        final person = t.personName ?? debts.matchDebtorForPurchase(t);
+        return person != null ? sum + t.amount : sum;
+      });
+
       list.add(
         PayableModel(
           id: 'cc_mercado_pago_${month.year}_${month.month}',
           title: 'Fatura Mercado Pago',
           totalAmount: mpPaidAmount,
-          debtorShareAmount: 0.0,
+          myShareAmount: (mpPaidAmount - mpDebtorShare).clamp(0.0, double.infinity),
+          debtorShareAmount: mpDebtorShare,
           dueDate: DateTime(month.year, month.month, 10),
           dueDay: 10,
           category: 'Cartão de Crédito',

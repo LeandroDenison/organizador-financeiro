@@ -143,87 +143,94 @@ class DashboardView extends StatelessWidget {
             // Summary Cards Grid
             LayoutBuilder(
               builder: (context, constraints) {
-                int crossAxisCount = constraints.maxWidth < 600
-                    ? 1
-                    : constraints.maxWidth < 1000
-                        ? 2
-                        : 4;
+                final cards = [
+                  SummaryCard(
+                    title: 'Saldo em Conta (3 Bancos)',
+                    value: CurrencyFormatter.format(finance.openFinanceCashBalance),
+                    icon: Icons.account_balance_rounded,
+                    color: finance.openFinanceCashBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
+                    subtitle: 'Dinheiro real disponível nos bancos',
+                    onTap: () => appState.setTab(8), // Aba Configurações / Bancos
+                  ),
+                  SummaryCard(
+                    title: 'Sobra do Mês (Fluxo)',
+                    value: CurrencyFormatter.format(finance.balance),
+                    icon: Icons.trending_up_rounded,
+                    color: finance.balance >= 0 ? AppConstants.accentGreen : AppConstants.accentAmber,
+                    subtitle: 'Receitas menos despesas do mês',
+                  ),
+                  SummaryCard(
+                    title: finance.thirdPartyExpense > 0
+                        ? 'Meu Gasto Real (Mês)'
+                        : 'Despesas (Mês)',
+                    value: CurrencyFormatter.format(
+                      finance.thirdPartyExpense > 0
+                          ? finance.myNetExpense
+                          : finance.totalExpense,
+                    ),
+                    icon: Icons.arrow_upward_rounded,
+                    color: AppConstants.accentRed,
+                    subtitle: finance.thirdPartyExpense > 0
+                        ? 'Faturas: ${CurrencyFormatter.format(finance.totalExpense)} (${CurrencyFormatter.format(finance.thirdPartyExpense)} de terceiros)'
+                        : 'Cartões, compras e contas do mês',
+                    onTap: () => appState.setTab(1), // Extrato de Transações
+                  ),
+                  SummaryCard(
+                    title: debts.viewMode == DebtViewMode.month
+                        ? 'Quem me Deve (Mês)'
+                        : 'Quem me Deve (Total)',
+                    value: CurrencyFormatter.format(
+                      debts.viewMode == DebtViewMode.month
+                          ? debts.totalOwedThisMonth(finance.selectedMonth)
+                          : debts.totalOwedToMe,
+                    ),
+                    icon: Icons.handshake_rounded,
+                    color: AppConstants.primaryColor,
+                    actionWidget: SegmentedButton<DebtViewMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: DebtViewMode.month,
+                          label: Text('Mês', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                        ButtonSegment(
+                          value: DebtViewMode.total,
+                          label: Text('Total', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                      selected: {debts.viewMode},
+                      onSelectionChanged: (val) => debts.setViewMode(val.first),
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 6, vertical: 0)),
+                      ),
+                    ),
+                    subtitle: debts.viewMode == DebtViewMode.month
+                        ? '${debts.totalPendingInstallments} parcelas • Total: ${CurrencyFormatter.format(debts.totalOwedToMe)}'
+                        : '${debts.totalPendingInstallments} parcelas • Mês: ${CurrencyFormatter.format(debts.totalOwedThisMonth(finance.selectedMonth))}',
+                    onTap: () => appState.setTab(2), // Navega para aba Quem me deve
+                  ),
+                ];
+
+                if (constraints.maxWidth < 600) {
+                  return Column(
+                    children: [
+                      for (int i = 0; i < cards.length; i++) ...[
+                        cards[i],
+                        if (i < cards.length - 1) const SizedBox(height: 12),
+                      ],
+                    ],
+                  );
+                }
 
                 return GridView.count(
-                  crossAxisCount: crossAxisCount,
+                  crossAxisCount: constraints.maxWidth < 1000 ? 2 : 4,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: constraints.maxWidth < 600 ? 2.4 : 1.7,
-                  children: [
-                    SummaryCard(
-                      title: 'Saldo em Conta (3 Bancos)',
-                      value: CurrencyFormatter.format(finance.openFinanceCashBalance),
-                      icon: Icons.account_balance_rounded,
-                      color: finance.openFinanceCashBalance >= 0 ? AppConstants.accentGreen : AppConstants.accentRed,
-                      subtitle: 'Dinheiro real disponível nos bancos',
-                      onTap: () => appState.setTab(8), // Aba Configurações / Bancos
-                    ),
-                    SummaryCard(
-                      title: 'Sobra do Mês (Fluxo)',
-                      value: CurrencyFormatter.format(finance.balance),
-                      icon: Icons.trending_up_rounded,
-                      color: finance.balance >= 0 ? AppConstants.accentGreen : AppConstants.accentAmber,
-                      subtitle: 'Receitas menos despesas do mês',
-                    ),
-                    SummaryCard(
-                      title: finance.thirdPartyExpense > 0
-                          ? 'Meu Gasto Real (Mês)'
-                          : 'Despesas (Mês)',
-                      value: CurrencyFormatter.format(
-                        finance.thirdPartyExpense > 0
-                            ? finance.myNetExpense
-                            : finance.totalExpense,
-                      ),
-                      icon: Icons.arrow_upward_rounded,
-                      color: AppConstants.accentRed,
-                      subtitle: finance.thirdPartyExpense > 0
-                          ? 'Faturas: ${CurrencyFormatter.format(finance.totalExpense)} (${CurrencyFormatter.format(finance.thirdPartyExpense)} de terceiros)'
-                          : 'Cartões, compras e contas do mês',
-                      onTap: () => appState.setTab(1), // Extrato de Transações
-                    ),
-                    SummaryCard(
-                      title: debts.viewMode == DebtViewMode.month
-                          ? 'Quem me Deve (Mês)'
-                          : 'Quem me Deve (Total)',
-                      value: CurrencyFormatter.format(
-                        debts.viewMode == DebtViewMode.month
-                            ? debts.totalOwedThisMonth(finance.selectedMonth)
-                            : debts.totalOwedToMe,
-                      ),
-                      icon: Icons.handshake_rounded,
-                      color: AppConstants.primaryColor,
-                      actionWidget: SegmentedButton<DebtViewMode>(
-                        segments: const [
-                          ButtonSegment(
-                            value: DebtViewMode.month,
-                            label: Text('Mês', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                          ),
-                          ButtonSegment(
-                            value: DebtViewMode.total,
-                            label: Text('Total', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                          ),
-                        ],
-                        selected: {debts.viewMode},
-                        onSelectionChanged: (val) => debts.setViewMode(val.first),
-                        style: ButtonStyle(
-                          visualDensity: VisualDensity.compact,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 6, vertical: 0)),
-                        ),
-                      ),
-                      subtitle: debts.viewMode == DebtViewMode.month
-                          ? '${debts.totalPendingInstallments} parcelas • Total: ${CurrencyFormatter.format(debts.totalOwedToMe)}'
-                          : '${debts.totalPendingInstallments} parcelas • Mês: ${CurrencyFormatter.format(debts.totalOwedThisMonth(finance.selectedMonth))}',
-                      onTap: () => appState.setTab(2), // Navega para aba Quem me deve
-                    ),
-                  ],
+                  childAspectRatio: 1.7,
+                  children: cards,
                 );
               },
             ),

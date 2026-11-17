@@ -104,20 +104,22 @@ class _AbatementDialogState extends State<AbatementDialog> {
           ),
         ],
       ),
-      content: SizedBox(
-        width: MediaQuery.of(context).size.width < 600 ? double.maxFinite : 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width < 600 ? double.maxFinite : 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.amber.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   const Text('Saldo em Aberto:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   Text(
@@ -163,7 +165,8 @@ class _AbatementDialogState extends State<AbatementDialog> {
           ],
         ),
       ),
-      actions: [
+    ),
+    actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
         ElevatedButton(
           style: ElevatedButton.styleFrom(

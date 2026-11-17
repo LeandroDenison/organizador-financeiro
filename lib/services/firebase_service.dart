@@ -141,26 +141,17 @@ class FirebaseService extends ChangeNotifier {
         }
 
         if (payloadJson != null && payloadJson.isNotEmpty) {
-          final remoteMap = jsonDecode(payloadJson) as Map<String, dynamic>;
-          final remoteTxs = (remoteMap['transactions'] as List?)?.length ?? 0;
-          final remoteDebts = (remoteMap['debts'] as List?)?.length ?? 0;
-          final remoteCount = remoteTxs + remoteDebts;
-
-          if (!kIsWeb && localCount > remoteCount) {
-            // Local device (e.g., phone) has richer data than cloud -> push to cloud!
-            await pushToFirestore();
-          } else if (remoteCount > 0) {
-            // Cloud has data (or on Web browser) -> pull latest snapshot from cloud!
-            _lastSyncedUpdatedAt = remoteUpdatedAt;
-            final ok = await StorageService.importFullBackupJson(payloadJson);
-            if (ok) {
-              _lastSyncTime = DateTime.now();
-              _lastSyncMessage = 'Sincronizado em tempo real ($_projectId)';
-              await onRemoteDataReceived?.call();
-              notifyListeners();
-            }
+          // Cloud Firestore é a fonte de verdade central compartilhada entre Web e Mobile
+          _lastSyncedUpdatedAt = remoteUpdatedAt;
+          final ok = await StorageService.importFullBackupJson(payloadJson);
+          if (ok) {
+            _lastSyncTime = DateTime.now();
+            _lastSyncMessage = 'Sincronizado em tempo real ($_projectId)';
+            await onRemoteDataReceived?.call();
+            notifyListeners();
           }
         } else if (localCount > 0) {
+          // Apenas envia do dispositivo local caso a nuvem esteja vazia
           await pushToFirestore();
         }
       } else if (localCount > 0) {

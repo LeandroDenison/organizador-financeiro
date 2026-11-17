@@ -95,10 +95,11 @@ class InvoiceTransactionBottomSheet extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Drag handle
             Center(
               child: Container(
@@ -411,8 +412,9 @@ class InvoiceTransactionBottomSheet extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showInstallmentDialog(BuildContext context, FinanceProvider financeProvider) {
     int current = 1;

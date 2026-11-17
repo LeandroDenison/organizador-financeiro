@@ -139,7 +139,7 @@ class OpenFinanceService {
       isDefault: true,
     ),
     ConnectedBankItem(
-      id: '82b1f846-2b19-4f06-83bb-f034be48aecd',
+      id: 'c565e273-dab4-4ef5-99ce-658255069c0d',
       bankName: 'Mercado Pago',
       accountName: 'Conta & Cartão Mercado Pago',
     ),

@@ -71,7 +71,7 @@ class DebtDetailDialog extends StatelessWidget {
       ),
       content: SingleChildScrollView(
         child: SizedBox(
-          width: 480,
+          width: MediaQuery.of(context).size.width < 550 ? double.maxFinite : 480,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,9 +88,13 @@ class DebtDetailDialog extends StatelessWidget {
                     children: [
                       const Icon(Icons.phone_rounded, size: 16, color: Colors.grey),
                       const SizedBox(width: 8),
-                      Text(
-                        'Contato / Pix: ${currentDebt.contact}',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      Expanded(
+                        child: Text(
+                          'Contato / Pix: ${currentDebt.contact}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -111,13 +115,20 @@ class DebtDetailDialog extends StatelessWidget {
                 child: Column(
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildStat('Total Emprestado', CurrencyFormatter.format(currentDebt.totalAmount), isDark),
-                        _buildStat('Falta Receber', CurrencyFormatter.format(currentDebt.remainingAmount), isDark,
-                            color: AppConstants.accentAmber),
-                        _buildStat('Já Amortizado', CurrencyFormatter.format(currentDebt.paidAmount), isDark,
-                            color: AppConstants.accentGreen),
+                        Expanded(
+                          child: _buildStat('Total Emprestado', CurrencyFormatter.format(currentDebt.totalAmount), isDark),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStat('Falta Receber', CurrencyFormatter.format(currentDebt.remainingAmount), isDark,
+                              color: AppConstants.accentAmber),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStat('Já Amortizado', CurrencyFormatter.format(currentDebt.paidAmount), isDark,
+                              color: AppConstants.accentGreen),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -131,8 +142,9 @@ class DebtDetailDialog extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           '${currentDebt.paidInstallments} pagas de ${currentDebt.totalInstallments}',
@@ -157,45 +169,52 @@ class DebtDetailDialog extends StatelessWidget {
               const SizedBox(height: 16),
 
               // Installment Quick Adjuster
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 6,
                 children: [
                   const Text(
                     'Parcelas Restantes:',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
-                  Row(
-                    children: [
-                      IconButton.filledTonal(
-                        icon: const Icon(Icons.remove_rounded, size: 18),
-                        onPressed: currentDebt.remainingInstallments > 0
-                            ? () {
-                                debtProvider.updateRemainingInstallments(
-                                  currentDebt.id,
-                                  currentDebt.remainingInstallments - 1,
-                                );
-                              }
-                            : null,
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          '${currentDebt.remainingInstallments} / ${currentDebt.totalInstallments}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton.filledTonal(
+                          icon: const Icon(Icons.remove_rounded, size: 18),
+                          onPressed: currentDebt.remainingInstallments > 0
+                              ? () {
+                                  debtProvider.updateRemainingInstallments(
+                                    currentDebt.id,
+                                    currentDebt.remainingInstallments - 1,
+                                  );
+                                }
+                              : null,
                         ),
-                      ),
-                      IconButton.filledTonal(
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        onPressed: currentDebt.remainingInstallments < currentDebt.totalInstallments
-                            ? () {
-                                debtProvider.updateRemainingInstallments(
-                                  currentDebt.id,
-                                  currentDebt.remainingInstallments + 1,
-                                );
-                              }
-                            : null,
-                      ),
-                    ],
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            '${currentDebt.remainingInstallments} / ${currentDebt.totalInstallments}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        IconButton.filledTonal(
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          onPressed: currentDebt.remainingInstallments < currentDebt.totalInstallments
+                              ? () {
+                                  debtProvider.updateRemainingInstallments(
+                                    currentDebt.id,
+                                    currentDebt.remainingInstallments + 1,
+                                  );
+                                }
+                              : null,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -393,18 +412,24 @@ class DebtDetailDialog extends StatelessWidget {
       children: [
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 11,
             color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: color ?? (isDark ? Colors.white : Colors.grey.shade900),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: color ?? (isDark ? Colors.white : Colors.grey.shade900),
+            ),
           ),
         ),
       ],

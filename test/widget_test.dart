@@ -25,6 +25,10 @@ import 'package:organizador_financeiro/views/payables/payables_view.dart';
 import 'package:organizador_financeiro/views/invoice/unified_invoice_view.dart';
 import 'package:organizador_financeiro/models/debt_model.dart';
 import 'package:organizador_financeiro/views/settings/settings_view.dart';
+import 'package:organizador_financeiro/views/dashboard/dashboard_view.dart';
+import 'package:organizador_financeiro/views/bank_import/bank_import_view.dart';
+import 'package:organizador_financeiro/views/debts/widgets/abatement_dialog.dart';
+import 'package:organizador_financeiro/views/debts/debt_detail_dialog.dart';
 
 void main() {
   testWidgets('App basic smoke test on mobile screen (360dp width)', (WidgetTester tester) async {
@@ -292,5 +296,128 @@ void main() {
     expect(find.text('Fatura Unificada'), findsOneWidget);
     expect(find.textContaining('Nubank'), findsWidgets);
     expect(find.textContaining('Pagar'), findsWidgets);
+  });
+
+  testWidgets('DashboardView renders on 360dp mobile screen with font scale 1.2 without overflow', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(720, 1600);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() => tester.view.reset());
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AppStateProvider()),
+          ChangeNotifierProvider(create: (_) => FinanceProvider()),
+          ChangeNotifierProvider(create: (_) => DebtProvider()),
+          ChangeNotifierProvider(create: (_) => NotificationProvider()),
+          ChangeNotifierProvider.value(value: FirebaseService()),
+          ChangeNotifierProvider(create: (_) => BudgetProvider()),
+          ChangeNotifierProvider(create: (_) => SavingsProvider()),
+          ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+          ChangeNotifierProvider(create: (_) => BankLoanProvider()),
+          ChangeNotifierProvider(create: (_) => PayableProvider()),
+        ],
+        child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.2)),
+            child: child!,
+          ),
+          home: const Scaffold(body: DashboardView()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Visão Geral Financeira'), findsOneWidget);
+    expect(find.text('Saldo em Conta (3 Bancos)'), findsOneWidget);
+    expect(find.text('Sobra do Mês (Fluxo)'), findsOneWidget);
+  });
+
+  testWidgets('BankImportView renders guide cards on 360dp mobile screen without overflow', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(720, 1600);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() => tester.view.reset());
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AppStateProvider()),
+          ChangeNotifierProvider(create: (_) => FinanceProvider()),
+          ChangeNotifierProvider(create: (_) => DebtProvider()),
+          ChangeNotifierProvider(create: (_) => NotificationProvider()),
+          ChangeNotifierProvider.value(value: FirebaseService()),
+          ChangeNotifierProvider(create: (_) => BudgetProvider()),
+          ChangeNotifierProvider(create: (_) => SavingsProvider()),
+          ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+          ChangeNotifierProvider(create: (_) => BankLoanProvider()),
+          ChangeNotifierProvider(create: (_) => PayableProvider()),
+        ],
+        child: const MaterialApp(
+          home: BankImportView(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BankImportView), findsOneWidget);
+    expect(find.text('Importar Extrato ou Fatura Bancária'), findsOneWidget);
+  });
+
+  testWidgets('AbatementDialog and DebtDetailDialog render on 360dp mobile screen without overflow', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(720, 1600);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() => tester.view.reset());
+
+    final debt = DebtModel(
+      id: 'd_test',
+      personName: 'Sérgio Lucas',
+      description: 'Conta Teste 24x',
+      totalAmount: 2880.96,
+      installmentValue: 120.04,
+      totalInstallments: 24,
+      remainingInstallments: 10,
+      dueDay: 10,
+      createdAt: DateTime.now(),
+    );
+
+    // Test AbatementDialog
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => FinanceProvider()),
+          ChangeNotifierProvider(create: (_) => DebtProvider()),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: AbatementDialog(
+              personName: 'Sérgio Lucas',
+              specificDebt: debt,
+              totalOwed: 1200.40,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Abater Valor: Sérgio Lucas'), findsOneWidget);
+
+    // Test DebtDetailDialog
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => FinanceProvider()),
+          ChangeNotifierProvider(create: (_) => DebtProvider()..addDebt(debt)),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: DebtDetailDialog(debt: debt),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Sérgio Lucas'), findsOneWidget);
+    expect(find.text('Total Emprestado'), findsOneWidget);
+    expect(find.text('Falta Receber'), findsOneWidget);
   });
 }

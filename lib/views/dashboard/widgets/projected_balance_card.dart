@@ -481,48 +481,56 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.hub_rounded, size: 14, color: AppConstants.accentCyan),
-                        const SizedBox(width: 6),
-                        Text(
-                          isMobile ? 'Saldo Open Finance:' : 'Saldo Consolidado (3 Bancos Open Finance):',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.hub_rounded, size: 14, color: AppConstants.accentCyan),
+                          const SizedBox(width: 6),
+                          Text(
+                            isMobile ? 'Saldo Open Finance:' : 'Saldo Consolidado (3 Bancos Open Finance):',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          CurrencyFormatter.format(currentCashBalance),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: AppConstants.accentGreen,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            CurrencyFormatter.format(currentCashBalance),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AppConstants.accentGreen,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        finance.isSyncingBalances
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : InkWell(
-                                onTap: () => finance.refreshBankBalances(),
-                                borderRadius: BorderRadius.circular(12),
-                                child: const Padding(
-                                  padding: EdgeInsets.all(2),
-                                  child: Icon(Icons.sync_rounded, size: 15, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          finance.isSyncingBalances
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : InkWell(
+                                  onTap: () => finance.refreshBankBalances(),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(2),
+                                    child: Icon(Icons.sync_rounded, size: 15, color: Colors.grey),
+                                  ),
                                 ),
-                              ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -694,35 +702,38 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            '$name: ',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
+            const SizedBox(width: 5),
+            Text(
+              '$name: ',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
-          ),
-          Text(
-            CurrencyFormatter.format(amount),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.grey.shade900,
+            Text(
+              CurrencyFormatter.format(amount),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.grey.shade900,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

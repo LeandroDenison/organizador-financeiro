@@ -914,14 +914,16 @@ class _SettingsViewState extends State<SettingsView> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Restaurar Backup JSON'),
-        content: SizedBox(
-          width: 440,
-          child: TextField(
-            controller: jsonController,
-            maxLines: 6,
-            decoration: const InputDecoration(
-              labelText: 'Cole aqui o conteúdo do arquivo JSON de backup',
-              border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: SizedBox(
+            width: MediaQuery.of(ctx).size.width < 500 ? double.maxFinite : 440,
+            child: TextField(
+              controller: jsonController,
+              maxLines: 6,
+              decoration: const InputDecoration(
+                labelText: 'Cole aqui o conteúdo do arquivo JSON de backup',
+                border: OutlineInputBorder(),
+              ),
             ),
           ),
         ),

@@ -506,35 +506,50 @@ NEWFILEUID:NONE
             const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, constraints) {
-                final crossAxisCount = constraints.maxWidth < 800 ? 1 : 3;
+                final isMobile = constraints.maxWidth < 800;
+                final guides = [
+                  _buildGuideCard(
+                    'Nubank',
+                    '1. No app Nubank, clique em Conta ou Cartão de Crédito.\n2. Role até a fatura ou histórico.\n3. Toque em "Pedir extrato" ou "Exportar fatura".\n4. Selecione o formato OFX ou CSV e envie por e-mail/WhatsApp.',
+                    AppConstants.nubankPurple,
+                    isDark,
+                    isMobile: isMobile,
+                  ),
+                  _buildGuideCard(
+                    'Itaú',
+                    '1. Acesse sua conta corrente no app Itaú.\n2. Toque em "Extrato" no menu principal.\n3. Toque nos três pontinhos (...) ou no ícone de compartilhamento.\n4. Escolha "Exportar extrato (OFX)".',
+                    AppConstants.itauOrange,
+                    isDark,
+                    isMobile: isMobile,
+                  ),
+                  _buildGuideCard(
+                    'Mercado Pago',
+                    '1. Acesse o app Mercado Pago ou web.\n2. Vá em "Atividades" ou "Relatórios".\n3. Selecione o período desejado.\n4. Clique em "Baixar relatório" e escolha o formato CSV.',
+                    AppConstants.mercadoPagoBlue,
+                    isDark,
+                    isMobile: isMobile,
+                  ),
+                ];
+
+                if (isMobile) {
+                  return Column(
+                    children: [
+                      for (int i = 0; i < guides.length; i++) ...[
+                        guides[i],
+                        if (i < guides.length - 1) const SizedBox(height: 12),
+                      ],
+                    ],
+                  );
+                }
 
                 return GridView.count(
-                  crossAxisCount: crossAxisCount,
+                  crossAxisCount: 3,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: constraints.maxWidth < 800 ? 3.0 : 1.3,
-                  children: [
-                    _buildGuideCard(
-                      'Nubank',
-                      '1. No app Nubank, clique em Conta ou Cartão de Crédito.\n2. Role até a fatura ou histórico.\n3. Toque em "Pedir extrato" ou "Exportar fatura".\n4. Selecione o formato OFX ou CSV e envie por e-mail/WhatsApp.',
-                      AppConstants.nubankPurple,
-                      isDark,
-                    ),
-                    _buildGuideCard(
-                      'Itaú',
-                      '1. Acesse sua conta corrente no app Itaú.\n2. Toque em "Extrato" no menu principal.\n3. Toque nos três pontinhos (...) ou no ícone de compartilhamento.\n4. Escolha "Exportar extrato (OFX)".',
-                      AppConstants.itauOrange,
-                      isDark,
-                    ),
-                    _buildGuideCard(
-                      'Mercado Pago',
-                      '1. Acesse o app Mercado Pago ou web.\n2. Vá em "Atividades" ou "Relatórios".\n3. Selecione o período desejado.\n4. Clique em "Baixar relatório" e escolha o formato CSV.',
-                      AppConstants.mercadoPagoBlue,
-                      isDark,
-                    ),
-                  ],
+                  childAspectRatio: 1.3,
+                  children: guides,
                 );
               },
             ),
@@ -562,24 +577,29 @@ NEWFILEUID:NONE
           border: Border.all(color: color.withOpacity(0.3)),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: color, size: 24),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14),
-                ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Icon(Icons.arrow_forward_ios_rounded, size: 12, color: color),
           ],
         ),
@@ -768,7 +788,7 @@ NEWFILEUID:NONE
     );
   }
 
-  Widget _buildGuideCard(String bank, String steps, Color color, bool isDark) {
+  Widget _buildGuideCard(String bank, String steps, Color color, bool isDark, {bool isMobile = false}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -780,6 +800,7 @@ NEWFILEUID:NONE
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: isMobile ? MainAxisSize.min : MainAxisSize.max,
         children: [
           Row(
             children: [
@@ -796,16 +817,25 @@ NEWFILEUID:NONE
             ],
           ),
           const SizedBox(height: 10),
-          Expanded(
-            child: Text(
-              steps,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.4,
-                color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
-              ),
-            ),
-          ),
+          isMobile
+              ? Text(
+                  steps,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                  ),
+                )
+              : Expanded(
+                  child: Text(
+                    steps,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                    ),
+                  ),
+                ),
         ],
       ),
     );

@@ -80,24 +80,35 @@ A compra em 24 parcelas solicitada foi mapeada e auditada nos registros brutos d
 
 ---
 
-## 4. Deduplicação e Limpeza da Base de Dados
+## 4. Deduplicação Estrita e Proteção a Compras Recorrentes Diárias
 
-Durante a sincronização automática, identificamos 29 lançamentos que existiam concomitantemente vindos de importação manual por CSV e da conexão Open Finance direta:
-* **Exemplos de Duplicatas Eliminadas:**
-  - `Amazonmktplc*Taxconfig 5/10 (R$ 98,76)`: Mantida apenas a versão OFX oficial.
-  - `Farmacia Center Popula 2/2 (R$ 71,06)`: Mantida apenas a versão OFX oficial.
-  - `Studio Z 2/2 (R$ 79,99)`: Mantida apenas a versão OFX oficial.
-  - `Pague Menos (R$ 49,16)`: Mantida apenas a versão OFX oficial.
-  - `Pagamento recebido (R$ 3.042,66)`: Mantida apenas a versão OFX oficial.
-* **Eliminação de Contas Repetidas na Interface:**
-  - As contas bancárias da Pluggy agora possuem rótulos inequívocos:
-    - `Mercado Pago Conta Corrente`: Saldo R$ 1,00
-    - `Mercado Pago Cartão de Crédito`: Saldo R$ 3.693,98
-    - `Nu Pagamentos Conta Corrente`: Saldo R$ 109,54
-    - `Nubank Cartão Gold`: Saldo R$ 3.407,99
-    - `itau Conta Corrente`: Saldo R$ 0,01
-    - `Samsung Itaú Visa`: Saldo R$ 223,48
-    - `Itaú Click Múltiplo MC Plat`: Saldo R$ 394,00
+Atendendo com máxima prioridade à diretriz de **nunca unificar compras legítimas repetidas** (como cafés da manhã, almoços ou lanches diários no mesmo estabelecimento e com mesmo valor):
+
+1. **Regra de Deduplicação Refinada (`FinanceProvider.reconcileStatementsAndDuplicates`):**
+   - **Compras de dias distintos NUNCA são mescladas**, mesmo que possuam o mesmo nome de estabelecimento e o mesmo valor em reais (ex: compras diárias de R$ 15,00 ou R$ 13,50 em dias consecutivos são rigorosamente preservadas como transações independentes).
+   - Apenas ocorre reconciliação quando:
+     a) A transação for **exatamente na mesma data** (`sameDay`), OU
+     b) Possuir a **mesma referência explícita de parcela** de cartão (`installmentRef`), OU
+     c) Tratar-se de lag de notificação push de no máximo 1 dia (`source == notification && diffDays <= 1`).
+   - Implementado rastreamento por conjunto de IDs (`matchedOfxIds`), impedindo que um lançamento do extrato absorva mais de uma transação.
+
+2. **Abatimento Rigoroso por Valor Recebido:**
+   - As amortizações de devedores são calculadas estritamente a partir do valor financeiro real recebido (como os Pix de R$ 1.000,00 e R$ 550,00 transferidos por Sérgio Lucas em Novembro).
+   - As parcelas do mês fechado (Novembro) ficam 100% quitadas, enquanto as parcelas de Dezembro iniciam com saldo em aberto de R$ 0,00 pago, aguardando o respectivo recebimento do novo mês.
+
+3. **Eliminação de Duplicatas de Faturas no Ciclo Aberto:**
+   - No Mercado Pago, as compras faturadas no dia do corte (05/11) pertencem estritamente à fatura fechada de Novembro (`14/24` e `12/18`).
+   - A fatura aberta de Dezembro projeta pontualmente as próximas parcelas ativas (`15/24` de R$ 120,04 e `13/18` de R$ 161,05), eliminando qualquer duplicação entre meses.
+
+4. **Identificação Clara de Contas Bancárias (Evitando Duplicidade Visual):**
+   - As contas bancárias da Pluggy agora possuem rótulos inequívocos:
+     - `Mercado Pago Conta Corrente`: Saldo R$ 1,00
+     - `Mercado Pago Cartão de Crédito`: Saldo R$ 3.693,98
+     - `Nu Pagamentos Conta Corrente`: Saldo R$ 109,54
+     - `Nubank Cartão Gold`: Saldo R$ 3.407,99
+     - `itau Conta Corrente`: Saldo R$ 0,01
+     - `Samsung Itaú Visa`: Saldo R$ 223,48
+     - `Itaú Click Múltiplo MC Plat`: Saldo R$ 394,00
 
 ---
 
