@@ -193,6 +193,7 @@ class StorageService {
       },
       'transactions': jsonDecode(prefs.getString(_transactionsKey) ?? '[]'),
       'debts': jsonDecode(prefs.getString(_debtsKey) ?? '[]'),
+      'payables': jsonDecode(prefs.getString(_payablesKey) ?? '[]'),
       'savings_goals': jsonDecode(prefs.getString('financial_savings_goals_v1') ?? '[]'),
       'subscriptions': jsonDecode(prefs.getString('financial_subscriptions_v1') ?? '[]'),
       'budgets': jsonDecode(prefs.getString('financial_budgets_v1') ?? '[]'),
@@ -231,6 +232,9 @@ class StorageService {
       }
       if (data['debts'] is List) {
         await prefs.setString(_debtsKey, jsonEncode(data['debts']));
+      }
+      if (data['payables'] is List) {
+        await prefs.setString(_payablesKey, jsonEncode(data['payables']));
       }
       if (data['savings_goals'] is List) {
         await prefs.setString('financial_savings_goals_v1', jsonEncode(data['savings_goals']));

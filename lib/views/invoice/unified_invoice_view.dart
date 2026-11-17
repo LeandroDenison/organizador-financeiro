@@ -88,7 +88,7 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
         cardSubs = inv?.projectedSubscriptions ?? [];
       } else if (isPastMonth) {
         // Fatura Passada (Novembro, Outubro...): busca transações do ciclo correspondente
-        cardTxs = finance.transactions.where((tx) {
+        final rawPast = finance.transactions.where((tx) {
           if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
 
           bool matchesCard = false;
@@ -106,7 +106,21 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
           }
           if (!matchesCard) return false;
 
+          final isOnClosingDay = tx.date.year == cycleEnd.year &&
+              tx.date.month == cycleEnd.month &&
+              tx.date.day == cycleEnd.day;
+          if (isOnClosingDay && tx.source != TransactionSource.pdf) {
+            return false; // Pertence ao ciclo aberto seguinte
+          }
+
           return tx.date.isAfter(cycleStart) && !tx.date.isAfter(cycleEnd);
+        }).toList();
+
+        cardTxs = rawPast.map((tx) {
+          final matchedPerson = debts.matchDebtorForPurchase(tx);
+          return (matchedPerson != null && tx.personName != matchedPerson)
+              ? tx.copyWith(personName: matchedPerson)
+              : tx;
         }).toList();
       } else {
         // Faturas Futuras (Janeiro 2027, Fevereiro 2027...): projeta compras parceladas da fatura aberta atual
@@ -127,7 +141,7 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
           // Fallback seguro: ciclo aberto atual (Novembro -> Dezembro)
           final now = DateTime(2026, 11, 16);
           final defCycleEnd = DateTime(now.year, now.month + 1, cardConfig.closingDay, 23, 59, 59);
-          final defCycleStart = DateTime(now.year, now.month, cardConfig.closingDay, 23, 59, 59);
+          final defCycleStart = DateTime(now.year, now.month, cardConfig.closingDay);
           baseTransactions = finance.transactions.where((tx) {
             if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
             final txBank = tx.bank?.toLowerCase() ?? '';
@@ -138,7 +152,7 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
             if (cardConfig.id == 'itau_samsung') matches = (txBank.contains('itau') || txBank.contains('itaú')) && title.contains('samsung');
             if (cardConfig.id == 'mercado_pago') matches = txBank.contains('mercado pago');
             if (!matches) return false;
-            return tx.date.isAfter(defCycleStart) && !tx.date.isAfter(defCycleEnd);
+            return !tx.date.isBefore(defCycleStart) && !tx.date.isAfter(defCycleEnd);
           }).toList();
         }
 
@@ -165,6 +179,7 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
           final projectedNum = currentNum + futureOffset;
 
           if (projectedNum <= totalNum) {
+            final matchedPerson = tx.personName ?? debts.matchDebtorForPurchase(tx);
             cardTxs.add(
               TransactionModel(
                 id: 'future_${tx.id}_$projectedNum',
@@ -175,7 +190,7 @@ class _UnifiedInvoiceViewState extends State<UnifiedInvoiceView> {
                 category: tx.category,
                 bank: cardConfig.bank,
                 installmentRef: '$projectedNum/$totalNum',
-                personName: tx.personName,
+                personName: matchedPerson,
                 notes: 'Parcela futura projetada para ${DateFormat('MMMM yyyy', 'pt_BR').format(targetMonth)}',
               ),
             );

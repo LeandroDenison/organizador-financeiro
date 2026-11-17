@@ -51,6 +51,12 @@ void main() async {
 
   final payableProvider = PayableProvider();
   await payableProvider.init();
+  payableProvider.syncWithProviders(
+    finance: financeProvider,
+    debts: debtProvider,
+    subscriptions: subscriptionProvider,
+    loans: bankLoanProvider,
+  );
 
   // Start real-time two-way cloud synchronization (Phone <-> Browser via Firestore)
   unawaited(
@@ -67,6 +73,12 @@ void main() async {
         );
         await bankLoanProvider.init();
         await payableProvider.init();
+        payableProvider.syncWithProviders(
+          finance: financeProvider,
+          debts: debtProvider,
+          subscriptions: subscriptionProvider,
+          loans: bankLoanProvider,
+        );
       },
     ),
   );

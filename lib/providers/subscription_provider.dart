@@ -203,14 +203,26 @@ class SubscriptionProvider extends ChangeNotifier {
         category: 'Saúde & Academia',
       );
     }
+    if (lower.contains('new odonto') || lower.contains('new*new odonto')) {
+      return const DetectedSubscriptionInfo(
+        cleanName: 'New Odonto (Plano Odontológico)',
+        category: 'Saúde & Planos',
+      );
+    }
     if (lower.contains('odontoart') || lower.contains('planos o') || lower.contains('plano odonto')) {
       return const DetectedSubscriptionInfo(
-        cleanName: 'Odontoart (Plano Odontológico)',
+        cleanName: 'Odontoart (Plano Ortodôntico)',
         category: 'Saúde & Planos',
       );
     }
 
     // 6. Telecom & Internet Plans
+    if (lower.contains('alares') || lower.contains('bmb *alares')) {
+      return const DetectedSubscriptionInfo(
+        cleanName: 'Alares (Internet Fibra)',
+        category: 'Telefonia & Internet',
+      );
+    }
     if (lower.contains('tim pos') || lower.contains('tim controle') || lower.contains('tim s.a') || lower.contains('vivo movel') || lower.contains('claro movel') || lower.contains('brisanet')) {
       final clean = lower.contains('tim pos')
           ? 'TIM Pós (Plano Celular)'
@@ -276,8 +288,10 @@ class SubscriptionProvider extends ChangeNotifier {
       String normalizedName = s.name;
       if (lower.contains('google one') || lower.contains('google play / google one')) {
         normalizedName = 'Google One (Armazenamento)';
-      } else if (lower.contains('odontoart') || lower.contains('odonto')) {
-        normalizedName = 'Odontoart (Plano Odontológico)';
+      } else if (lower.contains('new odonto')) {
+        normalizedName = 'New Odonto (Plano Odontológico)';
+      } else if (lower.contains('odontoart')) {
+        normalizedName = 'Odontoart (Plano Ortodôntico)';
       }
 
       final normKey = normalizedName.toLowerCase()
@@ -423,6 +437,17 @@ class SubscriptionProvider extends ChangeNotifier {
     bool changed = false;
 
     for (final sub in _subscriptions) {
+      // Se o usuário cancelou/pausou manualmente ou dispensou esta assinatura, nunca reativa sozinho!
+      final subLower = sub.name.toLowerCase().trim();
+      final isManuallyCanceled = !sub.isActive &&
+          ((sub.inactiveReason?.toLowerCase().contains('manual') ?? false) ||
+              (sub.inactiveReason?.toLowerCase().contains('cancelad') ?? false) ||
+              _dismissedSignatures.any((sig) => sig.startsWith('${subLower}_')));
+      if (isManuallyCanceled) {
+        remaining.add(sub);
+        continue;
+      }
+
       final matchingTxs = transactions.where((tx) {
         if (tx.type != TransactionType.expense) return false;
         final detected = detectSubscription(tx);
@@ -582,7 +607,11 @@ class SubscriptionProvider extends ChangeNotifier {
   Future<void> toggleSubscription(String id) async {
     final index = _subscriptions.indexWhere((s) => s.id == id);
     if (index != -1) {
-      _subscriptions[index].isActive = !_subscriptions[index].isActive;
+      final newStatus = !_subscriptions[index].isActive;
+      _subscriptions[index] = _subscriptions[index].copyWith(
+        isActive: newStatus,
+        inactiveReason: newStatus ? null : 'Cancelada manualmente pelo usuário',
+      );
       await _persist();
       notifyListeners();
     }

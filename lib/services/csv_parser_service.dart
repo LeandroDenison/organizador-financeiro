@@ -1,5 +1,6 @@
 ﻿import 'package:csv/csv.dart';
 import '../models/transaction_model.dart';
+import '../utils/installment_helper.dart';
 import 'ofx_parser_service.dart';
 
 class CsvParseResult {
@@ -36,7 +37,7 @@ class CsvParserService {
     String bank = defaultBank ?? 'Banco';
     final headerStr = rows.first.join(' ').toLowerCase();
 
-    if (headerStr.contains('categoria') && headerStr.contains('title')) {
+    if (headerStr.contains('title') && headerStr.contains('amount')) {
       bank = 'Nubank (Cartão)';
     } else if (headerStr.contains('identificador') || headerStr.contains('nu pagamentos')) {
       bank = 'Nubank (Conta)';
@@ -80,11 +81,20 @@ class CsvParserService {
       final amount = _cleanAmount(amountRaw);
       if (amount == 0.0 && titleStr.isEmpty) continue;
 
-      final isExpense = amountRaw.contains('-') || (amount > 0 && bank.contains('Cartão'));
+      final lowerTitle = titleStr.toLowerCase();
+      final isCreditCardCsv = bank.contains('Cartão');
+      final isNegativeRaw = amountRaw.contains('-') || amount < 0;
+      final isRefundOrPayment = lowerTitle.contains('pagamento recebido') || lowerTitle.contains('estorno');
+
+      final bool isExpense = isCreditCardCsv
+          ? (!isNegativeRaw && !isRefundOrPayment)
+          : isNegativeRaw;
+
       final positiveAmount = amount.abs();
       final date = _parseCsvDate(dateStr);
 
       String category = catStr.isNotEmpty ? _capitalize(catStr) : OfxParserService.guessCategory(titleStr);
+      final installmentRef = InstallmentHelper.extractInstallmentRef(titleStr);
 
       transactions.add(
         TransactionModel(
@@ -95,6 +105,7 @@ class CsvParserService {
           category: category,
           bank: bank.replaceAll(RegExp(r'\(.*\)'), '').trim(),
           source: TransactionSource.csv,
+          installmentRef: installmentRef,
           notes: 'Importado de CSV ($bank)',
         ),
       );

@@ -18,14 +18,16 @@ class InstallmentHelper {
 
     if (text.isEmpty) return null;
 
-    // 1. Padrão explícito: "Parcela 1/4", "Parc. 2/6", "Parcela 3 de 10"
+    // 1. Padrão explícito: "Parcela 1/4", "Parc. 2/6", "Parcela 3 de 10", ou "- 12/12" no final
     final explicitMatch = RegExp(
-      r'(?:parcela|parc\.?)\s*(\d{1,2})\s*(?:/|de)\s*(\d{1,2})',
+      r'(?:(?:parcela|parc\.?)\s*(\d{1,2})\s*(?:/|de)\s*(\d{1,2})|-\s*(\d{1,2})\s*/\s*(\d{1,2})\s*$)',
       caseSensitive: false,
     ).firstMatch(text);
     if (explicitMatch != null) {
-      final cur = int.tryParse(explicitMatch.group(1) ?? '1') ?? 1;
-      final tot = int.tryParse(explicitMatch.group(2) ?? '1') ?? 1;
+      final g1 = explicitMatch.group(1) ?? explicitMatch.group(3) ?? '1';
+      final g2 = explicitMatch.group(2) ?? explicitMatch.group(4) ?? '1';
+      final cur = int.tryParse(g1) ?? 1;
+      final tot = int.tryParse(g2) ?? 1;
       if (tot > 1 && tot <= 48 && cur <= tot) {
         return '$cur/$tot';
       }

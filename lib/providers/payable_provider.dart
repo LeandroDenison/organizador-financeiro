@@ -64,13 +64,16 @@ class PayableProvider extends ChangeNotifier {
 
       final lastClosingDate = DateTime(now.year, now.month, closingDay);
 
-      final alreadyBilledAfterClosing = finance.transactions.any((tx) =>
-          tx.type == TransactionType.expense &&
-          tx.date.isAfter(lastClosingDate) &&
-          ((tx.amount - sub.amount).abs() < 0.05) &&
-          (tx.title.toLowerCase().contains(sub.name.toLowerCase()) ||
-              (sub.sourceTransactionTitle != null &&
-                  tx.title.toLowerCase().contains(sub.sourceTransactionTitle!.toLowerCase()))));
+      final alreadyBilledAfterClosing = finance.transactions.any((tx) {
+        if (tx.type != TransactionType.expense || tx.date.isBefore(lastClosingDate)) return false;
+        final tLower = tx.title.toLowerCase();
+        final sName = sub.name.toLowerCase();
+        final sSrc = sub.sourceTransactionTitle?.toLowerCase() ?? '';
+        final nameMatch = tLower.contains(sName) ||
+            (sSrc.isNotEmpty && (tLower.contains(sSrc) || sSrc.contains(tLower)));
+        if (!nameMatch) return false;
+        return (tx.amount - sub.amount).abs() <= 3.0;
+      });
 
       if (sub.isActive) {
         if (!alreadyBilledAfterClosing) {
@@ -86,34 +89,103 @@ class PayableProvider extends ChangeNotifier {
     final List<CardOpenInvoice> cardInvoices = [];
 
     for (final cardConfig in CardConfig.defaultCards) {
-      final lastClosing = DateTime(now.year, now.month, cardConfig.closingDay, 23, 59, 59);
+      // No dia de fechamento (ex: dia 06 no Nubank), o novo ciclo já abre e recebe as parcelas recorrentes do mês.
+      final openCycleStart = DateTime(now.year, now.month, cardConfig.closingDay);
+      final prevCycleStart = DateTime(now.year, now.month - 1, cardConfig.closingDay);
       final nextClosing = DateTime(targetMonth.year, targetMonth.month, cardConfig.closingDay, 23, 59, 59);
       final targetDue = DateTime(targetMonth.year, targetMonth.month, cardConfig.dueDay);
 
-      final cardTxs = finance.transactions.where((tx) {
-        if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
-
-        bool matchesCard = false;
+      bool matchesCard(TransactionModel tx) {
         final txBank = tx.bank?.toLowerCase() ?? '';
         final title = tx.title.toLowerCase();
-
         if (cardConfig.id == 'nubank') {
-          matchesCard = txBank.contains('nubank');
+          return txBank.contains('nubank');
         } else if (cardConfig.id == 'itau_click') {
-          matchesCard = (txBank.contains('itau') || txBank.contains('itaú')) &&
+          return (txBank.contains('itau') || txBank.contains('itaú')) &&
               (title.contains('click') || !title.contains('samsung'));
         } else if (cardConfig.id == 'itau_samsung') {
-          matchesCard = (txBank.contains('itau') || txBank.contains('itaú')) &&
+          return (txBank.contains('itau') || txBank.contains('itaú')) &&
               title.contains('samsung');
         } else if (cardConfig.id == 'mercado_pago') {
-          matchesCard = txBank.contains('mercado pago');
+          return txBank.contains('mercado pago');
+        }
+        return false;
+      }
+
+      final rawCardTxs = finance.transactions.where((tx) {
+        if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
+        if (!matchesCard(tx)) return false;
+
+        // No dia exato de fechamento/abertura (ex: 06/11 no Nubank), inclui apenas lançamentos do novo ciclo (CSV)
+        final isOnOpeningDay = tx.date.year == openCycleStart.year &&
+            tx.date.month == openCycleStart.month &&
+            tx.date.day == openCycleStart.day;
+        if (isOnOpeningDay && tx.source != TransactionSource.csv) {
+          return false;
         }
 
-        if (!matchesCard) return false;
-
-        // Corte estrito: compras realizadas estritamente APÓS o fechamento da fatura em Novembro!
-        return tx.date.isAfter(lastClosing) && !tx.date.isAfter(nextClosing);
+        return !tx.date.isBefore(openCycleStart) && !tx.date.isAfter(nextClosing);
       }).toList();
+
+      // Projeta automaticamente parcelas do ciclo anterior (k/N -> (k+1)/N) apenas se o ciclo aberto
+      // ainda não recebeu o lote oficial de parcelas do banco (CSV/Open Finance)
+      final hasOfficialOpenInstallments = rawCardTxs.any(
+        (t) => t.installmentRef != null && t.source != TransactionSource.notification,
+      );
+      final prevCycleInstallments = hasOfficialOpenInstallments
+          ? <TransactionModel>[]
+          : finance.transactions.where((tx) {
+              if (!FinanceProvider.isCreditCardTransaction(tx)) return false;
+              if (!matchesCard(tx)) return false;
+              final inPrev = !tx.date.isBefore(prevCycleStart) && tx.date.isBefore(openCycleStart);
+              final onOpeningPdf = tx.date.year == openCycleStart.year &&
+                  tx.date.month == openCycleStart.month &&
+                  tx.date.day == openCycleStart.day &&
+                  tx.source == TransactionSource.pdf;
+              return (inPrev || onOpeningPdf) && tx.installmentRef != null;
+            }).toList();
+
+      for (final prevTx in prevCycleInstallments) {
+        final m = RegExp(r'^(\d+)/(\d+)$').firstMatch(prevTx.installmentRef!.trim());
+        if (m == null) continue;
+        final cur = int.tryParse(m.group(1) ?? '1') ?? 1;
+        final tot = int.tryParse(m.group(2) ?? '1') ?? 1;
+        final nextInst = cur + 1;
+        if (tot <= 1 || nextInst > tot) continue;
+
+        final nextRef = '$nextInst/$tot';
+        final alreadyInOpenCycle = rawCardTxs.any((t) =>
+            t.installmentRef == nextRef &&
+            (t.amount - prevTx.amount).abs() <= 0.10);
+        if (!alreadyInOpenCycle) {
+          rawCardTxs.add(
+            TransactionModel(
+              id: 'roll_${prevTx.id}_$nextInst',
+              title: prevTx.title.replaceAll(RegExp(r'\d+/\d+'), nextRef),
+              amount: prevTx.amount,
+              date: openCycleStart,
+              type: prevTx.type,
+              category: prevTx.category,
+              bank: prevTx.bank,
+              source: prevTx.source,
+              personId: prevTx.personId,
+              personName: prevTx.personName,
+              installmentRef: nextRef,
+              notes: prevTx.notes,
+            ),
+          );
+        }
+      }
+
+      // Vincula automaticamente compras aos devedores cadastrados em "Quem me Deve" (sem hardcoding)
+      final cardTxs = rawCardTxs.map((tx) {
+        final matchedPerson = debts.matchDebtorForPurchase(tx);
+        if (matchedPerson != null && tx.personName != matchedPerson) {
+          return tx.copyWith(personName: matchedPerson);
+        }
+        return tx;
+      }).toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
 
       final cardSubs = upcomingSubs.where((s) {
         final subBank = s.bank?.toLowerCase() ?? 'nubank';
@@ -128,7 +200,7 @@ class PayableProvider extends ChangeNotifier {
         CardOpenInvoice(
           config: cardConfig,
           targetDueDate: targetDue,
-          cycleStartDate: lastClosing,
+          cycleStartDate: openCycleStart,
           cycleEndDate: nextClosing,
           transactions: cardTxs,
           projectedSubscriptions: cardSubs,
@@ -214,16 +286,66 @@ class PayableProvider extends ChangeNotifier {
         );
       }
 
-      // Contas Manuais Recorrentes de Dezembro
+      // Contas Manuais e Boletos Fixos Recorrentes de Dezembro
+      final addedBoletoTitles = <String>{};
       for (final manual in _manualPayables) {
         if (manual.isRecurring) {
           final day = manual.dueDay.clamp(1, 28);
+          addedBoletoTitles.add(manual.title.toLowerCase());
           list.add(
             manual.copyWith(
               id: 'open_manual_${manual.id}_${targetMonth.year}_${targetMonth.month}',
               dueDate: DateTime(targetMonth.year, targetMonth.month, day),
               dueDay: day,
               isPaid: false,
+            ),
+          );
+        }
+      }
+
+      // Auto-detecção genérica de Boletos Fixos Mensais (presentes nos 2 últimos meses fechados consecutivos)
+      final m1 = DateTime(now.year, now.month - 1);
+      final m2 = DateTime(now.year, now.month - 2);
+      final m1Boletos = finance.transactions.where((t) {
+        if (t.type != TransactionType.expense) return false;
+        final l = t.title.toLowerCase();
+        return l.contains('pagamento efetuado -') &&
+            t.date.year == m1.year &&
+            t.date.month == m1.month;
+      }).toList();
+
+      for (final bTx in m1Boletos) {
+        final cleanBen = bTx.title
+            .replaceAll(RegExp(r'^pagamento efetuado\s*-\s*', caseSensitive: false), '')
+            .trim();
+        if (cleanBen.length < 4) continue;
+        final prefix = cleanBen.toLowerCase().substring(0, cleanBen.length.clamp(0, 12));
+
+        final hadInM2 = finance.transactions.any((t) =>
+            t.type == TransactionType.expense &&
+            t.date.year == m2.year &&
+            t.date.month == m2.month &&
+            (t.amount - bTx.amount).abs() <= 5.0 &&
+            t.title.toLowerCase().contains(prefix));
+
+        if (hadInM2 && !addedBoletoTitles.any((at) => at.contains(prefix))) {
+          addedBoletoTitles.add(cleanBen.toLowerCase());
+          final dueDay = bTx.date.day.clamp(1, 28);
+          list.add(
+            PayableModel(
+              id: 'auto_boleto_${cleanBen.hashCode}_${targetMonth.year}_${targetMonth.month}',
+              title: 'Boleto Fixo: $cleanBen',
+              totalAmount: bTx.amount,
+              myShareAmount: bTx.amount,
+              dueDate: DateTime(targetMonth.year, targetMonth.month, dueDay),
+              dueDay: dueDay,
+              category: 'Educação & Boletos',
+              bank: bTx.bank,
+              type: PayableType.boletoDDA,
+              isPaid: false,
+              isRecurring: true,
+              isAutoDetected: true,
+              notes: 'Boleto fixo mensal detectado pelo histórico bancário',
             ),
           );
         }
@@ -421,6 +543,10 @@ class PayableProvider extends ChangeNotifier {
   }
 
   // --- Métricas do Mês ---
+  List<PayableModel> get manualPayables => List.unmodifiable(_manualPayables);
+  double get nonCardFixedBillsTotal => _computedPayables
+      .where((p) => (p.type == PayableType.boletoDDA || p.type == PayableType.manual) && !p.isPaid)
+      .fold(0.0, (s, p) => s + p.myShareAmount);
   double get totalDue => _computedPayables.fold(0.0, (s, p) => s + p.totalAmount);
   double get myShareDue => _computedPayables.fold(0.0, (s, p) => s + p.myShareAmount);
   double get debtorShareDue => _computedPayables.fold(0.0, (s, p) => s + p.debtorShareAmount);

@@ -120,7 +120,13 @@ class FinanceProvider extends ChangeNotifier {
       }
     }
 
-    _transactions = repaired;
+    // Mescla notificações de celular com lançamentos oficiais do extrato/CSV/Open Finance (±2 dias)
+    final reconciled = reconcileNotificationsWithStatements(repaired);
+    if (reconciled.length != repaired.length) {
+      modified = true;
+    }
+
+    _transactions = reconciled;
     if (modified) {
       await StorageService.saveTransactions(_transactions);
       FirebaseService().triggerSync();
@@ -184,18 +190,109 @@ class FinanceProvider extends ChangeNotifier {
         lower.contains('pagamento efetuado');
   }
 
+  /// Mescla automaticamente notificações temporárias do celular com o registro oficial do banco
+  /// (CSV, PDF ou Open Finance), mesmo quando o banco registra com 1-2 dias de diferença ou em parcelas.
+  static List<TransactionModel> reconcileNotificationsWithStatements(List<TransactionModel> input) {
+    final officials = <TransactionModel>[];
+    final notifications = <TransactionModel>[];
+
+    for (final t in input) {
+      if (t.source == TransactionSource.notification && !t.title.toLowerCase().contains('boleto dda')) {
+        notifications.add(t);
+      } else {
+        officials.add(t);
+      }
+    }
+
+    if (notifications.isEmpty || officials.isEmpty) return input;
+
+    final usedOfficialIds = <String>{};
+    final survivingNotifications = <TransactionModel>[];
+
+    for (final notif in notifications) {
+      final notifWords = _extractMerchantWords(notif.title);
+      if (notifWords.isEmpty) {
+        survivingNotifications.add(notif);
+        continue;
+      }
+
+      int matchIdx = -1;
+      for (int i = 0; i < officials.length; i++) {
+        final off = officials[i];
+        if (usedOfficialIds.contains(off.id)) continue;
+        if (off.type != notif.type) continue;
+        if ((off.date.difference(notif.date).inDays).abs() > 2) continue;
+
+        final offWords = _extractMerchantWords(off.title);
+        if (offWords.isEmpty) continue;
+
+        final sharesMerchant = notifWords.first == offWords.first ||
+            notifWords.any((w) => w.length >= 4 && offWords.contains(w));
+        if (!sharesMerchant) continue;
+
+        bool amountMatches = (off.amount - notif.amount).abs() <= 0.05;
+        if (!amountMatches && off.installmentRef != null) {
+          final parts = off.installmentRef!.split('/');
+          final tot = parts.length == 2 ? (int.tryParse(parts[1]) ?? 1) : 1;
+          if (tot > 1 && ((notif.amount / tot) - off.amount).abs() <= 0.15) {
+            amountMatches = true;
+          }
+        }
+
+        if (amountMatches) {
+          matchIdx = i;
+          break;
+        }
+      }
+
+      if (matchIdx != -1) {
+        final off = officials[matchIdx];
+        usedOfficialIds.add(off.id);
+        if (notif.personName != null && off.personName == null) {
+          officials[matchIdx] = off.copyWith(
+            personName: notif.personName,
+            personId: notif.personId,
+          );
+        }
+        // Notificação absorvida pelo lançamento oficial do extrato!
+      } else {
+        survivingNotifications.add(notif);
+      }
+    }
+
+    final result = [...officials, ...survivingNotifications];
+    result.sort((a, b) => b.date.compareTo(a.date));
+    return result;
+  }
+
+  static List<String> _extractMerchantWords(String title) {
+    final cleaned = title
+        .toLowerCase()
+        .replaceAll(RegExp(r'para o cart[aã]o com final \d+'), '')
+        .replaceAll(RegExp(r'parcela\s*\d+/\d+'), '')
+        .replaceAll(RegExp(r'-\s*\d+/\d+'), '')
+        .replaceAll(RegExp(r'[^\w\sà-ÿ]'), ' ');
+    const stop = {'para', 'cartao', 'com', 'final', 'nupay', 'compra', 'aprovada', 'ltda'};
+    return cleaned
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length >= 3 && !stop.contains(w))
+        .toList();
+  }
+
   /// Verifica com precisão absoluta se uma transação pertence a uma fatura de Cartão de Crédito.
-  /// Rejeita Boletos DDA, Transferências Pix, TED/DOC, compras no débito e liquidações.
+  /// Rejeita Boletos DDA, Transferências Pix de conta, TED/DOC, compras no débito e liquidações.
   static bool isCreditCardTransaction(TransactionModel t) {
     if (t.type != TransactionType.expense) return false;
     final title = t.title.toLowerCase();
     final notes = (t.notes ?? '').toLowerCase();
     final cat = t.category.toLowerCase();
 
-    // 1. Bloqueios estritos: Boletos, Pix, TED, DOC, Débito e Pagamentos de fatura
+    final isPixOnCredit = title.contains('pix no cr') || title.contains('pix credito');
+
+    // 1. Bloqueios estritos: Boletos, Pix de conta, TED, DOC, Débito e Pagamentos de fatura
     if (title.contains('boleto') ||
         title.contains('dda') ||
-        title.contains('pix') ||
+        (title.contains('pix') && !isPixOnCredit) ||
         title.contains('transferência') ||
         title.contains('transferencia') ||
         title.contains('ted') ||
@@ -205,6 +302,7 @@ class FinanceProvider extends ChangeNotifier {
         title.contains('pagamento de fatura') ||
         title.contains('fatura paga') ||
         title.contains('pagamento recebido') ||
+        title.contains('pagamento efetuado') ||
         title.contains('rendimento') ||
         title.contains('depósito') ||
         title.contains('deposito')) {
@@ -212,8 +310,10 @@ class FinanceProvider extends ChangeNotifier {
     }
 
     // 2. Confirmação direta por metadados de Cartão de Crédito
-    if (notes.contains('cartão de crédito') ||
+    if (isPixOnCredit ||
+        notes.contains('cartão de crédito') ||
         notes.contains('cartao de credito') ||
+        notes.contains('cartão') ||
         notes.contains('credit_card') ||
         cat.contains('cartão de crédito') ||
         cat.contains('cartao de credito') ||
@@ -232,8 +332,8 @@ class FinanceProvider extends ChangeNotifier {
       return true;
     }
 
-    // 4. Se a transação veio de extrato/fatura de cartão (PDF)
-    if (t.source == TransactionSource.pdf) {
+    // 4. Se a transação veio de extrato/fatura de cartão (PDF ou CSV de cartão)
+    if (t.source == TransactionSource.pdf || t.source == TransactionSource.csv) {
       return true;
     }
 
@@ -391,6 +491,11 @@ class FinanceProvider extends ChangeNotifier {
         item = item.copyWith(category: normCat);
       }
 
+      final detectedRef = InstallmentHelper.extractInstallmentRef(item.title, existingRef: item.installmentRef);
+      if (detectedRef != item.installmentRef) {
+        item = item.copyWith(installmentRef: detectedRef);
+      }
+
       final existingIndex = _transactions.indexWhere((t) =>
           (item.id.isNotEmpty && t.id == item.id) ||
           (t.title == item.title &&
@@ -413,6 +518,7 @@ class FinanceProvider extends ChangeNotifier {
         _transactions.insert(0, item);
       }
     }
+    _transactions = reconcileNotificationsWithStatements(_transactions);
     await _persist();
     notifyListeners();
   }

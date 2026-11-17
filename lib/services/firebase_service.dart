@@ -146,11 +146,11 @@ class FirebaseService extends ChangeNotifier {
           final remoteDebts = (remoteMap['debts'] as List?)?.length ?? 0;
           final remoteCount = remoteTxs + remoteDebts;
 
-          if (localCount > remoteCount) {
+          if (!kIsWeb && localCount > remoteCount) {
             // Local device (e.g., phone) has richer data than cloud -> push to cloud!
             await pushToFirestore();
           } else if (remoteCount > 0) {
-            // Cloud has data (or equal/more items, e.g., fresh browser) -> pull from cloud!
+            // Cloud has data (or on Web browser) -> pull latest snapshot from cloud!
             _lastSyncedUpdatedAt = remoteUpdatedAt;
             final ok = await StorageService.importFullBackupJson(payloadJson);
             if (ok) {

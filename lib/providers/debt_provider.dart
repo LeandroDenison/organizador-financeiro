@@ -117,6 +117,39 @@ class DebtProvider extends ChangeNotifier {
     return null;
   }
 
+  /// Vincula automaticamente uma compra de cartão/extrato a um devedor cadastrado na aba "Quem me Deve",
+  /// comparando o valor da parcela + palavras-chave da descrição da dívida.
+  /// 100% genérico: funciona para qualquer usuário sem nomes fixos no código.
+  String? matchDebtorForPurchase(TransactionModel tx) {
+    if (tx.personName != null && tx.personName!.trim().isNotEmpty) {
+      return tx.personName;
+    }
+    if (tx.type != TransactionType.expense || tx.amount <= 0) return null;
+
+    final normTitle = normalizeText(tx.title);
+    const stopWords = {'compra', 'parcela', 'parc', 'cartao', 'com', 'final', 'para'};
+
+    for (final d in activeDebts) {
+      final matchesAmount = (d.installmentValue - tx.amount).abs() <= 0.05 ||
+          (d.totalInstallments == 1 && (d.totalAmount - tx.amount).abs() <= 0.05);
+      if (!matchesAmount) continue;
+
+      final normDesc = normalizeText(d.description)
+          .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ');
+      final descTokens = normDesc
+          .split(RegExp(r'\s+'))
+          .where((w) => w.length >= 3 && !stopWords.contains(w))
+          .toList();
+
+      if (descTokens.any((tk) => normTitle.contains(tk))) {
+        // Caso haja múltiplas compras de mesmo nome genérico (ex: "Amazon" e "Amazonmktplc*Taxconfig"),
+        // o valor exato da parcela (159.30 vs 98.76 vs 82.95) já diferencia com precisão.
+        return d.personName.trim();
+      }
+    }
+    return null;
+  }
+
   double get totalOwedToMe {
     return activeDebts.fold(0.0, (sum, d) => sum + d.remainingAmount);
   }

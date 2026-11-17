@@ -428,11 +428,16 @@ class InvoiceTransactionBottomSheet extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentController = TextEditingController(text: current.toString());
     final totalController = TextEditingController(text: total.toString());
+    bool divideAmount = transaction.installmentRef == null;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) {
+          final parsedTot = (int.tryParse(totalController.text.trim()) ?? total).clamp(1, 48);
+          final previewInstallmentVal = transaction.amount / parsedTot;
+
+          return AlertDialog(
           backgroundColor: isDark ? AppConstants.oledCard : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
@@ -472,6 +477,7 @@ class InvoiceTransactionBottomSheet extends StatelessWidget {
                     child: TextField(
                       controller: totalController,
                       keyboardType: TextInputType.number,
+                      onChanged: (_) => setDlgState(() {}),
                       decoration: const InputDecoration(
                         labelText: 'Total Parcelas',
                         border: OutlineInputBorder(),
@@ -517,6 +523,22 @@ class InvoiceTransactionBottomSheet extends StatelessWidget {
                   );
                 }).toList(),
               ),
+              const SizedBox(height: 12),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                activeColor: AppConstants.accentAmber,
+                value: divideAmount,
+                onChanged: (val) => setDlgState(() => divideAmount = val ?? false),
+                title: Text(
+                  'Dividir valor total (${CurrencyFormatter.format(transaction.amount)}) em ${parsedTot}x de ${CurrencyFormatter.format(previewInstallmentVal)}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  'Recomendado para compras vindas da notificação do celular',
+                  style: TextStyle(fontSize: 10, color: isDark ? AppConstants.oledSubtext : Colors.grey.shade600),
+                ),
+              ),
             ],
           ),
           actions: [
@@ -542,10 +564,16 @@ class InvoiceTransactionBottomSheet extends StatelessWidget {
               ),
               onPressed: () async {
                 final cur = int.tryParse(currentController.text.trim()) ?? 1;
-                final tot = int.tryParse(totalController.text.trim()) ?? 1;
+                final tot = (int.tryParse(totalController.text.trim()) ?? 1).clamp(1, 48);
                 final ref = '$cur/$tot';
+                final newAmount = (divideAmount && tot > 1)
+                    ? double.parse((transaction.amount / tot).toStringAsFixed(2))
+                    : transaction.amount;
                 Navigator.pop(ctx);
-                final updated = transaction.copyWith(installmentRef: ref);
+                final updated = transaction.copyWith(
+                  installmentRef: ref,
+                  amount: newAmount,
+                );
                 await financeProvider.updateTransaction(updated);
                 Navigator.pop(context);
                 onUpdated?.call();
@@ -553,7 +581,8 @@ class InvoiceTransactionBottomSheet extends StatelessWidget {
               child: const Text('Salvar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             ),
           ],
-        ),
+        );
+        },
       ),
     );
   }

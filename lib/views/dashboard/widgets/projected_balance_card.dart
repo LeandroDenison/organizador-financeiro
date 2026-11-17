@@ -68,7 +68,7 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
 
     // Contas da Próxima Fatura Consolidada (Nubank, Itaú Click, Samsung Itaú, Mercado Pago)
     final nextInv = payables.nextInvoice;
-    final double cardBillsMyShare = (nextInv != null && nextInv.myShareAmount > 0)
+    final double cardBillsMyShare = (nextInv != null && nextInv.totalAmount > 0)
         ? nextInv.myShareAmount
         : finance.myNetExpense;
     final double cardBillsTotal = (nextInv != null && nextInv.totalAmount > 0)
@@ -78,27 +78,39 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
         ? nextInv.debtorShareAmount
         : finance.thirdPartyExpense;
 
+    final double unbilledSubsMyShare = nextInv != null
+        ? nextInv.cardInvoices.fold(
+            0.0,
+            (s, c) => s + c.projectedSubscriptions.fold(0.0, (ss, sub) => ss + sub.effectiveMyCost),
+          )
+        : unbilledSubs;
+    final double unbilledSubsTotal = nextInv != null
+        ? nextInv.projectedSubscriptionsTotal
+        : unbilledSubs;
+
     final loansTotal = loans.activeLoans.fold(0.0, (s, l) => s + l.installmentAmount);
+    final fixedBoletosOutsideCard = payables.nonCardFixedBillsTotal;
+    final fixedOutsideCardTotal = loansTotal + fixedBoletosOutsideCard;
 
-    // Minhas Contas: Meu gasto pessoal com cartões + assinaturas pessoais + empréstimos
-    final double myPersonalBills = cardBillsMyShare + unbilledSubs + loansTotal;
+    // Minhas Contas: Meu gasto pessoal com cartões + assinaturas a cair + boletos fixos/empréstimos fora do cartão
+    final double myPersonalBills = cardBillsMyShare + unbilledSubsMyShare + fixedOutsideCardTotal;
 
-    // Total de Contas a Pagar: Faturas totais + assinaturas + empréstimos
-    final double allBillsTotal = cardBillsTotal + unbilledSubs + loansTotal;
+    // Total Bruto de Contas a Pagar (se eu tivesse que bancar a fatura inteira sozinho sem devedores)
+    final double allBillsTotal = cardBillsTotal + unbilledSubsTotal + fixedOutsideCardTotal;
 
-    // Contas que os devedores têm que pagar (na aba de devedores e/ou nas faturas)
-    final double debtorReceivables = pendingDebtorReceivables > 0
-        ? pendingDebtorReceivables
-        : cardBillsDebtorShare;
+    // Contas que os devedores têm que pagar nas faturas abertas
+    final double debtorReceivables = cardBillsDebtorShare > 0
+        ? cardBillsDebtorShare
+        : pendingDebtorReceivables;
 
-    // 1. Sobra Real do Salário: Salário - Minhas Contas
+    // 1. Sobra Real Livre (Descontando apenas a minha parte): Salário - Minhas Contas
     final double salarySurplus = detectedSalary - myPersonalBills;
 
-    // 2. Sobra Projetada (Com Devedores): Salário - Contas a Pagar + Devedores a Receber
-    final double projectedWithDebtors = detectedSalary - allBillsTotal + debtorReceivables;
+    // 2. Cenário de Alerta "Se Devedores Atrasarem" (Salário - Fatura Inteira e todas as contas)
+    final double worstCaseWithoutDebtors = detectedSalary - allBillsTotal;
 
     // Saldo projetado conforme o modo selecionado
-    final double projectedBalance = _onlyMyBills ? salarySurplus : projectedWithDebtors;
+    final double projectedBalance = _onlyMyBills ? salarySurplus : worstCaseWithoutDebtors;
 
     final isPositive = projectedBalance >= 0;
     final isTight = isPositive && projectedBalance < 300;
@@ -252,7 +264,7 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
-                                'Com Devedores',
+                                'Se Atrasarem',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -374,7 +386,7 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                'Com Devedores',
+                                'Se Devedores Atrasarem',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -408,7 +420,7 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
-                      _onlyMyBills ? 'Sobra Real do Salário: ' : 'Sobra Projetada (Com Devedores): ',
+                      _onlyMyBills ? 'Quanto ainda posso gastar: ' : 'Se devedores atrasarem: ',
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -446,8 +458,8 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
             padding: const EdgeInsets.only(top: 4, bottom: 2),
             child: Text(
               _onlyMyBills
-                  ? 'Salário (${CurrencyFormatter.format(detectedSalary)}) - Minhas Contas (${CurrencyFormatter.format(myPersonalBills)})'
-                  : 'Salário (${CurrencyFormatter.format(detectedSalary)}) - Contas a Pagar (${CurrencyFormatter.format(allBillsTotal)}) + Devedores (${CurrencyFormatter.format(debtorReceivables)})',
+                  ? 'Salário (${CurrencyFormatter.format(detectedSalary)}) - Todas as Minhas Contas (${CurrencyFormatter.format(myPersonalBills)})'
+                  : 'Cenário de Alerta: Salário (${CurrencyFormatter.format(detectedSalary)}) - Fatura Inteira e Contas (${CurrencyFormatter.format(allBillsTotal)})',
               style: TextStyle(
                 fontSize: 11,
                 color: isDark ? AppConstants.oledSubtext : Colors.grey.shade600,
@@ -551,69 +563,60 @@ class _ProjectedBalanceCardState extends State<ProjectedBalanceCard> {
           ),
           const SizedBox(height: 12),
 
-          // Breakdown pills/tiles
-          if (isMobile)
-            Column(
-              children: [
-                _buildBreakdownTile(
-                  label: _onlyMyBills ? 'Meu Salário no Mês' : 'Meu Salário Previsto',
-                  amount: detectedSalary,
-                  icon: Icons.account_balance_wallet_rounded,
-                  color: AppConstants.accentGreen,
-                  prefix: '+ ',
-                ),
+          // Funil Anti-Sufoco (Conta de Padaria passo a passo)
+          Column(
+            children: [
+              _buildBreakdownTile(
+                label: '1. Meu Salário no Mês',
+                amount: detectedSalary,
+                icon: Icons.account_balance_wallet_rounded,
+                color: AppConstants.accentGreen,
+                prefix: '+ ',
+              ),
+              const SizedBox(height: 6),
+              _buildBreakdownTile(
+                label: _onlyMyBills
+                    ? '2. Minha Parte nas Faturas (Cartões)'
+                    : '2. Faturas Totais (Incluindo Devedores)',
+                amount: _onlyMyBills ? cardBillsMyShare : cardBillsTotal,
+                icon: Icons.credit_card_rounded,
+                color: AppConstants.accentRed,
+                prefix: '- ',
+              ),
+              if ((_onlyMyBills ? unbilledSubsMyShare : unbilledSubsTotal) > 0) ...[
                 const SizedBox(height: 6),
                 _buildBreakdownTile(
-                  label: _onlyMyBills ? 'Minhas Contas a Pagar' : 'Total Contas a Pagar',
-                  amount: _onlyMyBills ? myPersonalBills : allBillsTotal,
+                  label: '3. Assinaturas que ainda vão cair',
+                  amount: _onlyMyBills ? unbilledSubsMyShare : unbilledSubsTotal,
+                  icon: Icons.autorenew_rounded,
+                  color: AppConstants.accentAmber,
+                  prefix: '- ',
+                ),
+              ],
+              if (fixedOutsideCardTotal > 0) ...[
+                const SizedBox(height: 6),
+                _buildBreakdownTile(
+                  label: '4. Boletos Fixos / Faculdade (Fora do Cartão)',
+                  amount: fixedOutsideCardTotal,
                   icon: Icons.receipt_long_rounded,
                   color: AppConstants.accentRed,
                   prefix: '- ',
                 ),
+              ],
+              if (debtorReceivables > 0) ...[
                 const SizedBox(height: 6),
                 _buildBreakdownTile(
-                  label: _onlyMyBills ? 'Saldo em Caixa Hoje' : 'A Receber (Devedores)',
-                  amount: _onlyMyBills ? currentCashBalance : debtorReceivables,
-                  icon: _onlyMyBills ? Icons.savings_rounded : Icons.handshake_rounded,
-                  color: _onlyMyBills ? AppConstants.accentCyan : AppConstants.accentGreen,
-                  prefix: _onlyMyBills ? '' : '+ ',
+                  label: _onlyMyBills
+                      ? 'Parte dos Devedores (Já descontada acima)'
+                      : 'A Receber dos Devedores (Em aberto)',
+                  amount: debtorReceivables,
+                  icon: Icons.handshake_rounded,
+                  color: AppConstants.accentIndigo,
+                  prefix: '',
                 ),
               ],
-            )
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: _buildBreakdownTile(
-                    label: _onlyMyBills ? 'Meu Salário no Mês' : 'Meu Salário Previsto',
-                    amount: detectedSalary,
-                    icon: Icons.account_balance_wallet_rounded,
-                    color: AppConstants.accentGreen,
-                    prefix: '+ ',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildBreakdownTile(
-                    label: _onlyMyBills ? 'Minhas Contas a Pagar' : 'Total Contas a Pagar',
-                    amount: _onlyMyBills ? myPersonalBills : allBillsTotal,
-                    icon: Icons.receipt_long_rounded,
-                    color: AppConstants.accentRed,
-                    prefix: '- ',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildBreakdownTile(
-                    label: _onlyMyBills ? 'Saldo em Caixa Hoje' : 'A Receber (Devedores)',
-                    amount: _onlyMyBills ? currentCashBalance : debtorReceivables,
-                    icon: _onlyMyBills ? Icons.savings_rounded : Icons.handshake_rounded,
-                    color: _onlyMyBills ? AppConstants.accentCyan : AppConstants.accentGreen,
-                    prefix: _onlyMyBills ? '' : '+ ',
-                  ),
-                ),
-              ],
-            ),
+            ],
+          ),
           // Daily Allowance Box
           if (projectedBalance > 0) ...[
             const SizedBox(height: 12),
